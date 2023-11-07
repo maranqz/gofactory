@@ -8,13 +8,12 @@ linters-settings:
       - v
       - ok
   gci:
-    local-prefixes: github.com/maranqz/go-immutable
+    local-prefixes: github.com/maranqz/go-factory-lint
 
 linters:
   enable-all: true
   disable:
     - maligned
-    - testpackage
     - deadcode
     - golint
     - scopelint
@@ -26,9 +25,6 @@ linters:
     - exhaustruct
     - depguard
     - interfacer
-    - godox # TODO activate
-    - forbidigo # TODO activate
-    - paralleltest  # TODO activate
 
 run:
   skip-dirs:

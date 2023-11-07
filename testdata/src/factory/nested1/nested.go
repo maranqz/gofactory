@@ -1,11 +1,15 @@
-package nested
+package nested1
 
 import (
 	"factory/creatable_anywhere"
-	"factory/nested/nested2"
+	"factory/nested1/nested1_2"
 )
 
 type Nested struct{}
+
+func (n Nested) Ret() Nested {
+	return n
+}
 
 func New() Nested {
 	return Nested{}
@@ -16,21 +20,21 @@ func NewPtr() *Nested {
 }
 
 func CallNested2() {
-	_ = nested2.Nested{}
-	_ = &nested2.Nested{}
+	_ = nested1_2.Nested{}
+	_ = &nested1_2.Nested{}
 
 	_ = creatable_anywhere.Struct{}
 	_ = &creatable_anywhere.Struct{}
 }
 
 func CallMp() {
-	_ = nested2.Mp{}
+	_ = nested1_2.Mp{}
 }
 
 func CallSlice() {
-	_ = nested2.Slice{}
+	_ = nested1_2.Slice{}
 }
 
 func CallArray() {
-	_ = nested2.Array{}
+	_ = nested1_2.Array{}
 }

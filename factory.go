@@ -10,33 +10,73 @@ import (
 	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
-//nolint:gochecknoglobals // linter configuration for Analyzer
-var FactoryAnalyzer = &analysis.Analyzer{
-	Name:     "factory",
-	Doc:      "TODO",
-	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer},
+type config struct {
+	blockedPkgs stringsFlag
 }
 
-//nolint:gochecknoglobals // TODO move in configuration
-var blockedPkgs = []string{
-	"factory/nested/",
+type stringsFlag []string
+
+func (s stringsFlag) String() string {
+	return strings.Join(s, ", ")
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
-	for _, file := range pass.Files {
-		v := &visiter{
-			pass: pass,
-		}
-		v.walk(file)
+func (s *stringsFlag) Set(value string) error {
+	*s = append(*s, value)
+
+	return nil
+}
+
+func (s stringsFlag) Value() []string {
+	blockedPkgs := make([]string, 0, len(s))
+
+	for _, pgk := range s {
+		pgk = strings.TrimSpace(pgk)
+		pgk = strings.TrimSuffix(pgk, "/") + "/"
+
+		blockedPkgs = append(blockedPkgs, pgk)
 	}
 
-	//nolint:nilnil
-	return nil, nil
+	return blockedPkgs
+}
+
+const (
+	blockedPkgsDesc = "List of packages, which should use factory to initiate struct."
+)
+
+func NewAnalyzer() *analysis.Analyzer {
+	analyzer := &analysis.Analyzer{
+		Name:     "factory",
+		Doc:      "TODO",
+		Requires: []*analysis.Analyzer{inspect.Analyzer},
+	}
+
+	cfg := config{}
+
+	analyzer.Flags.Var(&cfg.blockedPkgs, "b", blockedPkgsDesc)
+	analyzer.Flags.Var(&cfg.blockedPkgs, "blockedPkgs", blockedPkgsDesc)
+
+	analyzer.Run = run(&cfg)
+
+	return analyzer
+}
+
+func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
+	return func(pass *analysis.Pass) (interface{}, error) {
+		for _, file := range pass.Files {
+			v := &visiter{
+				pass:        pass,
+				blockedPkgs: cfg.blockedPkgs.Value(),
+			}
+			v.walk(file)
+		}
+
+		return nil, nil
+	}
 }
 
 type visiter struct {
-	pass *analysis.Pass
+	pass        *analysis.Pass
+	blockedPkgs []string
 }
 
 func (v *visiter) walk(n ast.Node) {
@@ -60,14 +100,13 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 	identObj := v.pass.TypesInfo.ObjectOf(ident)
 
 	if identObj == nil {
-		v.unexpected(node)
-
 		return v
 	}
 
 	identPkg := identObj.Pkg()
 
-	for _, blockedPkg := range blockedPkgs {
+	// TODO
+	for _, blockedPkg := range v.blockedPkgs {
 		isBlocked := strings.HasPrefix(identPkg.Path()+"/", blockedPkg)
 		isIncludedInBlocked := strings.HasPrefix(v.pass.Pkg.Path()+"/", blockedPkg)
 
@@ -83,13 +122,5 @@ func (v *visiter) report(node ast.Node, obj types.Object) {
 	v.pass.Reportf(
 		node.Pos(),
 		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),
-	)
-}
-
-func (v *visiter) unexpected(n ast.Node) {
-	// TODO add unexpected code
-	v.pass.Reportf(
-		n.Pos(),
-		`unexpected code, use "// nolint:immutable" and create issue about that with example`,
 	)
 }

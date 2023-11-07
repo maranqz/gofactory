@@ -1,4 +1,4 @@
-package nested2
+package nested1_2
 
 type Nested struct{}
 
