@@ -105,7 +105,6 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 
 	identPkg := identObj.Pkg()
 
-	// TODO
 	for _, blockedPkg := range v.blockedPkgs {
 		isBlocked := strings.HasPrefix(identPkg.Path()+"/", blockedPkg)
 		isIncludedInBlocked := strings.HasPrefix(v.pass.Pkg.Path()+"/", blockedPkg)
