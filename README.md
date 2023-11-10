@@ -1,5 +1,9 @@
 # Factory linter
 
+[![CI](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maranqz/go-factory-lint)](https://goreportcard.com/report/github.com/maranqz/go-factory-lint?dummy=unused)
+[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+
 The linter checks that the Structes are created by the Factory, and not directly.
 The checking helps to provide invariants without exclusion.
 Validation helps you avoid losing the creation of invalid object.
@@ -9,9 +13,7 @@ Validation helps you avoid losing the creation of invalid object.
 
 Installation
 
-    go install github.com/maranqz/go-factory-lint@latest
-
-Run
+    go install github.com/maranqz/go-factory-lint/cmd/go-factory-lint@latest
 
 ### Options
 

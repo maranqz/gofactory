@@ -12,17 +12,6 @@ env:
   GOLANGCI_LINT_VERSION: v1.54.0
 
 jobs:
-  go_install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: rlespinasse/github-slug-action@v4.4.1
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - run: cd /tmp && go install github.com/maranqz/go-factory-lint/cmd/go-factory-lint@${{ env.version }} && go-factory-lint -h
-        env:
-          version: ${{ env.GITHUB_EVENT_PULL_REQUEST_HEAD_SHA || env.GITHUB_REF_SLUG }}
-
   lint:
     runs-on: ubuntu-latest
     steps:
