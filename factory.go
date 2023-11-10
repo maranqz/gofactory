@@ -11,7 +11,8 @@ import (
 )
 
 type config struct {
-	blockedPkgs stringsFlag
+	blockedPkgs     stringsFlag
+	onlyBlockedPkgs bool
 }
 
 type stringsFlag []string
@@ -40,7 +41,8 @@ func (s stringsFlag) Value() []string {
 }
 
 const (
-	blockedPkgsDesc = "List of packages, which should use factory to initiate struct."
+	blockedPkgsDesc     = "List of packages, which should use factory to initiate struct."
+	onlyBlockedPkgsDesc = "Only blocked packages should use factory to initiate struct."
 )
 
 func NewAnalyzer() *analysis.Analyzer {
@@ -55,6 +57,9 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.Var(&cfg.blockedPkgs, "b", blockedPkgsDesc)
 	analyzer.Flags.Var(&cfg.blockedPkgs, "blockedPkgs", blockedPkgsDesc)
 
+	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "ob", false, onlyBlockedPkgsDesc)
+	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "onlyBlockedPkgs", false, onlyBlockedPkgsDesc)
+
 	analyzer.Run = run(&cfg)
 
 	return analyzer
@@ -62,10 +67,16 @@ func NewAnalyzer() *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
+
+		var blockedStrategy blockedStrategy = newAnotherPkg()
+		if len(cfg.blockedPkgs) > 0 {
+			blockedStrategy = newBlockedPkgs(cfg.blockedPkgs.Value())
+		}
+
 		for _, file := range pass.Files {
 			v := &visiter{
-				pass:        pass,
-				blockedPkgs: cfg.blockedPkgs.Value(),
+				pass:            pass,
+				blockedStrategy: blockedStrategy,
 			}
 			v.walk(file)
 		}
@@ -75,8 +86,8 @@ func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 }
 
 type visiter struct {
-	pass        *analysis.Pass
-	blockedPkgs []string
+	pass            *analysis.Pass
+	blockedStrategy blockedStrategy
 }
 
 func (v *visiter) walk(n ast.Node) {
@@ -91,7 +102,34 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 		return v
 	}
 
-	selExpr, ok := compLit.Type.(*ast.SelectorExpr)
+	var selExpr *ast.SelectorExpr
+
+	arr, isArr := compLit.Type.(*ast.ArrayType)
+	if isArr && len(compLit.Elts) > 0 {
+		arrElt := arr.Elt
+		if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
+			arrElt = starExpr.X
+		}
+
+		selExpr, ok = arrElt.(*ast.SelectorExpr)
+		if ok {
+			identObj := v.pass.TypesInfo.ObjectOf(selExpr.Sel)
+			if identObj != nil {
+				for _, elt := range compLit.Elts {
+					eltCompLit, ok := elt.(*ast.CompositeLit)
+					if ok && eltCompLit.Type == nil {
+						if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+							v.report(elt, identObj)
+						}
+					}
+				}
+			}
+		}
+
+		return v
+	}
+
+	selExpr, ok = compLit.Type.(*ast.SelectorExpr)
 	if !ok {
 		return v
 	}
@@ -103,15 +141,8 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 		return v
 	}
 
-	identPkg := identObj.Pkg()
-
-	for _, blockedPkg := range v.blockedPkgs {
-		isBlocked := strings.HasPrefix(identPkg.Path()+"/", blockedPkg)
-		isIncludedInBlocked := strings.HasPrefix(v.pass.Pkg.Path()+"/", blockedPkg)
-
-		if isBlocked && !isIncludedInBlocked {
-			v.report(node, identObj)
-		}
+	if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+		v.report(node, identObj)
 	}
 
 	return v
@@ -122,4 +153,44 @@ func (v *visiter) report(node ast.Node, obj types.Object) {
 		node.Pos(),
 		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),
 	)
+}
+
+type blockedStrategy interface {
+	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
+}
+
+type anotherPkg struct{}
+
+func newAnotherPkg() anotherPkg {
+	return anotherPkg{}
+}
+
+func (_ anotherPkg) IsBlocked(currentPkg *types.Package, identObj types.Object) bool {
+	return currentPkg.Path() != identObj.Pkg().Path()
+}
+
+type blockedPkgs struct {
+	blockedPkgs []string
+}
+
+func newBlockedPkgs(pkgs []string) blockedPkgs {
+	return blockedPkgs{
+		blockedPkgs: pkgs,
+	}
+}
+
+func (b blockedPkgs) IsBlocked(currentPkg *types.Package, identObj types.Object) bool {
+	identPkgPath := identObj.Pkg().Path() + "/"
+	currentPkgPath := currentPkg.Path() + "/"
+
+	for _, blockedPkg := range b.blockedPkgs {
+		isBlocked := strings.HasPrefix(identPkgPath, blockedPkg)
+		isIncludedInBlocked := strings.HasPrefix(currentPkgPath, blockedPkg)
+
+		if isBlocked && !isIncludedInBlocked {
+			return true
+		}
+	}
+
+	return false
 }

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"testing"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 
 	"github.com/maranqz/go-factory-lint"
@@ -18,11 +19,26 @@ func TestLinterSuite(t *testing.T) {
 	testdata := analysistest.TestData()
 
 	tests := map[string]struct {
-		pkgs []string
+		pkgs    []string
+		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
-		"creatable_anywhere": {pkgs: []string{"creatable_anywhere/..."}},
-		"nested1":            {pkgs: []string{"nested1/..."}},
-		"main":               {pkgs: []string{"..."}},
+		"default": {pkgs: []string{"default/..."}},
+		"onlyBlockedPkgs": {
+			pkgs: []string{"onlyBlockedPkgs/main/..."},
+			prepare: func(t *testing.T, a *analysis.Analyzer) {
+				if err := a.Flags.Set("b", "factory/onlyBlockedPkgs/blocked"); err != nil {
+					t.Fatal(err)
+				}
+
+				if err := a.Flags.Set("ob", "true"); err != nil {
+					t.Fatal(err)
+				}
+
+				if err := a.Flags.Set("onlyBlockedPkgs", "true"); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
 	}
 	for name, tt := range tests {
 		tt := tt
@@ -37,11 +53,9 @@ func TestLinterSuite(t *testing.T) {
 			}
 
 			analyzer := factory.NewAnalyzer()
-			if err := analyzer.Flags.Set("b", "factory/nested1"); err != nil {
-				t.Fatal(err)
-			}
-			if err := analyzer.Flags.Set("blockedPkgs", "factory/nested2"); err != nil {
-				t.Fatal(err)
+
+			if tt.prepare != nil {
+				tt.prepare(t, analyzer)
 			}
 
 			analysistest.Run(t, TestdataDir(),
