@@ -2,22 +2,22 @@ package main
 
 import (
 	"factory/onlyBlockedPkgs/blocked"
-	"factory/onlyBlockedPkgs/blocked/nested_blocked2"
+	"factory/onlyBlockedPkgs/blocked/blocked_nested"
 	"factory/onlyBlockedPkgs/nested"
 )
 
 type Struct struct{}
 
 func main() {
-	n1_2 := nested_blocked2.Struct{} // want `Use factory for nested_blocked2.Struct`
+	n1_2 := blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
 	_ = n1_2
-	_ = nested_blocked2.Struct{} // want `Use factory for nested_blocked2.Struct`
+	_ = blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
 
-	n1_2Ptr := &nested_blocked2.Struct{} // want `Use factory for nested_blocked2.Struct`
+	n1_2Ptr := &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
 	_ = n1_2Ptr
-	_ = &nested_blocked2.Struct{} // want `Use factory for nested_blocked2.Struct`
-	_ = nested_blocked2.New()
-	_ = nested_blocked2.NewPtr()
+	_ = &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
+	_ = blocked_nested.New()
+	_ = blocked_nested.NewPtr()
 
 	n1 := blocked.Struct{} // want `Use factory for blocked.Struct`
 	_ = n1

@@ -67,10 +67,17 @@ func NewAnalyzer() *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
-
 		var blockedStrategy blockedStrategy = newAnotherPkg()
 		if len(cfg.blockedPkgs) > 0 {
-			blockedStrategy = newBlockedPkgs(cfg.blockedPkgs.Value())
+			defaultStrategy := blockedStrategy
+			if cfg.onlyBlockedPkgs {
+				defaultStrategy = newNilPkg()
+			}
+
+			blockedStrategy = newBlockedPkgs(
+				cfg.blockedPkgs.Value(),
+				defaultStrategy,
+			)
 		}
 
 		for _, file := range pass.Files {
@@ -104,39 +111,25 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 
 	var selExpr *ast.SelectorExpr
 
+	// check []*Struct{{},&Struct}
 	arr, isArr := compLit.Type.(*ast.ArrayType)
 	if isArr && len(compLit.Elts) > 0 {
-		arrElt := arr.Elt
-		if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
-			arrElt = starExpr.X
-		}
-
-		selExpr, ok = arrElt.(*ast.SelectorExpr)
-		if ok {
-			identObj := v.pass.TypesInfo.ObjectOf(selExpr.Sel)
-			if identObj != nil {
-				for _, elt := range compLit.Elts {
-					eltCompLit, ok := elt.(*ast.CompositeLit)
-					if ok && eltCompLit.Type == nil {
-						if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
-							v.report(elt, identObj)
-						}
-					}
-				}
-			}
-		}
+		v.checkSlice(arr, compLit)
 
 		return v
 	}
 
-	selExpr, ok = compLit.Type.(*ast.SelectorExpr)
+	ident, ok := compLit.Type.(*ast.Ident)
 	if !ok {
-		return v
+		selExpr, ok = compLit.Type.(*ast.SelectorExpr)
+		if !ok {
+			return v
+		}
+
+		ident = selExpr.Sel
 	}
 
-	ident := selExpr.Sel
 	identObj := v.pass.TypesInfo.ObjectOf(ident)
-
 	if identObj == nil {
 		return v
 	}
@@ -146,6 +139,30 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 	}
 
 	return v
+}
+
+func (v *visiter) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
+	arrElt := arr.Elt
+	if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
+		arrElt = starExpr.X
+	}
+
+	selExpr, ok := arrElt.(*ast.SelectorExpr)
+	if !ok {
+		return
+	}
+
+	identObj := v.pass.TypesInfo.ObjectOf(selExpr.Sel)
+	if identObj != nil {
+		for _, elt := range compLit.Elts {
+			eltCompLit, ok := elt.(*ast.CompositeLit)
+			if ok && eltCompLit.Type == nil {
+				if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+					v.report(elt, identObj)
+				}
+			}
+		}
+	}
 }
 
 func (v *visiter) report(node ast.Node, obj types.Object) {
@@ -159,27 +176,48 @@ type blockedStrategy interface {
 	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
 }
 
+type nilPkg struct{}
+
+func newNilPkg() nilPkg {
+	return nilPkg{}
+}
+
+func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
+	return false
+}
+
 type anotherPkg struct{}
 
 func newAnotherPkg() anotherPkg {
 	return anotherPkg{}
 }
 
-func (_ anotherPkg) IsBlocked(currentPkg *types.Package, identObj types.Object) bool {
+func (anotherPkg) IsBlocked(
+	currentPkg *types.Package,
+	identObj types.Object,
+) bool {
 	return currentPkg.Path() != identObj.Pkg().Path()
 }
 
 type blockedPkgs struct {
-	blockedPkgs []string
+	blockedPkgs     []string
+	defaultStrategy blockedStrategy
 }
 
-func newBlockedPkgs(pkgs []string) blockedPkgs {
+func newBlockedPkgs(
+	pkgs []string,
+	defaultStrategy blockedStrategy,
+) blockedPkgs {
 	return blockedPkgs{
-		blockedPkgs: pkgs,
+		blockedPkgs:     pkgs,
+		defaultStrategy: defaultStrategy,
 	}
 }
 
-func (b blockedPkgs) IsBlocked(currentPkg *types.Package, identObj types.Object) bool {
+func (b blockedPkgs) IsBlocked(
+	currentPkg *types.Package,
+	identObj types.Object,
+) bool {
 	identPkgPath := identObj.Pkg().Path() + "/"
 	currentPkgPath := currentPkg.Path() + "/"
 
@@ -187,7 +225,15 @@ func (b blockedPkgs) IsBlocked(currentPkg *types.Package, identObj types.Object)
 		isBlocked := strings.HasPrefix(identPkgPath, blockedPkg)
 		isIncludedInBlocked := strings.HasPrefix(currentPkgPath, blockedPkg)
 
-		if isBlocked && !isIncludedInBlocked {
+		if isIncludedInBlocked {
+			continue
+		}
+
+		if isBlocked {
+			return true
+		}
+
+		if b.defaultStrategy.IsBlocked(currentPkg, identObj) {
 			return true
 		}
 	}

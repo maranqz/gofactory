@@ -1,4 +1,4 @@
-package nested_blocked2
+package blocked_nested
 
 type Struct struct{}
 

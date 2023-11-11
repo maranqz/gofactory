@@ -1,8 +1,8 @@
 package blocked
 
 import (
+	"factory/blockedPkgs/blocked/blocked_nested"
 	"factory/default/nested"
-	"factory/onlyBlockedPkgs/blocked/blocked_nested"
 )
 
 type Struct struct{}

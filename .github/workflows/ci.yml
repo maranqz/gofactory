@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ onlyBlockedPkgs ]
+    branches: [ main ]
     tags: [ v* ]
   pull_request:
-    branches: [ onlyBlockedPkgs ]
+    branches: [ main ]
 
 env:
   GO_VERSION: ^1.20

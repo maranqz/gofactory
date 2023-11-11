@@ -25,6 +25,7 @@ linters:
     - exhaustruct
     - depguard
     - interfacer
+    - thelper
 
 run:
   skip-dirs:

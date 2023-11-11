@@ -1,7 +1,5 @@
 package factory_test
 
-// Tests for linters.
-
 import (
 	"path/filepath"
 	"runtime"
@@ -23,6 +21,14 @@ func TestLinterSuite(t *testing.T) {
 		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
 		"default": {pkgs: []string{"default/..."}},
+		"blockedPkgs": {
+			pkgs: []string{"blockedPkgs/..."},
+			prepare: func(t *testing.T, a *analysis.Analyzer) {
+				if err := a.Flags.Set("blockedPkgs", "factory/blockedPkgs/blocked"); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
 		"onlyBlockedPkgs": {
 			pkgs: []string{"onlyBlockedPkgs/main/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
