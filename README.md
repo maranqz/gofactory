@@ -3,10 +3,11 @@
 [![CI](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/maranqz/go-factory-lint)](https://goreportcard.com/report/github.com/maranqz/go-factory-lint?dummy=unused)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![Coverage Status](https://coveralls.io/repos/github/maranqz/go-factory-lint/badge.svg?branch=main)](https://coveralls.io/github/maranqz/go-factory-lint?branch=main)
 
 The linter checks that the Structes are created by the Factory, and not directly.
-The checking helps to provide invariants without exclusion.
-Validation helps you avoid losing the creation of invalid object.
+
+The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
 
 
 ## Use
@@ -17,7 +18,8 @@ Installation
 
 ### Options
 
-`-b`, `--blockedPgs` - list of packages, where the structures should be created by factories. By default, all structures in all packages should be created by factories. 
+- `-b`, `--blockedPkgs` - list of packages, where the structures should be created by factories. By default, all structures in all packages should be created by factories, [tests](testdata/src/factory/blockedPkgs).
+    - `-ob`, `onlyBlockedPkgs` - only blocked packages should use factory to initiate struct, [tests](testdata/src/factory/onlyBlockedPkgs).
 
 ## Example
 
@@ -117,3 +119,7 @@ func nextID() int64 {
 
 </td></tr>
 </tbody></table>
+
+## TODO
+
+1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/default/type_nested.go.skip).
