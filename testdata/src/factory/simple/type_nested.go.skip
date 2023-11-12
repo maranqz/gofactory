@@ -1,8 +1,8 @@
-package blockedPkgs
+package simple
 
-import "factory/default/nested"
+import "factory/simple/nested"
 
-// ident.Obj.Decl.Type could be used to get underlying
+// ident.Obj.Decl.Type or use dst could be used to get underlying
 type DeclStruct nested.Struct
 type AliasStruct = nested.Struct
 type UnderlyingStruct struct {

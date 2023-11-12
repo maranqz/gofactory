@@ -1,6 +1,6 @@
-package blockedPkgs
+package simple
 
-import "factory/default/nested"
+import "factory/simple/nested"
 
 type Struct struct {
 }

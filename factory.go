@@ -47,7 +47,7 @@ const (
 
 func NewAnalyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
-		Name:     "factory",
+		Name:     "gofactory",
 		Doc:      "Blocks the creation of structures directly, without a factory.",
 		Requires: []*analysis.Analyzer{inspect.Analyzer},
 	}

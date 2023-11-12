@@ -20,7 +20,7 @@ func TestLinterSuite(t *testing.T) {
 		pkgs    []string
 		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
-		"default": {pkgs: []string{"default/..."}},
+		"simple": {pkgs: []string{"simple/..."}},
 		"blockedPkgs": {
 			pkgs: []string{"blockedPkgs/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {

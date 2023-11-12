@@ -122,4 +122,6 @@ func nextID() int64 {
 
 ## TODO
 
+### Features that are difficult to implement and unplanned
+
 1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/default/type_nested.go.skip).
