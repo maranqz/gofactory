@@ -2,7 +2,6 @@ package factory_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -20,7 +19,8 @@ func TestLinterSuite(t *testing.T) {
 		pkgs    []string
 		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
-		"simple": {pkgs: []string{"simple/..."}},
+		"simple":  {pkgs: []string{"simple/..."}},
+		"generic": {pkgs: []string{"generic/..."}},
 		"blockedPkgs": {
 			pkgs: []string{"blockedPkgs/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
@@ -64,17 +64,8 @@ func TestLinterSuite(t *testing.T) {
 				tt.prepare(t, analyzer)
 			}
 
-			analysistest.Run(t, TestdataDir(),
+			analysistest.Run(t, testdata,
 				analyzer, dirs...)
 		})
 	}
-}
-
-func TestdataDir() string {
-	_, testFilename, _, ok := runtime.Caller(1)
-	if !ok {
-		panic("unable to get current test filename")
-	}
-
-	return filepath.Join(filepath.Dir(testFilename), "testdata")
 }

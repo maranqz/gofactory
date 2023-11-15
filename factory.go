@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"log/slog"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -109,58 +110,102 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return v
 	}
 
-	var selExpr *ast.SelectorExpr
+	compLitType := compLit.Type
 
 	// check []*Struct{{},&Struct}
-	arr, isArr := compLit.Type.(*ast.ArrayType)
-	if isArr && len(compLit.Elts) > 0 {
-		v.checkSlice(arr, compLit)
+	slice, isMap := compLitType.(*ast.ArrayType)
+	if isMap && len(compLit.Elts) > 0 {
+		v.checkSlice(slice, compLit)
 
 		return v
 	}
 
-	ident, ok := compLit.Type.(*ast.Ident)
-	if !ok {
-		selExpr, ok = compLit.Type.(*ast.SelectorExpr)
-		if !ok {
-			return v
-		}
+	// check map[Struct]Struct{{}:{}}
+	mp, isMap := compLitType.(*ast.MapType)
+	if isMap {
+		v.checkMap(mp, compLit)
 
-		ident = selExpr.Sel
+		return v
 	}
 
+	// check Struct{}
+	ident := v.getIdent(compLitType)
 	identObj := v.pass.TypesInfo.ObjectOf(ident)
+
 	if identObj == nil {
 		return v
 	}
 
 	if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
-		v.report(node, identObj)
+		v.report(ident, identObj)
 	}
 
 	return v
 }
 
-func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
-	arrElt := arr.Elt
-	if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
-		arrElt = starExpr.X
+func (v *visitor) getIdent(expr ast.Expr) *ast.Ident {
+	// pointer *Struct{}
+	if starExpr, ok := expr.(*ast.StarExpr); ok {
+		expr = starExpr.X
 	}
 
-	selExpr, ok := arrElt.(*ast.SelectorExpr)
+	// generic Struct[any]{}
+	indexExpr, ok := expr.(*ast.IndexExpr)
+	if ok {
+		expr = indexExpr.X
+	}
+
+	selExpr, ok := expr.(*ast.SelectorExpr)
 	if !ok {
+		return nil
+	}
+
+	return selExpr.Sel
+}
+
+func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
+	ident := v.getIdent(arr.Elt)
+	identObj := v.pass.TypesInfo.ObjectOf(ident)
+
+	if identObj == nil {
 		return
 	}
 
-	identObj := v.pass.TypesInfo.ObjectOf(selExpr.Sel)
-	if identObj != nil {
-		for _, elt := range compLit.Elts {
-			eltCompLit, ok := elt.(*ast.CompositeLit)
-			if ok && eltCompLit.Type == nil {
-				if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
-					v.report(elt, identObj)
-				}
-			}
+	for _, elt := range compLit.Elts {
+		v.checkBrackets(elt, identObj)
+	}
+}
+
+func (v *visitor) checkMap(mp *ast.MapType, compLit *ast.CompositeLit) {
+	keyIdent := v.getIdent(mp.Key)
+	keyIdentObj := v.pass.TypesInfo.ObjectOf(keyIdent)
+
+	valueIdent := v.getIdent(mp.Value)
+	valueIdentObj := v.pass.TypesInfo.ObjectOf(valueIdent)
+
+	if keyIdentObj == nil && valueIdentObj == nil {
+		return
+	}
+
+	for _, elt := range compLit.Elts {
+		keyValueExpr, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			slog.Warn("Unexpected code, please report to the developer with example.")
+
+			continue
+		}
+
+		v.checkBrackets(keyValueExpr.Key, keyIdentObj)
+		v.checkBrackets(keyValueExpr.Value, valueIdentObj)
+	}
+}
+
+// checkBrackets check {} in array, slice, map.
+func (v *visitor) checkBrackets(expr ast.Expr, identObj types.Object) {
+	compLit, ok := expr.(*ast.CompositeLit)
+	if ok && compLit.Type == nil && identObj != nil {
+		if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+			v.report(compLit, identObj)
 		}
 	}
 }

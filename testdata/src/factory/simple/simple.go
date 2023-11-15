@@ -1,30 +1,21 @@
 package simple
 
-import "factory/simple/nested"
+import (
+	"factory/simple/nested"
+)
 
 type Struct struct {
 }
 
-func local() {
+func Local() {
 	_ = Struct{}
 	_ = &Struct{}
 	_ = []Struct{{}}
 }
 
-func simpleNested() {
+func Nested() {
 	_ = nested.Struct{}  // want `Use factory for nested.Struct`
 	_ = &nested.Struct{} // want `Use factory for nested.Struct`
-
-	_ = []nested.Struct{}
-	_ = []nested.Struct{
-		{},              // want `Use factory for nested.Struct`
-		nested.Struct{}, // want `Use factory for nested.Struct`
-	}
-	_ = []*nested.Struct{
-		{},               // want `Use factory for nested.Struct`
-		&nested.Struct{}, // want `Use factory for nested.Struct`
-		nil,
-	}
 }
 
 func CallMp() {

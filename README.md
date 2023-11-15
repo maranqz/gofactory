@@ -120,8 +120,27 @@ func nextID() int64 {
 </td></tr>
 </tbody></table>
 
+## False Negative
+
+Linter doesn't catch some cases.
+
+1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/src/factory/unimplemented/chan.go).
+2. Local initialization. There is not single ability to understand which factory is right [example](testdata/src/factory/unimplemented/local.go).
+3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
+4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
+
 ## TODO
+
+### Possible Features
+
+1. Resolve false negative issue with `var declaration`.
+2. Catch nested struct in the same package, [example](testdata/src/factory/unimplemented/nested_struct.go).
+   ```go
+   return Struct{
+   	Other: OtherStruct{}, // want `Use factory for nested.Struct`
+   }
+   ```
 
 ### Features that are difficult to implement and unplanned
 
-1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/default/type_nested.go.skip).
+1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/simple/type_nested.go.skip).
