@@ -81,7 +81,7 @@ func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		for _, file := range pass.Files {
-			v := &visiter{
+			v := &visitor{
 				pass:            pass,
 				blockedStrategy: blockedStrategy,
 			}
@@ -92,18 +92,18 @@ func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	}
 }
 
-type visiter struct {
+type visitor struct {
 	pass            *analysis.Pass
 	blockedStrategy blockedStrategy
 }
 
-func (v *visiter) walk(n ast.Node) {
+func (v *visitor) walk(n ast.Node) {
 	if n != nil {
 		ast.Walk(v, n)
 	}
 }
 
-func (v *visiter) Visit(node ast.Node) ast.Visitor {
+func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	compLit, ok := node.(*ast.CompositeLit)
 	if !ok {
 		return v
@@ -141,7 +141,7 @@ func (v *visiter) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func (v *visiter) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
+func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
 	arrElt := arr.Elt
 	if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
 		arrElt = starExpr.X
@@ -165,7 +165,7 @@ func (v *visiter) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
 	}
 }
 
-func (v *visiter) report(node ast.Node, obj types.Object) {
+func (v *visitor) report(node ast.Node, obj types.Object) {
 	v.pass.Reportf(
 		node.Pos(),
 		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),

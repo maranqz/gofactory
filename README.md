@@ -5,7 +5,7 @@
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/maranqz/go-factory-lint/badge.svg?branch=main)](https://coveralls.io/github/maranqz/go-factory-lint?branch=main)
 
-The linter checks that the Structes are created by the Factory, and not directly.
+The linter checks that the Structures are created by the Factory, and not directly.
 
 The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
 
