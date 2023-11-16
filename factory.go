@@ -97,6 +97,7 @@ func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 type visitor struct {
 	pass            *analysis.Pass
 	blockedStrategy blockedStrategy
+	stack           []ast.Node
 }
 
 func (v *visitor) walk(n ast.Node) {
@@ -105,13 +106,40 @@ func (v *visitor) walk(n ast.Node) {
 	}
 }
 
+//nolint:funlen,cyclop // TODO
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
+	// Stack for local
+	if len(v.stack) > 0 {
+		defer func() {
+			if node != nil {
+				v.stack = append(v.stack, node)
+			} else {
+				v.stack = v.stack[:len(v.stack)-1]
+			}
+		}()
+	}
+
+	// TODO working with local factory
+	_, ok := node.(*ast.FuncDecl)
+	if ok {
+		v.stack = append(v.stack, node)
+
+		return v
+	}
+
 	compLit, ok := node.(*ast.CompositeLit)
 	if !ok {
 		return v
 	}
 
 	compLitType := compLit.Type
+
+	// Initiate stack for Struct{OtherStruct{}}
+	if len(v.stack) == 0 {
+		defer func() {
+			v.stack = append(v.stack, node)
+		}()
+	}
 
 	// check []*Struct{{},&Struct}
 	slice, isMap := compLitType.(*ast.ArrayType)
@@ -156,12 +184,19 @@ func (v *visitor) getIdent(expr ast.Expr) *ast.Ident {
 		expr = indexExpr.X
 	}
 
+	// nested.Struct
 	selExpr, ok := expr.(*ast.SelectorExpr)
-	if !ok {
-		return nil
+	if ok {
+		return selExpr.Sel
 	}
 
-	return selExpr.Sel
+	// local Struct
+	ident, ok := expr.(*ast.Ident)
+	if ok {
+		return ident
+	}
+
+	return nil
 }
 
 func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {

@@ -19,6 +19,7 @@ func TestLinterSuite(t *testing.T) {
 		pkgs    []string
 		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
+		"local":   {pkgs: []string{"local/..."}},
 		"simple":  {pkgs: []string{"simple/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
 		"packageGlobs": {

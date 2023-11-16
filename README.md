@@ -125,7 +125,7 @@ func nextID() int64 {
 Linter doesn't catch some cases.
 
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/src/factory/unimplemented/chan.go).
-2. Local initialization. There is not single ability to understand which factory is right [example](testdata/src/factory/unimplemented/local.go).
+2. Local initialization. There is not single ability to understand which factory is right [example](testdata/src/factory/local).
 3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
 4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
 

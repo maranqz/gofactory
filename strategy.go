@@ -20,6 +20,24 @@ func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
 	return false
 }
 
+//nolint:unused //TODO remove
+type localPkg struct {
+	visitor *visitor
+}
+
+//nolint:unused //TODO remove
+func newLocalPkg(visitor *visitor) localPkg {
+	return localPkg{visitor: visitor}
+}
+
+//nolint:unused //TODO remove
+func (localPkg) IsBlocked(
+	currentPkg *types.Package,
+	identObj types.Object,
+) bool {
+	return currentPkg.Path() != identObj.Pkg().Path()
+}
+
 type anotherPkg struct{}
 
 func newAnotherPkg() anotherPkg {
