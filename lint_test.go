@@ -21,26 +21,22 @@ func TestLinterSuite(t *testing.T) {
 	}{
 		"simple":  {pkgs: []string{"simple/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
-		"blockedPkgs": {
-			pkgs: []string{"blockedPkgs/..."},
+		"packageGlobs": {
+			pkgs: []string{"packageGlobs/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
-				if err := a.Flags.Set("blockedPkgs", "factory/blockedPkgs/blocked"); err != nil {
+				if err := a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**"); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
-		"onlyBlockedPkgs": {
-			pkgs: []string{"onlyBlockedPkgs/main/..."},
+		"onlyPackageGlobs": {
+			pkgs: []string{"onlyPackageGlobs/main/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
-				if err := a.Flags.Set("b", "factory/onlyBlockedPkgs/blocked"); err != nil {
+				if err := a.Flags.Set("packageGlobs", "factory/onlyPackageGlobs/blocked/**"); err != nil {
 					t.Fatal(err)
 				}
 
-				if err := a.Flags.Set("ob", "true"); err != nil {
-					t.Fatal(err)
-				}
-
-				if err := a.Flags.Set("onlyBlockedPkgs", "true"); err != nil {
+				if err := a.Flags.Set("onlyPackageGlobs", "true"); err != nil {
 					t.Fatal(err)
 				}
 			},

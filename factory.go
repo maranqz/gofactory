@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 type config struct {
-	blockedPkgs     stringsFlag
-	onlyBlockedPkgs bool
+	pkgGlobs     stringsFlag
+	onlyPkgGlobs bool
 }
 
 type stringsFlag []string
@@ -29,21 +30,18 @@ func (s *stringsFlag) Set(value string) error {
 }
 
 func (s stringsFlag) Value() []string {
-	blockedPkgs := make([]string, 0, len(s))
+	res := make([]string, 0, len(s))
 
-	for _, pgk := range s {
-		pgk = strings.TrimSpace(pgk)
-		pgk = strings.TrimSuffix(pgk, "/") + "/"
-
-		blockedPkgs = append(blockedPkgs, pgk)
+	for _, str := range s {
+		res = append(res, strings.TrimSpace(str))
 	}
 
-	return blockedPkgs
+	return res
 }
 
 const (
-	blockedPkgsDesc     = "List of packages, which should use factory to initiate struct."
-	onlyBlockedPkgsDesc = "Only blocked packages should use factory to initiate struct."
+	packageGlobsDesc = "List of glob packages, which can create structures without factories inside the glob package"
+	onlyPkgGlobsDesc = "Use a factory to initiate a structure for glob packages only."
 )
 
 func NewAnalyzer() *analysis.Analyzer {
@@ -55,11 +53,9 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	cfg := config{}
 
-	analyzer.Flags.Var(&cfg.blockedPkgs, "b", blockedPkgsDesc)
-	analyzer.Flags.Var(&cfg.blockedPkgs, "blockedPkgs", blockedPkgsDesc)
+	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
-	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "ob", false, onlyBlockedPkgsDesc)
-	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "onlyBlockedPkgs", false, onlyBlockedPkgsDesc)
+	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "onlyPackageGlobs", false, onlyPkgGlobsDesc)
 
 	analyzer.Run = run(&cfg)
 
@@ -69,14 +65,19 @@ func NewAnalyzer() *analysis.Analyzer {
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
 		var blockedStrategy blockedStrategy = newAnotherPkg()
-		if len(cfg.blockedPkgs) > 0 {
+		if len(cfg.pkgGlobs) > 0 {
 			defaultStrategy := blockedStrategy
-			if cfg.onlyBlockedPkgs {
+			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
+			pkgGlobs, err := compileGlobs(cfg.pkgGlobs.Value())
+			if err != nil {
+				return nil, err
+			}
+
 			blockedStrategy = newBlockedPkgs(
-				cfg.blockedPkgs.Value(),
+				pkgGlobs,
 				defaultStrategy,
 			)
 		}
@@ -217,71 +218,27 @@ func (v *visitor) report(node ast.Node, obj types.Object) {
 	)
 }
 
-type blockedStrategy interface {
-	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
-}
-
-type nilPkg struct{}
-
-func newNilPkg() nilPkg {
-	return nilPkg{}
-}
-
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
-	return false
-}
-
-type anotherPkg struct{}
-
-func newAnotherPkg() anotherPkg {
-	return anotherPkg{}
-}
-
-func (anotherPkg) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-) bool {
-	return currentPkg.Path() != identObj.Pkg().Path()
-}
-
-type blockedPkgs struct {
-	blockedPkgs     []string
-	defaultStrategy blockedStrategy
-}
-
-func newBlockedPkgs(
-	pkgs []string,
-	defaultStrategy blockedStrategy,
-) blockedPkgs {
-	return blockedPkgs{
-		blockedPkgs:     pkgs,
-		defaultStrategy: defaultStrategy,
-	}
-}
-
-func (b blockedPkgs) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-) bool {
-	identPkgPath := identObj.Pkg().Path() + "/"
-	currentPkgPath := currentPkg.Path() + "/"
-
-	for _, blockedPkg := range b.blockedPkgs {
-		isBlocked := strings.HasPrefix(identPkgPath, blockedPkg)
-		isIncludedInBlocked := strings.HasPrefix(currentPkgPath, blockedPkg)
-
-		if isIncludedInBlocked {
-			continue
-		}
-
-		if isBlocked {
-			return true
-		}
-
-		if b.defaultStrategy.IsBlocked(currentPkg, identObj) {
+func containsMatchGlob(globs []glob.Glob, el string) bool {
+	for _, g := range globs {
+		if g.Match(el) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func compileGlobs(globs []string) ([]glob.Glob, error) {
+	compiledGlobs := make([]glob.Glob, len(globs))
+
+	for idx, globString := range globs {
+		glob, err := glob.Compile(globString)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile globs %s: %w", glob, err)
+		}
+
+		compiledGlobs[idx] = glob
+	}
+
+	return compiledGlobs, nil
 }

@@ -1,8 +1,7 @@
 package blocked
 
 import (
-	"factory/blockedPkgs/blocked/blocked_nested"
-	"factory/simple/nested"
+	"factory/onlyPackageGlobs/blocked/blocked_nested"
 )
 
 type Struct struct{}
@@ -22,7 +21,4 @@ func NewPtr() *Struct {
 func CallNested2() {
 	_ = blocked_nested.Struct{}
 	_ = &blocked_nested.Struct{}
-
-	_ = nested.Struct{}
-	_ = &nested.Struct{}
 }

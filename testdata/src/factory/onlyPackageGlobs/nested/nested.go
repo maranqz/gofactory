@@ -1,10 +1,18 @@
 package nested
 
 import (
-	"factory/onlyBlockedPkgs/blocked"
+	"factory/onlyPackageGlobs/blocked"
 )
 
 type Struct struct{}
+
+func New() Struct {
+	return Struct{}
+}
+
+func NewPtr() *Struct {
+	return &Struct{}
+}
 
 func callNested1() {
 	n := blocked.Struct{} // want `Use factory for blocked.Struct`
