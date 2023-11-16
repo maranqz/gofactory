@@ -19,7 +19,7 @@ Installation
 ### Options
 
 - `--packageGlobs` - list of glob packages, which can create structures without factories inside the glob package. By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
-    - `onlyPkgGlobs` - use a factory to initiate a structure for glob packages only, [tests](testdata/src/factory/onlyPackageGlobs).
+    - `onlyPackageGlobs` - use a factory to initiate a structure for glob packages only, [tests](testdata/src/factory/onlyPackageGlobs).
 
 ## Example
 
