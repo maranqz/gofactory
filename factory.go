@@ -191,7 +191,7 @@ func (v *visitor) checkMap(mp *ast.MapType, compLit *ast.CompositeLit) {
 	for _, elt := range compLit.Elts {
 		keyValueExpr, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
-			slog.Warn("Unexpected code, please report to the developer with example.")
+			v.unexpectedCode(elt)
 
 			continue
 		}
@@ -215,6 +215,18 @@ func (v *visitor) report(node ast.Node, obj types.Object) {
 	v.pass.Reportf(
 		node.Pos(),
 		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),
+	)
+}
+
+func (v *visitor) unexpectedCode(node ast.Node) {
+	fset := v.pass.Fset
+	pos := fset.Position(node.Pos())
+	slog.Error(
+		fmt.Sprintf("Unexpected code in %s:%d:%d, please report to the developer with example.",
+			fset.File(node.Pos()).Name(),
+			pos.Line,
+			pos.Column,
+		),
 	)
 }
 
