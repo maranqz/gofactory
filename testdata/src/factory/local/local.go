@@ -2,10 +2,24 @@ package local
 
 // not implemented
 
+/*
+Idea.
+
+We can store all Struct{}, then see if it was used in return of function, if it was not, then report as problem.
+*/
+
 type Loan struct{}
 
 func IssueLoan() Loan {
-	return Loan{}
+	_ = Loan{} // want `Use factory for Loan`
+
+	for true {
+		return Loan{}
+	}
+
+	n := Loan{}
+
+	return n
 }
 
 func NewLoan() *Loan {
@@ -13,7 +27,9 @@ func NewLoan() *Loan {
 }
 
 func LoanFromDB() Loan {
-	return Loan{}
+	return ProcessLoan(
+		Loan{},
+	)
 }
 
 func Local() {
@@ -21,10 +37,10 @@ func Local() {
 	_ = NewLoan()
 	_ = LoanFromDB()
 
-	LocalCall(IssueLoan())
+	ProcessLoan(IssueLoan())
 
-	_ = Loan{}        // want `Use factory for Loan`
-	LocalCall(Loan{}) // want `Use factory for Loan`
+	_ = Loan{}          // want `Use factory for Loan`
+	ProcessLoan(Loan{}) // want `Use factory for Loan`
 
 	_ = []*Loan{{}, &Loan{}, NewLoan()}
 	_ = map[*Loan]*Loan{
@@ -37,7 +53,9 @@ func Local() {
 
 }
 
-func LocalCall(_ Loan) {}
+func ProcessLoan(_ Loan) Loan {
+	return Loan{}
+}
 
 func CallbackHack() {
 	pseudoFactory := func() Loan {
@@ -45,4 +63,12 @@ func CallbackHack() {
 	}
 
 	pseudoFactory()
+}
+
+func CallbackFactory() Loan {
+	pseudoFactory := func() Loan {
+		return Loan{}
+	}
+
+	return pseudoFactory()
 }

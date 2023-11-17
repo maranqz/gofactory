@@ -1,5 +1,7 @@
 package local
 
+// not implemented
+
 type OtherStruct struct{}
 
 type Struct struct {
@@ -10,16 +12,20 @@ func NewOtherStruct() OtherStruct {
 	return OtherStruct{}
 }
 
-func NewStruct() {
-	_ = Struct{Other: NewOtherStruct()}
+func NewStruct() Struct {
+	return Struct{
+		Other: NewOtherStruct(),
+	}
 
-	_ = Struct{
-		Other: OtherStruct{}, // want `Use factory for nested.Struct`
+	return Struct{
+		Other: OtherStruct{}, // want `Use factory for OtherStruct`
 	}
 }
 
-func NewStructWithoutFields() {
-	_ = Struct{NewOtherStruct()}
+func NewStructWithoutFields() Struct {
+	return Struct{NewOtherStruct()}
 
-	_ = Struct{OtherStruct{}} // want `Use factory for nested.Struct`
+	return Struct{
+		OtherStruct{}, // want `Use factory for OtherStruct`
+	}
 }
