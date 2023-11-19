@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"log/slog"
 	"strings"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 type config struct {
-	blockedPkgs     stringsFlag
-	onlyBlockedPkgs bool
+	pkgGlobs     stringsFlag
+	onlyPkgGlobs bool
 }
 
 type stringsFlag []string
@@ -28,21 +30,18 @@ func (s *stringsFlag) Set(value string) error {
 }
 
 func (s stringsFlag) Value() []string {
-	blockedPkgs := make([]string, 0, len(s))
+	res := make([]string, 0, len(s))
 
-	for _, pgk := range s {
-		pgk = strings.TrimSpace(pgk)
-		pgk = strings.TrimSuffix(pgk, "/") + "/"
-
-		blockedPkgs = append(blockedPkgs, pgk)
+	for _, str := range s {
+		res = append(res, strings.TrimSpace(str))
 	}
 
-	return blockedPkgs
+	return res
 }
 
 const (
-	blockedPkgsDesc     = "List of packages, which should use factory to initiate struct."
-	onlyBlockedPkgsDesc = "Only blocked packages should use factory to initiate struct."
+	packageGlobsDesc = "List of glob packages, which can create structures without factories inside the glob package"
+	onlyPkgGlobsDesc = "Use a factory to initiate a structure for glob packages only."
 )
 
 func NewAnalyzer() *analysis.Analyzer {
@@ -54,11 +53,9 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	cfg := config{}
 
-	analyzer.Flags.Var(&cfg.blockedPkgs, "b", blockedPkgsDesc)
-	analyzer.Flags.Var(&cfg.blockedPkgs, "blockedPkgs", blockedPkgsDesc)
+	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
-	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "ob", false, onlyBlockedPkgsDesc)
-	analyzer.Flags.BoolVar(&cfg.onlyBlockedPkgs, "onlyBlockedPkgs", false, onlyBlockedPkgsDesc)
+	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "onlyPackageGlobs", false, onlyPkgGlobsDesc)
 
 	analyzer.Run = run(&cfg)
 
@@ -68,14 +65,19 @@ func NewAnalyzer() *analysis.Analyzer {
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
 		var blockedStrategy blockedStrategy = newAnotherPkg()
-		if len(cfg.blockedPkgs) > 0 {
+		if len(cfg.pkgGlobs) > 0 {
 			defaultStrategy := blockedStrategy
-			if cfg.onlyBlockedPkgs {
+			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
+			pkgGlobs, err := compileGlobs(cfg.pkgGlobs.Value())
+			if err != nil {
+				return nil, err
+			}
+
 			blockedStrategy = newBlockedPkgs(
-				cfg.blockedPkgs.Value(),
+				pkgGlobs,
 				defaultStrategy,
 			)
 		}
@@ -109,58 +111,102 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return v
 	}
 
-	var selExpr *ast.SelectorExpr
+	compLitType := compLit.Type
 
 	// check []*Struct{{},&Struct}
-	arr, isArr := compLit.Type.(*ast.ArrayType)
-	if isArr && len(compLit.Elts) > 0 {
-		v.checkSlice(arr, compLit)
+	slice, isMap := compLitType.(*ast.ArrayType)
+	if isMap && len(compLit.Elts) > 0 {
+		v.checkSlice(slice, compLit)
 
 		return v
 	}
 
-	ident, ok := compLit.Type.(*ast.Ident)
-	if !ok {
-		selExpr, ok = compLit.Type.(*ast.SelectorExpr)
-		if !ok {
-			return v
-		}
+	// check map[Struct]Struct{{}:{}}
+	mp, isMap := compLitType.(*ast.MapType)
+	if isMap {
+		v.checkMap(mp, compLit)
 
-		ident = selExpr.Sel
+		return v
 	}
 
+	// check Struct{}
+	ident := v.getIdent(compLitType)
 	identObj := v.pass.TypesInfo.ObjectOf(ident)
+
 	if identObj == nil {
 		return v
 	}
 
 	if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
-		v.report(node, identObj)
+		v.report(ident, identObj)
 	}
 
 	return v
 }
 
-func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
-	arrElt := arr.Elt
-	if starExpr, ok := arr.Elt.(*ast.StarExpr); ok {
-		arrElt = starExpr.X
+func (v *visitor) getIdent(expr ast.Expr) *ast.Ident {
+	// pointer *Struct{}
+	if starExpr, ok := expr.(*ast.StarExpr); ok {
+		expr = starExpr.X
 	}
 
-	selExpr, ok := arrElt.(*ast.SelectorExpr)
+	// generic Struct[any]{}
+	indexExpr, ok := expr.(*ast.IndexExpr)
+	if ok {
+		expr = indexExpr.X
+	}
+
+	selExpr, ok := expr.(*ast.SelectorExpr)
 	if !ok {
+		return nil
+	}
+
+	return selExpr.Sel
+}
+
+func (v *visitor) checkSlice(arr *ast.ArrayType, compLit *ast.CompositeLit) {
+	ident := v.getIdent(arr.Elt)
+	identObj := v.pass.TypesInfo.ObjectOf(ident)
+
+	if identObj == nil {
 		return
 	}
 
-	identObj := v.pass.TypesInfo.ObjectOf(selExpr.Sel)
-	if identObj != nil {
-		for _, elt := range compLit.Elts {
-			eltCompLit, ok := elt.(*ast.CompositeLit)
-			if ok && eltCompLit.Type == nil {
-				if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
-					v.report(elt, identObj)
-				}
-			}
+	for _, elt := range compLit.Elts {
+		v.checkBrackets(elt, identObj)
+	}
+}
+
+func (v *visitor) checkMap(mp *ast.MapType, compLit *ast.CompositeLit) {
+	keyIdent := v.getIdent(mp.Key)
+	keyIdentObj := v.pass.TypesInfo.ObjectOf(keyIdent)
+
+	valueIdent := v.getIdent(mp.Value)
+	valueIdentObj := v.pass.TypesInfo.ObjectOf(valueIdent)
+
+	if keyIdentObj == nil && valueIdentObj == nil {
+		return
+	}
+
+	for _, elt := range compLit.Elts {
+		keyValueExpr, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			v.unexpectedCode(elt)
+
+			continue
+		}
+
+		v.checkBrackets(keyValueExpr.Key, keyIdentObj)
+		v.checkBrackets(keyValueExpr.Value, valueIdentObj)
+	}
+}
+
+// checkBrackets check {} in array, slice, map.
+func (v *visitor) checkBrackets(expr ast.Expr, identObj types.Object) {
+	compLit, ok := expr.(*ast.CompositeLit)
+	if ok && compLit.Type == nil && identObj != nil {
+		if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+			v.report(compLit, identObj)
 		}
 	}
 }
@@ -172,71 +218,39 @@ func (v *visitor) report(node ast.Node, obj types.Object) {
 	)
 }
 
-type blockedStrategy interface {
-	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
+func (v *visitor) unexpectedCode(node ast.Node) {
+	fset := v.pass.Fset
+	pos := fset.Position(node.Pos())
+	slog.Error(
+		fmt.Sprintf("Unexpected code in %s:%d:%d, please report to the developer with example.",
+			fset.File(node.Pos()).Name(),
+			pos.Line,
+			pos.Column,
+		),
+	)
 }
 
-type nilPkg struct{}
-
-func newNilPkg() nilPkg {
-	return nilPkg{}
-}
-
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
-	return false
-}
-
-type anotherPkg struct{}
-
-func newAnotherPkg() anotherPkg {
-	return anotherPkg{}
-}
-
-func (anotherPkg) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-) bool {
-	return currentPkg.Path() != identObj.Pkg().Path()
-}
-
-type blockedPkgs struct {
-	blockedPkgs     []string
-	defaultStrategy blockedStrategy
-}
-
-func newBlockedPkgs(
-	pkgs []string,
-	defaultStrategy blockedStrategy,
-) blockedPkgs {
-	return blockedPkgs{
-		blockedPkgs:     pkgs,
-		defaultStrategy: defaultStrategy,
-	}
-}
-
-func (b blockedPkgs) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-) bool {
-	identPkgPath := identObj.Pkg().Path() + "/"
-	currentPkgPath := currentPkg.Path() + "/"
-
-	for _, blockedPkg := range b.blockedPkgs {
-		isBlocked := strings.HasPrefix(identPkgPath, blockedPkg)
-		isIncludedInBlocked := strings.HasPrefix(currentPkgPath, blockedPkg)
-
-		if isIncludedInBlocked {
-			continue
-		}
-
-		if isBlocked {
-			return true
-		}
-
-		if b.defaultStrategy.IsBlocked(currentPkg, identObj) {
+func containsMatchGlob(globs []glob.Glob, el string) bool {
+	for _, g := range globs {
+		if g.Match(el) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func compileGlobs(globs []string) ([]glob.Glob, error) {
+	compiledGlobs := make([]glob.Glob, len(globs))
+
+	for idx, globString := range globs {
+		glob, err := glob.Compile(globString)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile globs %s: %w", glob, err)
+		}
+
+		compiledGlobs[idx] = glob
+	}
+
+	return compiledGlobs, nil
 }

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"factory/blockedPkgs/blocked"
-	"factory/blockedPkgs/blocked/blocked_nested"
-	"factory/blockedPkgs/nested"
+	"factory/packageGlobs/blocked"
+	"factory/packageGlobs/blocked/blocked_nested"
+	"factory/packageGlobs/nested"
 )
 
 func main() {

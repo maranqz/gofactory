@@ -1,9 +1,9 @@
 package main
 
 import (
-	"factory/onlyBlockedPkgs/blocked"
-	"factory/onlyBlockedPkgs/blocked/blocked_nested"
-	"factory/onlyBlockedPkgs/nested"
+	"factory/onlyPackageGlobs/blocked"
+	"factory/onlyPackageGlobs/blocked/blocked_nested"
+	"factory/onlyPackageGlobs/nested"
 )
 
 type Struct struct{}

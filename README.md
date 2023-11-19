@@ -18,8 +18,8 @@ Installation
 
 ### Options
 
-- `-b`, `--blockedPkgs` - list of packages, where the structures should be created by factories. By default, all structures in all packages should be created by factories, [tests](testdata/src/factory/blockedPkgs).
-    - `-ob`, `onlyBlockedPkgs` - only blocked packages should use factory to initiate struct, [tests](testdata/src/factory/onlyBlockedPkgs).
+- `--packageGlobs` - list of glob packages, which can create structures without factories inside the glob package. By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
+    - `onlyPackageGlobs` - use a factory to initiate a structure for glob packages only, [tests](testdata/src/factory/onlyPackageGlobs).
 
 ## Example
 
@@ -120,8 +120,28 @@ func nextID() int64 {
 </td></tr>
 </tbody></table>
 
+## False Negative
+
+Linter doesn't catch some cases.
+
+1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/src/factory/unimplemented/chan.go).
+2. Local initialization, [example](testdata/src/factory/unimplemented/local/).
+3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
+4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
+5. Casting to nested struct, [example](testdata/src/factory/unimplemented/casting/).
+
 ## TODO
+
+### Possible Features
+
+1. Catch nested struct in the same package, [example](testdata/src/factory/unimplemented/local/nested_struct.go).
+   ```go
+   return Struct{
+       Other: OtherStruct{}, // want `Use factory for nested.Struct`
+   }
+   ```
+2. Resolve false negative issue with `var declaration`.
 
 ### Features that are difficult to implement and unplanned
 
-1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/default/type_nested.go.skip).
+1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/simple/type_nested.go.skip).

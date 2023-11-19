@@ -2,7 +2,6 @@ package factory_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -20,27 +19,24 @@ func TestLinterSuite(t *testing.T) {
 		pkgs    []string
 		prepare func(t *testing.T, a *analysis.Analyzer)
 	}{
-		"simple": {pkgs: []string{"simple/..."}},
-		"blockedPkgs": {
-			pkgs: []string{"blockedPkgs/..."},
+		"simple":  {pkgs: []string{"simple/..."}},
+		"generic": {pkgs: []string{"generic/..."}},
+		"packageGlobs": {
+			pkgs: []string{"packageGlobs/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
-				if err := a.Flags.Set("blockedPkgs", "factory/blockedPkgs/blocked"); err != nil {
+				if err := a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**"); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
-		"onlyBlockedPkgs": {
-			pkgs: []string{"onlyBlockedPkgs/main/..."},
+		"onlyPackageGlobs": {
+			pkgs: []string{"onlyPackageGlobs/main/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) {
-				if err := a.Flags.Set("b", "factory/onlyBlockedPkgs/blocked"); err != nil {
+				if err := a.Flags.Set("packageGlobs", "factory/onlyPackageGlobs/blocked/**"); err != nil {
 					t.Fatal(err)
 				}
 
-				if err := a.Flags.Set("ob", "true"); err != nil {
-					t.Fatal(err)
-				}
-
-				if err := a.Flags.Set("onlyBlockedPkgs", "true"); err != nil {
+				if err := a.Flags.Set("onlyPackageGlobs", "true"); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -64,17 +60,8 @@ func TestLinterSuite(t *testing.T) {
 				tt.prepare(t, analyzer)
 			}
 
-			analysistest.Run(t, TestdataDir(),
+			analysistest.Run(t, testdata,
 				analyzer, dirs...)
 		})
 	}
-}
-
-func TestdataDir() string {
-	_, testFilename, _, ok := runtime.Caller(1)
-	if !ok {
-		panic("unable to get current test filename")
-	}
-
-	return filepath.Join(filepath.Dir(testFilename), "testdata")
 }
