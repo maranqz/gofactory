@@ -7,7 +7,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 
-	"github.com/maranqz/go-factory-lint"
+	"github.com/maranqz/go-factory-lint/v2"
 )
 
 func TestLinterSuite(t *testing.T) {

@@ -3,7 +3,7 @@ package main
 import (
 	"golang.org/x/tools/go/analysis/singlechecker"
 
-	"github.com/maranqz/go-factory-lint"
+	"github.com/maranqz/go-factory-lint/v2"
 )
 
 func main() {

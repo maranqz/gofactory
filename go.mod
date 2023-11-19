@@ -1,4 +1,4 @@
-module github.com/maranqz/go-factory-lint
+module github.com/maranqz/go-factory-lint/v2
 
 go 1.20
 
