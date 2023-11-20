@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"log/slog"
+	"log"
 	"strings"
 
 	"github.com/gobwas/glob"
@@ -87,6 +87,7 @@ func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 				pass:            pass,
 				blockedStrategy: blockedStrategy,
 			}
+
 			v.walk(file)
 		}
 
@@ -221,12 +222,11 @@ func (v *visitor) report(node ast.Node, obj types.Object) {
 func (v *visitor) unexpectedCode(node ast.Node) {
 	fset := v.pass.Fset
 	pos := fset.Position(node.Pos())
-	slog.Error(
-		fmt.Sprintf("Unexpected code in %s:%d:%d, please report to the developer with example.",
-			fset.File(node.Pos()).Name(),
-			pos.Line,
-			pos.Column,
-		),
+
+	log.Printf("Unexpected code in %s:%d:%d, please report to the developer with example.\n",
+		fset.File(node.Pos()).Name(),
+		pos.Line,
+		pos.Column,
 	)
 }
 
