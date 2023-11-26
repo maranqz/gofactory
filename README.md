@@ -128,7 +128,6 @@ Linter doesn't catch some cases.
 2. Local initialization, [example](testdata/src/factory/unimplemented/local/).
 3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
 4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
-5. Casting to nested struct, [example](testdata/src/factory/unimplemented/casting/).
 
 ## TODO
 

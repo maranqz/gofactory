@@ -107,6 +107,22 @@ func (v *visitor) walk(n ast.Node) {
 }
 
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
+	// casting pkg.Struct(struct{}{})
+	callExpr, ok := node.(*ast.CallExpr)
+	if ok {
+		ident := v.getIdent(callExpr.Fun)
+		identObj := v.pass.TypesInfo.ObjectOf(ident)
+
+		_, isTypeName := identObj.(*types.TypeName)
+		if isTypeName {
+			if v.blockedStrategy.IsBlocked(v.pass.Pkg, identObj) {
+				v.report(ident, identObj)
+			}
+		}
+
+		return v
+	}
+
 	compLit, ok := node.(*ast.CompositeLit)
 	if !ok {
 		return v

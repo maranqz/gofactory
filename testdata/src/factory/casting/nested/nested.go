@@ -1,5 +1,7 @@
 package nested
 
+type MyInt int
+
 type Struct struct {
 	Field int
 }
