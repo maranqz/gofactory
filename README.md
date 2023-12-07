@@ -10,16 +10,18 @@ The linter checks that the Structures are created by the Factory, and not direct
 The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
 
 
-## Use
+## Usage
 
-Installation
+### Installation
 
     go install github.com/maranqz/go-factory-lint/cmd/go-factory-lint@latest
 
 ### Options
 
-- `--packageGlobs` - list of glob packages, which can create structures without factories inside the glob package. By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
-    - `onlyPackageGlobs` - use a factory to initiate a structure for glob packages only, [tests](testdata/src/factory/onlyPackageGlobs).
+- `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
+By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
+- `--onlyPackageGlobs` – use a factory to initiate a structure for glob packages only, 
+[tests](testdata/src/factory/onlyPackageGlobs). Doesn't make sense without `--packageGlobs`.
 
 ## Example
 

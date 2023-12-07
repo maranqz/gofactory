@@ -5,11 +5,9 @@ import (
 	"go/ast"
 	"go/types"
 	"log"
-	"strings"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 type config struct {
@@ -17,38 +15,18 @@ type config struct {
 	onlyPkgGlobs bool
 }
 
-type stringsFlag []string
-
-func (s stringsFlag) String() string {
-	return strings.Join(s, ", ")
-}
-
-func (s *stringsFlag) Set(value string) error {
-	*s = append(*s, value)
-
-	return nil
-}
-
-func (s stringsFlag) Value() []string {
-	res := make([]string, 0, len(s))
-
-	for _, str := range s {
-		res = append(res, strings.TrimSpace(str))
-	}
-
-	return res
-}
-
 const (
-	packageGlobsDesc = "List of glob packages, which can create structures without factories inside the glob package"
-	onlyPkgGlobsDesc = "Use a factory to initiate a structure for glob packages only."
+	name = "gofactory"
+	doc  = "Blocks the creation of structures directly, without a factory."
+
+	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
+	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
 )
 
 func NewAnalyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
-		Name:     "gofactory",
-		Doc:      "Blocks the creation of structures directly, without a factory.",
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
+		Name: name,
+		Doc:  doc,
 	}
 
 	cfg := config{}
@@ -231,18 +209,14 @@ func (v *visitor) checkBrackets(expr ast.Expr, identObj types.Object) {
 func (v *visitor) report(node ast.Node, obj types.Object) {
 	v.pass.Reportf(
 		node.Pos(),
-		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),
+		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
 	)
 }
 
 func (v *visitor) unexpectedCode(node ast.Node) {
-	fset := v.pass.Fset
-	pos := fset.Position(node.Pos())
-
-	log.Printf("Unexpected code in %s:%d:%d, please report to the developer with example.\n",
-		fset.File(node.Pos()).Name(),
-		pos.Line,
-		pos.Column,
+	log.Printf("%s: unexpected code in %s, please report to the developer with example.\n",
+		name,
+		v.pass.Fset.Position(node.Pos()),
 	)
 }
 
@@ -260,12 +234,12 @@ func compileGlobs(globs []string) ([]glob.Glob, error) {
 	compiledGlobs := make([]glob.Glob, len(globs))
 
 	for idx, globString := range globs {
-		glob, err := glob.Compile(globString)
+		compiled, err := glob.Compile(globString)
 		if err != nil {
-			return nil, fmt.Errorf("unable to compile globs %s: %w", glob, err)
+			return nil, fmt.Errorf("unable to compile glob %q: %w", globString, err)
 		}
 
-		compiledGlobs[idx] = glob
+		compiledGlobs[idx] = compiled
 	}
 
 	return compiledGlobs, nil

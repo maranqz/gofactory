@@ -17,29 +17,25 @@ func TestLinterSuite(t *testing.T) {
 
 	tests := map[string]struct {
 		pkgs    []string
-		prepare func(t *testing.T, a *analysis.Analyzer)
+		prepare func(t *testing.T, a *analysis.Analyzer) error
 	}{
 		"simple":  {pkgs: []string{"simple/..."}},
 		"casting": {pkgs: []string{"casting/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
-			prepare: func(t *testing.T, a *analysis.Analyzer) {
-				if err := a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**"); err != nil {
-					t.Fatal(err)
-				}
+			prepare: func(t *testing.T, a *analysis.Analyzer) error {
+				return a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**")
 			},
 		},
 		"onlyPackageGlobs": {
 			pkgs: []string{"onlyPackageGlobs/main/..."},
-			prepare: func(t *testing.T, a *analysis.Analyzer) {
+			prepare: func(t *testing.T, a *analysis.Analyzer) error {
 				if err := a.Flags.Set("packageGlobs", "factory/onlyPackageGlobs/blocked/**"); err != nil {
-					t.Fatal(err)
+					return err
 				}
 
-				if err := a.Flags.Set("onlyPackageGlobs", "true"); err != nil {
-					t.Fatal(err)
-				}
+				return a.Flags.Set("onlyPackageGlobs", "true")
 			},
 		},
 	}
@@ -58,11 +54,12 @@ func TestLinterSuite(t *testing.T) {
 			analyzer := factory.NewAnalyzer()
 
 			if tt.prepare != nil {
-				tt.prepare(t, analyzer)
+				if err := tt.prepare(t, analyzer); err != nil {
+					t.Fatal(err)
+				}
 			}
 
-			analysistest.Run(t, testdata,
-				analyzer, dirs...)
+			analysistest.Run(t, testdata, analyzer, dirs...)
 		})
 	}
 }
