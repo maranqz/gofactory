@@ -1,61 +1,38 @@
-package factory
+package gofactory
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"log"
-	"strings"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 type config struct {
-	pkgGlobs     stringsFlag
+	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 }
 
-type stringsFlag []string
-
-func (s stringsFlag) String() string {
-	return strings.Join(s, ", ")
-}
-
-func (s *stringsFlag) Set(value string) error {
-	*s = append(*s, value)
-
-	return nil
-}
-
-func (s stringsFlag) Value() []string {
-	res := make([]string, 0, len(s))
-
-	for _, str := range s {
-		res = append(res, strings.TrimSpace(str))
-	}
-
-	return res
-}
-
 const (
-	packageGlobsDesc = "List of glob packages, which can create structures without factories inside the glob package"
-	onlyPkgGlobsDesc = "Use a factory to initiate a structure for glob packages only."
+	name = "gofactory"
+	doc  = "Blocks the creation of structures directly, without a factory."
+
+	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
+	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
 )
 
 func NewAnalyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
-		Name:     "gofactory",
-		Doc:      "Blocks the creation of structures directly, without a factory.",
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
+		Name: name,
+		Doc:  doc,
 	}
 
 	cfg := config{}
 
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
-	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "onlyPackageGlobs", false, onlyPkgGlobsDesc)
+	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	analyzer.Run = run(&cfg)
 
@@ -65,15 +42,12 @@ func NewAnalyzer() *analysis.Analyzer {
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
 		var blockedStrategy blockedStrategy = newAnotherPkg()
-		if len(cfg.pkgGlobs) > 0 {
+
+		pkgGlobs := cfg.pkgGlobs.Value()
+		if len(pkgGlobs) > 0 {
 			defaultStrategy := blockedStrategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
-			}
-
-			pkgGlobs, err := compileGlobs(cfg.pkgGlobs.Value())
-			if err != nil {
-				return nil, err
 			}
 
 			blockedStrategy = newBlockedPkgs(
@@ -231,18 +205,14 @@ func (v *visitor) checkBrackets(expr ast.Expr, identObj types.Object) {
 func (v *visitor) report(node ast.Node, obj types.Object) {
 	v.pass.Reportf(
 		node.Pos(),
-		fmt.Sprintf(`Use factory for %s.%s`, obj.Pkg().Name(), obj.Name()),
+		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
 	)
 }
 
 func (v *visitor) unexpectedCode(node ast.Node) {
-	fset := v.pass.Fset
-	pos := fset.Position(node.Pos())
-
-	log.Printf("Unexpected code in %s:%d:%d, please report to the developer with example.\n",
-		fset.File(node.Pos()).Name(),
-		pos.Line,
-		pos.Column,
+	log.Printf("%s: unexpected code in %s, please report to the developer with example.\n",
+		name,
+		v.pass.Fset.Position(node.Pos()),
 	)
 }
 
@@ -254,19 +224,4 @@ func containsMatchGlob(globs []glob.Glob, el string) bool {
 	}
 
 	return false
-}
-
-func compileGlobs(globs []string) ([]glob.Glob, error) {
-	compiledGlobs := make([]glob.Glob, len(globs))
-
-	for idx, globString := range globs {
-		glob, err := glob.Compile(globString)
-		if err != nil {
-			return nil, fmt.Errorf("unable to compile globs %s: %w", glob, err)
-		}
-
-		compiledGlobs[idx] = glob
-	}
-
-	return compiledGlobs, nil
 }

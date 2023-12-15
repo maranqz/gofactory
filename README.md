@@ -1,25 +1,27 @@
 # Factory linter
 
-[![CI](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/maranqz/go-factory-lint/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/maranqz/go-factory-lint)](https://goreportcard.com/report/github.com/maranqz/go-factory-lint?dummy=unused)
+[![CI](https://github.com/maranqz/gofactory/actions/workflows/ci.yml/badge.svg)](https://github.com/maranqz/gofactory/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maranqz/gofactory)](https://goreportcard.com/report/github.com/maranqz/gofactory?dummy=unused)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
-[![Coverage Status](https://coveralls.io/repos/github/maranqz/go-factory-lint/badge.svg?branch=main)](https://coveralls.io/github/maranqz/go-factory-lint?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/maranqz/gofactory/badge.svg?branch=main)](https://coveralls.io/github/maranqz/gofactory?branch=main)
 
 The linter checks that the Structures are created by the Factory, and not directly.
 
 The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
 
 
-## Use
+## Usage
 
-Installation
+### Installation
 
-    go install github.com/maranqz/go-factory-lint/cmd/go-factory-lint@latest
+    go install github.com/maranqz/gofactory/cmd/gofactory@latest
 
 ### Options
 
-- `--packageGlobs` - list of glob packages, which can create structures without factories inside the glob package. By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
-    - `onlyPackageGlobs` - use a factory to initiate a structure for glob packages only, [tests](testdata/src/factory/onlyPackageGlobs).
+- `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
+By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
+- `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
+[tests](testdata/src/factory/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
 ## Example
 
@@ -128,6 +130,7 @@ Linter doesn't catch some cases.
 2. Local initialization, [example](testdata/src/factory/unimplemented/local/).
 3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
 4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
+ To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
 
 ## TODO
 

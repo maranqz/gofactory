@@ -1,7 +1,7 @@
 package nested
 
 import (
-	"factory/onlyPackageGlobs/blocked"
+	"factory/packageGlobsOnly/blocked"
 )
 
 type Struct struct{}

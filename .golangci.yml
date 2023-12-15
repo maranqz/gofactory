@@ -8,7 +8,7 @@ linters-settings:
       - v
       - ok
   gci:
-    local-prefixes: github.com/maranqz/go-factory-lint
+    local-prefixes: github.com/maranqz/gofactory
 
 linters:
   enable-all: true
@@ -36,6 +36,7 @@ issues:
     - path: lint_test
       linters:
         - varnamelen
+        - wrapcheck
     - linters:
         - lll
       source: "^(?: |\t)*// "
