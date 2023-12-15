@@ -1,7 +1,6 @@
-package factory
+package gofactory
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"log"
@@ -11,7 +10,7 @@ import (
 )
 
 type config struct {
-	pkgGlobs     stringsFlag
+	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 }
 
@@ -33,7 +32,7 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
-	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "onlyPackageGlobs", false, onlyPkgGlobsDesc)
+	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	analyzer.Run = run(&cfg)
 
@@ -43,15 +42,12 @@ func NewAnalyzer() *analysis.Analyzer {
 func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
 	return func(pass *analysis.Pass) (interface{}, error) {
 		var blockedStrategy blockedStrategy = newAnotherPkg()
-		if len(cfg.pkgGlobs) > 0 {
+
+		pkgGlobs := cfg.pkgGlobs.Value()
+		if len(pkgGlobs) > 0 {
 			defaultStrategy := blockedStrategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
-			}
-
-			pkgGlobs, err := compileGlobs(cfg.pkgGlobs.Value())
-			if err != nil {
-				return nil, err
 			}
 
 			blockedStrategy = newBlockedPkgs(
@@ -228,19 +224,4 @@ func containsMatchGlob(globs []glob.Glob, el string) bool {
 	}
 
 	return false
-}
-
-func compileGlobs(globs []string) ([]glob.Glob, error) {
-	compiledGlobs := make([]glob.Glob, len(globs))
-
-	for idx, globString := range globs {
-		compiled, err := glob.Compile(globString)
-		if err != nil {
-			return nil, fmt.Errorf("unable to compile glob %q: %w", globString, err)
-		}
-
-		compiledGlobs[idx] = compiled
-	}
-
-	return compiledGlobs, nil
 }

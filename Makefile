@@ -24,4 +24,4 @@ test.coverage:
 	$(GO_TEST) -covermode=atomic -coverprofile=$(COVERAGE_FILE)
 
 install:
-	go install ./cmd/go-factory-lint
+	go install ./cmd/gofactory

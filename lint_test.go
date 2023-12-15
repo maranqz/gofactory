@@ -1,4 +1,4 @@
-package factory_test
+package gofactory_test
 
 import (
 	"path/filepath"
@@ -7,7 +7,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 
-	"github.com/maranqz/go-factory-lint/v2"
+	"github.com/maranqz/gofactory"
 )
 
 func TestLinterSuite(t *testing.T) {
@@ -28,14 +28,14 @@ func TestLinterSuite(t *testing.T) {
 				return a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**")
 			},
 		},
-		"onlyPackageGlobs": {
-			pkgs: []string{"onlyPackageGlobs/main/..."},
+		"packageGlobsOnly": {
+			pkgs: []string{"packageGlobsOnly/main/..."},
 			prepare: func(t *testing.T, a *analysis.Analyzer) error {
-				if err := a.Flags.Set("packageGlobs", "factory/onlyPackageGlobs/blocked/**"); err != nil {
+				if err := a.Flags.Set("packageGlobs", "factory/packageGlobsOnly/blocked/**"); err != nil {
 					return err
 				}
 
-				return a.Flags.Set("onlyPackageGlobs", "true")
+				return a.Flags.Set("packageGlobsOnly", "true")
 			},
 		},
 	}
@@ -51,7 +51,7 @@ func TestLinterSuite(t *testing.T) {
 				dirs = append(dirs, filepath.Join(testdata, "src", "factory", pkg))
 			}
 
-			analyzer := factory.NewAnalyzer()
+			analyzer := gofactory.NewAnalyzer()
 
 			if tt.prepare != nil {
 				if err := tt.prepare(t, analyzer); err != nil {
