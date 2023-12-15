@@ -40,7 +40,7 @@ import (
 )
 
 func main() {
-	// Use gofactory for bad.User
+	// Use factory for bad.User
 	u := &bad.User{
 		ID: -1,
 	}
@@ -139,7 +139,7 @@ Linter doesn't catch some cases.
 1. Catch nested struct in the same package, [example](testdata/src/factory/unimplemented/local/nested_struct.go).
    ```go
    return Struct{
-       Other: OtherStruct{}, // want `Use gofactory for nested.Struct`
+       Other: OtherStruct{}, // want `Use factory for nested.Struct`
    }
    ```
 2. Resolve false negative issue with `var declaration`.

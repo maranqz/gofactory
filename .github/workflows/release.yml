@@ -36,6 +36,6 @@ jobs:
         with:
           version: latest
           args: release --clean
-          workdir: cmd/go-gofactory-lint/
+          workdir: cmd/gofactory/
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
