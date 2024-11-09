@@ -4,10 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/maranqz/gofactory"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
-
-	"github.com/maranqz/gofactory"
 )
 
 func TestLinterSuite(t *testing.T) {
@@ -24,13 +23,13 @@ func TestLinterSuite(t *testing.T) {
 		"generic": {pkgs: []string{"generic/..."}},
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
-			prepare: func(t *testing.T, a *analysis.Analyzer) error {
+			prepare: func(_ *testing.T, a *analysis.Analyzer) error {
 				return a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**")
 			},
 		},
 		"packageGlobsOnly": {
 			pkgs: []string{"packageGlobsOnly/main/..."},
-			prepare: func(t *testing.T, a *analysis.Analyzer) error {
+			prepare: func(_ *testing.T, a *analysis.Analyzer) error {
 				if err := a.Flags.Set("packageGlobs", "factory/packageGlobsOnly/blocked/**"); err != nil {
 					return err
 				}
@@ -40,8 +39,6 @@ func TestLinterSuite(t *testing.T) {
 		},
 	}
 	for name, tt := range tests {
-		tt := tt
-
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
