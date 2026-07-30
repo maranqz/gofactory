@@ -12,7 +12,7 @@ type globsFlag struct {
 	globs       []glob.Glob
 }
 
-func (g globsFlag) String() string {
+func (g *globsFlag) String() string {
 	return strings.Join(g.globsString, ", ")
 }
 
@@ -30,6 +30,6 @@ func (g *globsFlag) Set(globString string) error {
 	return nil
 }
 
-func (g globsFlag) Value() []glob.Glob {
+func (g *globsFlag) Value() []glob.Glob {
 	return g.globs
 }
