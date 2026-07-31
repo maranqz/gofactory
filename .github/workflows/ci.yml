@@ -8,42 +8,29 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: 1.26
-  GOLANGCI_LINT_VERSION: v1.64.8
+  GO_VERSION: "1.26"
+  GOLANGCI_LINT_VERSION: v2.12.2
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-      - uses: golangci/golangci-lint-action@v3
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
-          # Build golangci-lint from source with the CI Go toolchain instead of
-          # downloading the prebuilt binary (which is built with go1.24 and can't
-          # typecheck this go1.25+ module — golang.org/x/tools v0.44.0 needs 1.25).
-          install-mode: goinstall
           args: --timeout=5m
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}
 
       - name: Tests with real databases
         run: make test.coverage
@@ -53,12 +40,12 @@ jobs:
           set -x
           COVERAGE_TOTAL=`go tool cover -func=coverage.out | grep total | grep -Eo '[0-9]+\.[0-9]+'`
           echo "COVERAGE_TOTAL=$COVERAGE_TOTAL" >> $GITHUB_ENV
-      - uses: jandelgado/gcov2lcov-action@v1.0.9
+      - uses: jandelgado/gcov2lcov-action@v1
         with:
           outfile: ./coverage.lcov
 
       - name: Coveralls
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
-          path-to-lcov: ./coverage.lcov
+          file: ./coverage.lcov
           github-token: ${{ secrets.GITHUB_TOKEN }}

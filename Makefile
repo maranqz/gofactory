@@ -7,7 +7,7 @@ COVERAGE_FILE="coverage.out"
 all: fmt lint test install
 
 fmt:
-	go fmt ./...
+	golangci-lint fmt
 
 lint:
 	golangci-lint run --fix ./...
