@@ -30,7 +30,8 @@ func TestLinterSuite(t *testing.T) {
 		"packageGlobsOnly": {
 			pkgs: []string{"packageGlobsOnly/main/..."},
 			prepare: func(_ *testing.T, a *analysis.Analyzer) error {
-				if err := a.Flags.Set("packageGlobs", "factory/packageGlobsOnly/blocked/**"); err != nil {
+				err := a.Flags.Set("packageGlobs", "factory/packageGlobsOnly/blocked/**")
+				if err != nil {
 					return err
 				}
 
@@ -51,7 +52,8 @@ func TestLinterSuite(t *testing.T) {
 			analyzer := gofactory.NewAnalyzer()
 
 			if tt.prepare != nil {
-				if err := tt.prepare(t, analyzer); err != nil {
+				err := tt.prepare(t, analyzer)
+				if err != nil {
 					t.Fatal(err)
 				}
 			}

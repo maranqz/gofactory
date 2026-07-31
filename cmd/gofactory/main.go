@@ -1,3 +1,4 @@
+// Lint CLI package.
 package main
 
 import (

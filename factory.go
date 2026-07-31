@@ -1,3 +1,4 @@
+// Package gofactory provides the main analyzer implementation.
 package gofactory
 
 import (
@@ -22,6 +23,7 @@ const (
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
 )
 
+// NewAnalyzer returns a new instance of the linter analyzer.
 func NewAnalyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
 		Name: name,
@@ -39,8 +41,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-func run(cfg *config) func(pass *analysis.Pass) (interface{}, error) {
-	return func(pass *analysis.Pass) (interface{}, error) {
+func run(cfg *config) func(pass *analysis.Pass) (any, error) {
+	return func(pass *analysis.Pass) (any, error) {
 		var blockedStrategy blockedStrategy = newAnotherPkg()
 
 		pkgGlobs := cfg.pkgGlobs.Value()
