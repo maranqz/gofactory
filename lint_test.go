@@ -42,7 +42,7 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 // TestLinterSuite runs every case through both entry points that populate
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
-// factory (newPlugin) configured via kebab-case settings.
+// constructor configured via kebab-case settings.
 func TestLinterSuite(t *testing.T) {
 	t.Parallel()
 

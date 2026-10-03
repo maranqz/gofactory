@@ -4,6 +4,8 @@ A Go linter that makes code obtain values of protected types through their facto
 
 ## Language
 
+Terms and their _Avoid_ lists describe the domain the analyzer reasons about — protected types and their factories in the code under lint. They don't govern prose about gofactory's own implementation (e.g. its golangci-lint plugin registration function): ordinary Go vocabulary like "constructor" is fine there.
+
 ### Types and factories
 
 **Protected type**:
