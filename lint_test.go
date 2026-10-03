@@ -21,6 +21,9 @@ func TestLinterSuite(t *testing.T) {
 		"simple":  {pkgs: []string{"simple/..."}},
 		"casting": {pkgs: []string{"casting/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
+
+		"dotimport": {pkgs: []string{"dotimport/..."}},
+
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
 			prepare: func(_ *testing.T, a *analysis.Analyzer) error {

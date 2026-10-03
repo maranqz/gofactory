@@ -31,3 +31,18 @@ func Nested() {
 		nil:                   nil,
 	}
 }
+
+func SeveralTypeParams() {
+	_ = nested.Pair[int, string]{} // want `Use factory for nested.Pair`
+}
+
+// IntG aliases a specific instantiation.
+type IntG = nested.Generic[int]
+
+// GA is a generic alias.
+type GA[T any] = nested.Generic[T]
+
+func AliasOfGeneric() {
+	_ = IntG{}    // want `Use factory for nested.Generic`
+	_ = GA[int]{} // want `Use factory for nested.Generic`
+}

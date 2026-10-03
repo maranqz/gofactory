@@ -146,4 +146,8 @@ Linter doesn't catch some cases.
 
 ### Features that are difficult to implement and unplanned
 
-1. Type assertion, type declaration and type underlying, [tests](testdata/module/simple/type_nested.go.skip).
+1. Type declaration reusing a protected type's underlying layout, [tests](testdata/module/simple/type_nested.go):
+   - a type alias is already caught (`AliasStruct`);
+   - a locally declared type (`DeclStruct`) is not a bypass, since the new type belongs to the current package;
+   - an embedded field left at its zero value (`UnderlyingStruct`) is deferred to the zero-value field-path feature.
+2. Reusing a protected type's underlying layout, including its unexported fields, to silently skip an invariant the factory establishes on them, [example](testdata/module/unimplemented/underlying.go). Protection is keyed by type identity, not structural layout, so this needs a different detection model than anything currently planned.
