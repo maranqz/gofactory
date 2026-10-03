@@ -19,9 +19,9 @@ The checking helps to provide invariants without exclusion and helps avoid creat
 ### Options
 
 - `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
-By default, all structures from another package should be created by factories, [tests](testdata/src/factory/packageGlobs).
+By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
-[tests](testdata/src/factory/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
+[tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
 ## Example
 
@@ -126,17 +126,17 @@ func nextID() int64 {
 
 Linter doesn't catch some cases.
 
-1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/src/factory/unimplemented/chan.go).
-2. Local initialization, [example](testdata/src/factory/unimplemented/local/).
-3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/src/factory/unimplemented/named_return.go).
-4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/src/factory/unimplemented/var.go).
+1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
+2. Local initialization, [example](testdata/module/unimplemented/local/).
+3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/module/unimplemented/named_return.go).
+4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
  To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
 
 ## TODO
 
 ### Possible Features
 
-1. Catch nested struct in the same package, [example](testdata/src/factory/unimplemented/local/nested_struct.go).
+1. Catch nested struct in the same package, [example](testdata/module/unimplemented/local/nested_struct.go).
    ```go
    return Struct{
        Other: OtherStruct{}, // want `Use factory for nested.Struct`
@@ -146,4 +146,4 @@ Linter doesn't catch some cases.
 
 ### Features that are difficult to implement and unplanned
 
-1. Type assertion, type declaration and type underlying, [tests](testdata/src/factory/simple/type_nested.go.skip).
+1. Type assertion, type declaration and type underlying, [tests](testdata/module/simple/type_nested.go.skip).
