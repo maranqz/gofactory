@@ -47,10 +47,16 @@ func (v *detector) checkNew(call *ast.CallExpr) bool {
 	return true
 }
 
-// checkConversion reports an explicit conversion to a protected type. A
-// conversion whose argument is nil, or whose argument already has the
-// target's exact type and is not a constant, creates nothing and stays
-// silent; an untyped constant looks identical but must still be reported.
+// checkConversion reports a type conversion to a protected type: Go's T(x)
+// syntax, where T names a type rather than a function or value, including
+// parenthesised forms like (*T)(x). go/types marks this by recording
+// call.Fun itself as denoting a type (IsType() below) instead of resolving
+// it to a function signature, which is also what tells it apart from an
+// ordinary call or from new(T) (checkNew, handled separately before this
+// is reached). A conversion whose argument is nil, or whose argument
+// already has the target's exact type and is not a constant, creates
+// nothing and stays silent; an untyped constant looks identical but must
+// still be reported.
 func (v *detector) checkConversion(call *ast.CallExpr) {
 	funTV := v.pass.TypesInfo.Types[call.Fun]
 	if !funTV.IsType() {
