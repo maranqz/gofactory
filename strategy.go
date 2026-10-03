@@ -72,3 +72,13 @@ func (b blockedPkgs) IsBlocked(
 
 	return false
 }
+
+func containsMatchGlob(globs []glob.Glob, el string) bool {
+	for _, g := range globs {
+		if g.Match(el) {
+			return true
+		}
+	}
+
+	return false
+}
