@@ -39,15 +39,6 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 	}
 }
 
-// linterSuiteCase is one TestLinterSuite case: which testdata packages to
-// analyse, and which packageGlobs settings to apply through both entry
-// points.
-type linterSuiteCase struct {
-	pkgs             []string
-	packageGlobs     []string
-	packageGlobsOnly bool
-}
-
 // TestLinterSuite runs every case through both entry points that populate
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
@@ -57,7 +48,11 @@ func TestLinterSuite(t *testing.T) {
 
 	root := moduleRoot()
 
-	tests := map[string]linterSuiteCase{
+	tests := map[string]struct {
+		pkgs             []string
+		packageGlobs     []string
+		packageGlobsOnly bool
+	}{
 		"simple":  {pkgs: []string{"simple/..."}},
 		"casting": {pkgs: []string{"casting/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
@@ -75,49 +70,43 @@ func TestLinterSuite(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			runLinterSuiteCase(t, root, tt)
+			dirs := make([]string, 0, len(tt.pkgs))
+
+			for _, pkg := range tt.pkgs {
+				dirs = append(dirs, filepath.Join(root, pkg))
+			}
+
+			t.Run("flags", func(t *testing.T) {
+				t.Parallel()
+
+				analyzer := gofactory.NewAnalyzer()
+
+				for _, g := range tt.packageGlobs {
+					err := analyzer.Flags.Set("packageGlobs", g)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				if tt.packageGlobsOnly {
+					err := analyzer.Flags.Set("packageGlobsOnly", "true")
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				analysistest.Run(t, root, analyzer, dirs...)
+			})
+
+			t.Run("plugin", func(t *testing.T) {
+				t.Parallel()
+
+				analyzer := pluginAnalyzer(t, tt.packageGlobs, tt.packageGlobsOnly)
+
+				analysistest.Run(t, root, analyzer, dirs...)
+			})
 		})
 	}
-}
-
-// runLinterSuiteCase runs one TestLinterSuite case's flags and plugin
-// subtests over the same testdata directories.
-func runLinterSuiteCase(t *testing.T, root string, tt linterSuiteCase) {
-	dirs := make([]string, 0, len(tt.pkgs))
-
-	for _, pkg := range tt.pkgs {
-		dirs = append(dirs, filepath.Join(root, pkg))
-	}
-
-	t.Run("flags", func(t *testing.T) {
-		t.Parallel()
-
-		analyzer := gofactory.NewAnalyzer()
-
-		for _, g := range tt.packageGlobs {
-			err := analyzer.Flags.Set("packageGlobs", g)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		if tt.packageGlobsOnly {
-			err := analyzer.Flags.Set("packageGlobsOnly", "true")
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		analysistest.Run(t, root, analyzer, dirs...)
-	})
-
-	t.Run("plugin", func(t *testing.T) {
-		t.Parallel()
-
-		analyzer := pluginAnalyzer(t, tt.packageGlobs, tt.packageGlobsOnly)
-
-		analysistest.Run(t, root, analyzer, dirs...)
-	})
 }
 
 // pluginAnalyzer builds the analyzer through the golangci-lint plugin entry

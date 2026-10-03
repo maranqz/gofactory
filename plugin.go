@@ -21,9 +21,11 @@ func init() {
 // calls them the default group, but no grouping type exists yet in code —
 // a later ticket adding per-glob groups will need to introduce one, not
 // just extend this struct.
+//
+//nolint:tagliatelle
 type settings struct {
-	PackageGlobs     []string `json:"package-globs"`      //nolint:tagliatelle
-	PackageGlobsOnly bool     `json:"package-globs-only"` //nolint:tagliatelle
+	PackageGlobs     []string `json:"package-globs"`
+	PackageGlobsOnly bool     `json:"package-globs-only"`
 }
 
 type plugin struct {
