@@ -28,6 +28,10 @@ linters:
           - wrapcheck
         path: lint_test
       - linters:
+          - funlen
+        path: _test\.go
+        text: "^Function 'Test"
+      - linters:
           - lll
         source: "^(?: |\t)*// "
       - linters:

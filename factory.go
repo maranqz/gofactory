@@ -18,6 +18,7 @@ type config struct {
 const (
 	name = "gofactory"
 	doc  = "Blocks the creation of structures directly, without a factory."
+	url  = "https://github.com/maranqz/gofactory"
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
@@ -25,20 +26,27 @@ const (
 
 // NewAnalyzer returns a new instance of the linter analyzer.
 func NewAnalyzer() *analysis.Analyzer {
-	analyzer := &analysis.Analyzer{
-		Name: name,
-		Doc:  doc,
-	}
+	cfg := &config{}
 
-	cfg := config{}
+	analyzer := newAnalyzer(cfg)
 
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
-	analyzer.Run = run(&cfg)
-
 	return analyzer
+}
+
+// newAnalyzer builds the analysis.Analyzer from an already-populated config.
+// It is shared by the two entry points that populate that config: NewAnalyzer
+// (via the command-line flags) and the golangci-lint plugin constructor.
+func newAnalyzer(cfg *config) *analysis.Analyzer {
+	return &analysis.Analyzer{
+		Name: name,
+		Doc:  doc,
+		URL:  url,
+		Run:  run(cfg),
+	}
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {

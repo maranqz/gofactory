@@ -23,6 +23,44 @@ By default, all structures from another package should be created by factories, 
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
+### golangci-lint module plugin
+
+gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/plugins/module-plugins/),
+without waiting for it to be merged into golangci-lint itself. This requires golangci-lint v2.14.0 or newer.
+
+Build a custom golangci-lint binary that includes gofactory with a `.custom-gcl.yml`:
+
+```yaml
+version: v2.14.0
+plugins:
+  - module: github.com/maranqz/gofactory
+    import: github.com/maranqz/gofactory
+    version: latest
+```
+
+```shell
+golangci-lint custom
+```
+
+Then enable it in `.golangci.yml`, with settings in kebab-case mirroring the command-line flags:
+
+```yaml
+linters:
+  enable:
+    - gofactory
+  settings:
+    custom:
+      gofactory:
+        type: module
+        settings:
+          package-globs:
+            - "mypkg/internal/**"
+          package-globs-only: false
+```
+
+- `package-globs` – equivalent to `--packageGlobs`.
+- `package-globs-only` – equivalent to `--packageGlobsOnly`.
+
 ## Example
 
 <table>
