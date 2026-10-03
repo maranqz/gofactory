@@ -19,6 +19,8 @@ vendor/
 
 # Go workspace file
 go.work
+# except the one of the module-mode testdata root
+!/testdata/module/go.work
 
 # IDE
 /.idea/
