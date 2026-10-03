@@ -37,9 +37,9 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-// newAnalyzer builds the analysis.Analyzer shared by NewAnalyzer, for the
-// command-line flags entry point, and by the golangci-lint plugin
-// constructor, from an already-populated config.
+// newAnalyzer builds the analysis.Analyzer from an already-populated config.
+// It is shared by the two entry points that populate that config: NewAnalyzer
+// (via the command-line flags) and the golangci-lint plugin constructor.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: name,

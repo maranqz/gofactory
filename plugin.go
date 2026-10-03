@@ -16,9 +16,11 @@ func init() {
 }
 
 // settings mirrors the command-line flags in kebab-case, for golangci-lint
-// module-plugin configuration. It is today's only, default, settings group;
-// per-glob settings groups can be added later without breaking this shape.
-// golangci-lint plugin settings are kebab-case by convention.
+// module-plugin configuration (golangci-lint plugin settings are kebab-case
+// by convention). These two flat fields are today's only settings; spec.md
+// calls them the default group, but no grouping type exists yet in code —
+// a later ticket adding per-glob groups will need to introduce one, not
+// just extend this struct.
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`      //nolint:tagliatelle
 	PackageGlobsOnly bool     `json:"package-globs-only"` //nolint:tagliatelle
