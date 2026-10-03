@@ -99,10 +99,19 @@ func TestTestdataRoots(t *testing.T) {
 				filepath.Join(moduleRoot(), "nestedmodule"),
 			},
 			modules: map[string]analysis.Module{
-				"factory/workspace": {Path: "factory", GoVersion: testdataGoVersion},
-				"sibling":           {Path: "sibling", GoVersion: testdataGoVersion},
+				"factory/workspace": {
+					Path:      "factory",
+					Main:      true,
+					GoVersion: testdataGoVersion,
+				},
+				"sibling": {
+					Path:      "sibling",
+					Main:      true,
+					GoVersion: testdataGoVersion,
+				},
 				"factory/nestedmodule": {
 					Path:      "factory/nestedmodule",
+					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
 			},
@@ -130,7 +139,7 @@ func TestTestdataRoots(t *testing.T) {
 }
 
 // assertModules checks that results cover exactly the packages in want and
-// that each Pass.Module has the wanted Path and GoVersion.
+// that each Pass.Module has the wanted Path, Version, Main and GoVersion.
 func assertModules(
 	t *testing.T,
 	results []*analysistest.Result,
@@ -159,10 +168,13 @@ func assertModules(
 			continue
 		}
 
-		if got.Path != mod.Path || got.GoVersion != mod.GoVersion {
-			t.Errorf("%s: Pass.Module is {Path: %q, GoVersion: %q}, "+
-				"want {Path: %q, GoVersion: %q}",
-				path, got.Path, got.GoVersion, mod.Path, mod.GoVersion)
+		if got.Path != mod.Path || got.Version != mod.Version ||
+			got.Main != mod.Main || got.GoVersion != mod.GoVersion {
+			t.Errorf("%s: Pass.Module is "+
+				"{Path: %q, Version: %q, Main: %t, GoVersion: %q}, "+
+				"want {Path: %q, Version: %q, Main: %t, GoVersion: %q}",
+				path, got.Path, got.Version, got.Main, got.GoVersion,
+				mod.Path, mod.Version, mod.Main, mod.GoVersion)
 		}
 	}
 }
