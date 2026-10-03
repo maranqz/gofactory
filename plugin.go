@@ -2,7 +2,6 @@ package gofactory
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/golangci/plugin-module-register/register"
 	"golang.org/x/tools/go/analysis"
@@ -39,21 +38,18 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
-	analyzer := NewAnalyzer()
+	cfg := &config{}
 
 	for _, g := range decoded.PackageGlobs {
-		err = analyzer.Flags.Set("packageGlobs", g)
+		err = cfg.pkgGlobs.Set(g)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", name, err)
 		}
 	}
 
-	err = analyzer.Flags.Set("packageGlobsOnly", strconv.FormatBool(decoded.PackageGlobsOnly))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
-	}
+	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
 
-	return &plugin{analyzer: analyzer}, nil
+	return &plugin{analyzer: newAnalyzer(cfg)}, nil
 }
 
 func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {

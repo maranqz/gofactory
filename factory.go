@@ -24,24 +24,29 @@ const (
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
 )
 
-// NewAnalyzer returns a new instance of the linter analyzer. The
-// golangci-lint plugin constructor (newPlugin in plugin.go) builds on it too,
-// configuring it via Flags.Set instead of the command-line flags.
+// NewAnalyzer returns a new instance of the linter analyzer.
 func NewAnalyzer() *analysis.Analyzer {
 	cfg := &config{}
 
-	analyzer := &analysis.Analyzer{
-		Name: name,
-		Doc:  doc,
-		URL:  url,
-		Run:  run(cfg),
-	}
+	analyzer := newAnalyzer(cfg)
 
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	return analyzer
+}
+
+// newAnalyzer builds the analysis.Analyzer from an already-populated config.
+// It is shared by the two entry points that populate that config: NewAnalyzer
+// (via the command-line flags) and the golangci-lint plugin constructor.
+func newAnalyzer(cfg *config) *analysis.Analyzer {
+	return &analysis.Analyzer{
+		Name: name,
+		Doc:  doc,
+		URL:  url,
+		Run:  run(cfg),
+	}
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
