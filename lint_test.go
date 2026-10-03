@@ -12,7 +12,7 @@ import (
 func TestLinterSuite(t *testing.T) {
 	t.Parallel()
 
-	testdata := analysistest.TestData()
+	root := moduleRoot()
 
 	tests := map[string]struct {
 		pkgs    []string
@@ -46,7 +46,7 @@ func TestLinterSuite(t *testing.T) {
 			dirs := make([]string, 0, len(tt.pkgs))
 
 			for _, pkg := range tt.pkgs {
-				dirs = append(dirs, filepath.Join(testdata, "src", "factory", pkg))
+				dirs = append(dirs, filepath.Join(root, pkg))
 			}
 
 			analyzer := gofactory.NewAnalyzer()
@@ -58,7 +58,11 @@ func TestLinterSuite(t *testing.T) {
 				}
 			}
 
-			analysistest.Run(t, testdata, analyzer, dirs...)
+			analysistest.Run(t, root, analyzer, dirs...)
 		})
 	}
+}
+
+func moduleRoot() string {
+	return filepath.Join(analysistest.TestData(), "module")
 }
