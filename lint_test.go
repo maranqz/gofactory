@@ -79,21 +79,7 @@ func TestLinterSuite(t *testing.T) {
 			t.Run("flags", func(t *testing.T) {
 				t.Parallel()
 
-				analyzer := gofactory.NewAnalyzer()
-
-				for _, g := range tt.packageGlobs {
-					err := analyzer.Flags.Set("packageGlobs", g)
-					if err != nil {
-						t.Fatal(err)
-					}
-				}
-
-				if tt.packageGlobsOnly {
-					err := analyzer.Flags.Set("packageGlobsOnly", "true")
-					if err != nil {
-						t.Fatal(err)
-					}
-				}
+				analyzer := flagsAnalyzer(t, tt.packageGlobs, tt.packageGlobsOnly)
 
 				analysistest.Run(t, root, analyzer, dirs...)
 			})
@@ -107,6 +93,35 @@ func TestLinterSuite(t *testing.T) {
 			})
 		})
 	}
+}
+
+// flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
+// Flags.Set the way a command-line user or go vet driver would, mirroring
+// pluginAnalyzer's golangci-lint entry point.
+func flagsAnalyzer(
+	t *testing.T,
+	packageGlobs []string,
+	packageGlobsOnly bool,
+) *analysis.Analyzer {
+	t.Helper()
+
+	analyzer := gofactory.NewAnalyzer()
+
+	for _, g := range packageGlobs {
+		err := analyzer.Flags.Set("packageGlobs", g)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if packageGlobsOnly {
+		err := analyzer.Flags.Set("packageGlobsOnly", "true")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return analyzer
 }
 
 // pluginAnalyzer builds the analyzer through the golangci-lint plugin entry
