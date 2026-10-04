@@ -8,6 +8,16 @@ type Struct struct {
 	Field int
 }
 
+// Count is a defined type over a basic kind, protected like any other named
+// type: README.md's `+=` example reports a zero Count the same way a read
+// of a zero Struct is reported.
+type Count int
+
+// Grid is a defined array type: a protected type in its own right, the way
+// README.md promises, independent of the array-fill deferral that leaves
+// `var a [N]T` silent for an unnamed array type.
+type Grid [3]Struct
+
 func (Struct) Method() {}
 
 // Paid is a value-object wither: it reads s and returns a new Struct built

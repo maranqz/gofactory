@@ -30,6 +30,25 @@ func ReturnIsReported() nested.Struct {
 	return x // want `Use factory for nested.Struct: zero value`
 }
 
+// AddAssignIsReported: `m += 1` reads m's zero value before compounding it,
+// the same as any other read.
+func AddAssignIsReported() nested.Count {
+	var m nested.Count
+
+	m += 1 // want `Use factory for nested.Count: zero value`
+
+	return m
+}
+
+// GridVarIsReported: Grid is a defined array type, so it is a protected
+// type like any other, not the unnamed `[N]T` array shape that fill
+// analysis still has to cover.
+func GridVarIsReported() nested.Struct {
+	var g nested.Grid
+
+	return g[0] // want `Use factory for nested.Grid: zero value`
+}
+
 func WholeAssignmentIsSilent() nested.Struct {
 	var x nested.Struct
 

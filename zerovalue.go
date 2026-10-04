@@ -181,14 +181,12 @@ func markSafeAssignTargets(safe map[*ast.Ident]bool, node *ast.AssignStmt) {
 	}
 }
 
-// markSafeRangeTargets marks node's key and value safe when node assigns
-// them with `=` rather than declaring them with `:=`: that overwrites the
-// whole value on every iteration, like a plain assignment.
+// markSafeRangeTargets marks node's key and value safe: assigned with `=`,
+// that overwrites the whole value on every iteration, like a plain
+// assignment. A `:=` target is marked too, but harmlessly: it always
+// declares a new variable, which collectZeroVars never tracks on its own,
+// so it is never looked up as a use of a tracked object.
 func markSafeRangeTargets(safe map[*ast.Ident]bool, node *ast.RangeStmt) {
-	if node.Tok != token.ASSIGN {
-		return
-	}
-
 	if ident, ok := node.Key.(*ast.Ident); ok {
 		safe[ident] = true
 	}
