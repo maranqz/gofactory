@@ -23,7 +23,7 @@ func (d *detector) checkCall(call *ast.CallExpr) {
 // checkNew reports new(T) and returns true when call is a call to the
 // builtin new, so the caller does not also try to treat it as a conversion.
 func (d *detector) checkNew(call *ast.CallExpr) bool {
-	ident, ok := call.Fun.(*ast.Ident)
+	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
 	if !ok {
 		return false
 	}
