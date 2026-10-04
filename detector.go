@@ -11,8 +11,9 @@ import (
 // syntax, so a literal, conversion or new(T) of a protected type is reported
 // however it is spelled.
 type detector struct {
-	pass     *analysis.Pass
-	strategy blockedStrategy
+	pass       *analysis.Pass
+	strategy   blockedStrategy
+	zeroValues bool
 }
 
 func (d *detector) visit(n ast.Node) {
@@ -21,6 +22,10 @@ func (d *detector) visit(n ast.Node) {
 		d.checkLiteral(n)
 	case *ast.CallExpr:
 		d.checkCall(n)
+	case *ast.FuncDecl:
+		d.checkFuncZeroValues(n.Type, n.Body)
+	case *ast.FuncLit:
+		d.checkFuncZeroValues(n.Type, n.Body)
 	}
 }
 
@@ -28,19 +33,28 @@ func (d *detector) visit(n ast.Node) {
 // not be built from the current package, following the existing
 // package-scope policy (module scope is a separate ticket).
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
+	d.reportProtectedSuffix(node, t, "")
+}
+
+// reportProtectedSuffix is reportProtected plus a diagnostic suffix, shared
+// by every bypass route so the permission policy (owner package, fences)
+// stays in one place regardless of which route found the candidate.
+func (d *detector) reportProtectedSuffix(
+	node ast.Node, t types.Type, suffix string,
+) {
 	named, ok := protectedNamed(t)
 	if !ok || !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
 		return
 	}
 
-	d.report(node, named)
+	d.report(node, named, suffix)
 }
 
-func (d *detector) report(pos ast.Node, named *types.Named) {
+func (d *detector) report(pos ast.Node, named *types.Named, suffix string) {
 	obj := named.Obj()
 
 	d.pass.Reportf(
 		pos.Pos(),
-		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
+		"Use factory for %s.%s%s", obj.Pkg().Name(), obj.Name(), suffix,
 	)
 }

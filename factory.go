@@ -12,6 +12,7 @@ import (
 type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
+	zeroValues   bool
 }
 
 const (
@@ -21,6 +22,7 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+	zeroValuesDesc   = "report zero values of protected types left unassigned, in var declarations and named results"
 )
 
 // NewAnalyzer returns a new instance of the linter analyzer.
@@ -32,6 +34,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
+
+	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
 	return analyzer
 }
@@ -67,12 +71,18 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := &detector{pass: pass, strategy: strategy}
+		v := &detector{pass: pass, strategy: strategy, zeroValues: cfg.zeroValues}
+
+		for _, file := range pass.Files {
+			v.checkPackageVars(file)
+		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{
 			(*ast.CompositeLit)(nil),
 			(*ast.CallExpr)(nil),
+			(*ast.FuncDecl)(nil),
+			(*ast.FuncLit)(nil),
 		}, v.visit)
 
 		return nil, nil

@@ -25,6 +25,7 @@ func init() {
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
+	ZeroValues       bool     `json:"zero-values"`
 }
 
 type plugin struct {
@@ -48,6 +49,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	}
 
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
+	cfg.zeroValues = decoded.ZeroValues
 
 	return &plugin{analyzer: newAnalyzer(cfg)}, nil
 }
