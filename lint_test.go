@@ -108,8 +108,6 @@ func TestLinterSuite(t *testing.T) {
 
 			forEachEntryPoint(t, tt.settings,
 				func(t *testing.T, analyzer *analysis.Analyzer) {
-					t.Helper()
-
 					analysistest.Run(t, root, analyzer, dirs...)
 				})
 		})
@@ -271,8 +269,6 @@ func TestTestdataRoots(t *testing.T) {
 
 			forEachEntryPoint(t, caseSettings{},
 				func(t *testing.T, analyzer *analysis.Analyzer) {
-					t.Helper()
-
 					results := analysistest.Run(t, tt.root, analyzer, tt.pkgs...)
 					assertModules(t, results, tt.modules)
 				})
