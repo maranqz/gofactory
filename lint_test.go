@@ -106,21 +106,34 @@ func TestLinterSuite(t *testing.T) {
 				dirs = append(dirs, filepath.Join(root, pkg))
 			}
 
-			t.Run("flags", func(t *testing.T) {
-				t.Parallel()
+			forEachEntryPoint(t, tt.settings,
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					t.Helper()
 
-				analyzer := flagsAnalyzer(t, tt.settings)
+					analysistest.Run(t, root, analyzer, dirs...)
+				})
+		})
+	}
+}
 
-				analysistest.Run(t, root, analyzer, dirs...)
-			})
+// forEachEntryPoint runs check as a "flags" and a "plugin" parallel subtest,
+// each with an analyzer built from settings through that entry point.
+func forEachEntryPoint(
+	t *testing.T,
+	settings caseSettings,
+	check func(t *testing.T, analyzer *analysis.Analyzer),
+) {
+	t.Helper()
 
-			t.Run("plugin", func(t *testing.T) {
-				t.Parallel()
+	entryPoints := map[string]func(*testing.T, caseSettings) *analysis.Analyzer{
+		"flags":  flagsAnalyzer,
+		"plugin": pluginAnalyzer,
+	}
+	for name, build := range entryPoints {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-				analyzer := pluginAnalyzer(t, tt.settings)
-
-				analysistest.Run(t, root, analyzer, dirs...)
-			})
+			check(t, build(t, settings))
 		})
 	}
 }
@@ -194,7 +207,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 const testdataGoVersion = "1.26"
 
 // TestTestdataRoots pins down how analysistest loads the two testdata roots,
-// which later cases rely on. Module mode in analysistest is undocumented
+// which later cases rely on, through both entry points. Module mode in analysistest is undocumented
 // (x/tools v0.50.0, analysistest.loadPackages):
 //
 //   - A root holding a go.mod is loaded with GO111MODULE=on, GOPROXY=off and,
@@ -256,11 +269,13 @@ func TestTestdataRoots(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			results := analysistest.Run(
-				t, tt.root, gofactory.NewAnalyzer(), tt.pkgs...,
-			)
+			forEachEntryPoint(t, caseSettings{},
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					t.Helper()
 
-			assertModules(t, results, tt.modules)
+					results := analysistest.Run(t, tt.root, analyzer, tt.pkgs...)
+					assertModules(t, results, tt.modules)
+				})
 		})
 	}
 }
