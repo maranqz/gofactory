@@ -23,5 +23,5 @@ func NewBuiltin() {
 }
 
 func NewPointerErrorsAs(err error) bool {
-	return errors.As(err, new(*nested.Struct))
+	return errors.As(err, new(*nested.Err))
 }
