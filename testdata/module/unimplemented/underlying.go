@@ -26,5 +26,7 @@ import "factory/unimplemented/invariant"
 type DeclStruct invariant.Struct
 
 func BypassPrivateInvariant() DeclStruct {
-	return DeclStruct{Field: 1} // want `Use factory for invariant.Struct`
+	// No diagnostic: DeclStruct belongs to this package. A detector for this
+	// bypass would have to name invariant.Struct, not DeclStruct.
+	return DeclStruct{Field: 1}
 }
