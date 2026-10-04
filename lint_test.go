@@ -39,6 +39,33 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 	}
 }
 
+// TestPluginRejectsBadSettings checks that the plugin fails on settings it
+// cannot apply instead of silently ignoring them: a key spelled like the
+// flag rather than in kebab-case, and a glob that does not compile.
+func TestPluginRejectsBadSettings(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]map[string]any{
+		"flag spelling": {"packageGlobs": []string{"factory/**"}},
+		"invalid glob":  {"package-globs": []string{"["}},
+	}
+	for name, rawSettings := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			newPlugin, err := register.GetPlugin(pluginName)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newPlugin(rawSettings)
+			if err == nil {
+				t.Fatalf("settings %v: got no error, want one", rawSettings)
+			}
+		})
+	}
+}
+
 // TestLinterSuite runs every case through both entry points that populate
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
