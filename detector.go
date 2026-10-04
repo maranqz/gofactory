@@ -25,8 +25,8 @@ func (d *detector) visit(n ast.Node) {
 }
 
 // reportProtected reports node when t resolves to a protected type that may
-// not be built from the current package, following the existing
-// package-scope policy (module scope is a separate ticket).
+// not be built from the current package under d.strategy (current-module
+// scope by default, see run).
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	named, ok := protectedNamed(t)
 	if !ok || !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {

@@ -52,15 +52,14 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
-		var strategy blockedStrategy
-		if pass.Module == nil || pass.Module.Path == "" {
-			// GOPATH or Bazel nogo: pass.Module carries no module path,
-			// so fall back to the pre-module-scope behaviour of
-			// protecting every package other than the current one.
-			strategy = newAnotherPkg()
-		} else {
-			strategy = newCurrentModule(pass.Module.Path)
+		var modulePath string
+		if pass.Module != nil {
+			modulePath = pass.Module.Path
 		}
+
+		// modulePath is empty for GOPATH or Bazel nogo; currentModule
+		// falls back to its pre-module-scope behaviour in that case.
+		var strategy blockedStrategy = newCurrentModule(modulePath)
 
 		pkgGlobs := cfg.pkgGlobs.Value()
 		if len(pkgGlobs) > 0 {

@@ -8,15 +8,16 @@ import (
 // currentModule protects only the current module's own packages, so stdlib
 // and dependency types stay silent by default while a developer's domain
 // types stay guarded without any configuration (strict mode still reports
-// every bypass of a type this strategy does protect).
+// every bypass of a type this strategy does protect). An empty path, the
+// signal that pass.Module carries no module (GOPATH, Bazel nogo), falls
+// back to anotherPkg's pre-module-scope behaviour of protecting every
+// package other than the current one.
 //
 // path is the Pass.Module.Path of the package under analysis. Pass.Module.Main
 // cannot be used to find it: go vet's unitchecker before Go 1.27 fills
 // Module without Main, and in a go.work build every workspace module has
 // Main set regardless of which one is the root (confirmed for
-// golang.org/x/tools v0.50.0 by TestTestdataRoots in lint_test.go). The
-// caller is expected to fall back to anotherPkg when path is empty, the
-// signal that pass.Module carries no module (GOPATH, Bazel nogo).
+// golang.org/x/tools v0.50.0 by TestTestdataRoots in lint_test.go).
 type currentModule struct {
 	path string
 }
@@ -29,12 +30,16 @@ func (c currentModule) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
 ) bool {
-	identPkg := identObj.Pkg()
-	if currentPkg.Path() == identPkg.Path() {
+	if !newAnotherPkg().IsBlocked(currentPkg, identObj) {
 		return false
 	}
 
-	return belongsToModule(identPkg.Path(), c.path)
+	// Without a module (GOPATH, Bazel nogo) every other package is protected.
+	if c.path == "" {
+		return true
+	}
+
+	return belongsToModule(identObj.Pkg().Path(), c.path)
 }
 
 // belongsToModule reports whether pkgPath is the module at modulePath, or

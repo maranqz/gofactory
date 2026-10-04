@@ -21,8 +21,9 @@ func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
 }
 
 // anotherPkg protects every package other than the current one. It is the
-// pre-module-scope behaviour, used in run (factory.go) as the fallback when
-// pass.Module carries no module path (GOPATH, Bazel nogo).
+// pre-module-scope behaviour; currentModule (module.go) reuses this same
+// owner-package check and falls back to it fully when there is no module
+// path (GOPATH, Bazel nogo).
 type anotherPkg struct{}
 
 func newAnotherPkg() anotherPkg {
