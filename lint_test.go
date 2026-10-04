@@ -98,6 +98,21 @@ func TestLinterSuite(t *testing.T) {
 				packageGlobsOnly: true,
 			},
 		},
+
+		"zeroValues": {
+			pkgs:     []string{"zeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"zeroValuesOff": {
+			pkgs: []string{"zeroValuesOff/..."},
+		},
+		"zeroValuesFences": {
+			pkgs: []string{"zeroValuesFences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
+				zeroValues:   true,
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -144,6 +159,7 @@ func forEachEntryPoint(
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+	zeroValues       bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -168,6 +184,13 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		}
 	}
 
+	if s.zeroValues {
+		err := analyzer.Flags.Set("zeroValues", "true")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	return analyzer
 }
 
@@ -185,6 +208,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"zero-values":        s.zeroValues,
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
