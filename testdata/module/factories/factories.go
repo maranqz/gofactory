@@ -43,3 +43,10 @@ func InaccessibleFactory() {
 func CappedFactories() {
 	_ = nested.Multi{} // want `Use factory for nested.Multi \(nested.NewA, nested.NewB, nested.NewC\)`
 }
+
+// NamedPointerFactory exercises a protected type that is itself a defined
+// pointer type: BoxPtr's own factory, NewBoxPtr, must still be suggested
+// for BoxPtr, not just for the Box it points to.
+func NamedPointerFactory() {
+	_ = new(nested.BoxPtr) // want `Use factory for nested.BoxPtr \(nested.NewBoxPtr\)$`
+}

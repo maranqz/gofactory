@@ -121,3 +121,17 @@ func NewC() Multi {
 func NewD() *Multi {
 	return &Multi{}
 }
+
+// Box has a factory returning its own defined pointer type, BoxPtr, to pin
+// that a protected type which is itself a defined pointer type still
+// matches its own factory: isTargetType must compare BoxPtr to BoxPtr
+// before unwrapping the pointer behind it.
+type Box struct{}
+
+// BoxPtr is a defined pointer type to Box, and protected in its own right.
+type BoxPtr *Box
+
+// NewBoxPtr is a recognised factory of both BoxPtr and Box.
+func NewBoxPtr() BoxPtr {
+	return &Box{}
+}

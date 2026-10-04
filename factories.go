@@ -128,19 +128,25 @@ func isFactory(target *types.TypeName, fn *types.Func) bool {
 // checkLiteral does for an elided &T{}: a defined pointer type P (type
 // P *T) takes a T just as directly as *T does, so a parameter or result of
 // type P must count too, unlike pointee's deliberately narrower pointer
-// check for bypass sites.
+// check for bypass sites. candidate is compared against target before any
+// pointer is unwrapped, so a protected type that is itself a defined
+// pointer type (type BoxPtr *Box) still matches its own factory.
 func isTargetType(candidate types.Type, target *types.TypeName) bool {
-	candidate = types.Unalias(candidate)
-	if ptr, ok := candidate.Underlying().(*types.Pointer); ok {
-		candidate = ptr.Elem()
+	if isTargetNamed(candidate, target) {
+		return true
 	}
 
-	named, ok := types.Unalias(candidate).(*types.Named)
-	if !ok {
-		return false
-	}
+	ptr, ok := types.Unalias(candidate).Underlying().(*types.Pointer)
 
-	return named.Obj() == target
+	return ok && isTargetNamed(ptr.Elem(), target)
+}
+
+// isTargetNamed reports whether t, seen through aliases, is the named type
+// target.
+func isTargetNamed(t types.Type, target *types.TypeName) bool {
+	named, ok := types.Unalias(t).(*types.Named)
+
+	return ok && named.Obj() == target
 }
 
 // accessibleFactories filters factories to the ones a diagnostic at site may
