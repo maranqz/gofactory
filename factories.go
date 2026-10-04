@@ -123,11 +123,19 @@ func isFactory(target *types.TypeName, fn *types.Func) bool {
 	return false
 }
 
-// isTargetType reports whether t is target or a pointer to it, seeing
-// through aliases and defined pointer types the same way pointee and
-// protectedNamed do for bypass sites.
-func isTargetType(t types.Type, target *types.TypeName) bool {
-	named, ok := types.Unalias(pointee(t)).(*types.Named)
+// isTargetType reports whether candidate is target or a pointer to it,
+// seeing through aliases and defined pointer types the same way
+// checkLiteral does for an elided &T{}: a defined pointer type P (type
+// P *T) takes a T just as directly as *T does, so a parameter or result of
+// type P must count too, unlike pointee's deliberately narrower pointer
+// check for bypass sites.
+func isTargetType(candidate types.Type, target *types.TypeName) bool {
+	candidate = types.Unalias(candidate)
+	if ptr, ok := candidate.Underlying().(*types.Pointer); ok {
+		candidate = ptr.Elem()
+	}
+
+	named, ok := types.Unalias(candidate).(*types.Named)
 	if !ok {
 		return false
 	}

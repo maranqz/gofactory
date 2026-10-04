@@ -32,6 +32,16 @@ func NewFromStructPtr(_ *Struct) *Struct {
 	return &Struct{}
 }
 
+// StructDefPtr is a defined pointer type to Struct: taking one as a
+// parameter is the same as taking a *Struct.
+type StructDefPtr *Struct
+
+// NewFromStructDefPtr takes a StructDefPtr parameter, so it is never a
+// factory, just like NewFromStructPtr above.
+func NewFromStructDefPtr(_ StructDefPtr) Struct {
+	return Struct{}
+}
+
 // newUnexported is unexported, so it is never a factory.
 func newUnexported() Struct {
 	return Struct{}
