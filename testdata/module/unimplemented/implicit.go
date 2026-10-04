@@ -12,3 +12,11 @@ func ImplicitConversion() {
 
 	_, _ = s, m
 }
+
+// An elided element of a defined pointer type with an unnamed pointee is
+// the &struct{...}{} literal implicitly converted to nested.PU, so it is
+// the same false negative as the explicit []nested.PU{&struct{ Field int }{}}.
+func ImplicitPointerConversion() {
+	_ = []nested.PU{{}}                     // want `Use factory for nested.PU`
+	_ = []nested.PU{&struct{ Field int }{}} // want `Use factory for nested.PU`
+}

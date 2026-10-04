@@ -13,3 +13,5 @@ func NewStruct() Struct {
 }
 
 type Mp map[bool]bool
+
+type PU *struct{ Field int }
