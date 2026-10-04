@@ -207,8 +207,8 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 const testdataGoVersion = "1.26"
 
 // TestTestdataRoots pins down how analysistest loads the two testdata roots,
-// which later cases rely on, through both entry points. Module mode in analysistest is undocumented
-// (x/tools v0.50.0, analysistest.loadPackages):
+// which later cases rely on; it runs through both entry points. Module mode in
+// analysistest is undocumented (x/tools v0.50.0, analysistest.loadPackages):
 //
 //   - A root holding a go.mod is loaded with GO111MODULE=on, GOPROXY=off and,
 //     when the root also holds a go.work, GOWORK=<root>/go.work. Packages of
