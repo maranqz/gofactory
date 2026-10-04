@@ -25,7 +25,7 @@ By default, all structures from another package should be created by factories, 
 
 ### golangci-lint module plugin
 
-gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/plugins/module-plugins/),
+gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),
 without waiting for it to be merged into golangci-lint itself.
 
 Build a custom golangci-lint binary that includes gofactory with a `.custom-gcl.yml`:
