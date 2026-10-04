@@ -39,6 +39,8 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 		return true
 	}
 
+	// new(*T) allocates a nil *T and builds no T, so argTV.Type is passed
+	// as-is rather than through pointee.
 	d.reportProtected(call, argTV.Type)
 
 	return true
@@ -70,5 +72,5 @@ func (d *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	d.reportProtected(call, funTV.Type)
+	d.reportProtected(call, pointee(funTV.Type))
 }

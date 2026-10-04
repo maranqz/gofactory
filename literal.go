@@ -12,5 +12,5 @@ func (d *detector) checkLiteral(lit *ast.CompositeLit) {
 		return
 	}
 
-	d.reportProtected(lit, t)
+	d.reportProtected(lit, pointee(t))
 }
