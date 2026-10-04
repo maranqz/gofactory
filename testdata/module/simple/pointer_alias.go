@@ -20,3 +20,8 @@ func DefinedPointer() {
 	_ = []DefinedStructPtr{{}}               // want `Use factory for nested.Struct`
 	_ = map[string]DefinedStructPtr{"a": {}} // want `Use factory for nested.Struct`
 }
+
+// Converting to a defined pointer type only retypes an existing pointer.
+func DefinedPointerConversion(p *nested.Struct) {
+	_ = DefinedStructPtr(p)
+}
