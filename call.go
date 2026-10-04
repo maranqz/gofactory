@@ -8,40 +8,40 @@ import (
 // checkCall reports new(T) of a protected type and explicit conversions to a
 // protected type, including parenthesised ones. new(expr) (Go 1.26) and
 // calls that are not conversions at all are left alone.
-func (v *detector) checkCall(call *ast.CallExpr) {
+func (d *detector) checkCall(call *ast.CallExpr) {
 	if len(call.Args) != 1 {
 		return
 	}
 
-	if v.checkNew(call) {
+	if d.checkNew(call) {
 		return
 	}
 
-	v.checkConversion(call)
+	d.checkConversion(call)
 }
 
 // checkNew reports new(T) and returns true when call is a call to the
 // builtin new, so the caller does not also try to treat it as a conversion.
-func (v *detector) checkNew(call *ast.CallExpr) bool {
+func (d *detector) checkNew(call *ast.CallExpr) bool {
 	ident, ok := call.Fun.(*ast.Ident)
 	if !ok {
 		return false
 	}
 
-	builtin, ok := v.pass.TypesInfo.ObjectOf(ident).(*types.Builtin)
+	builtin, ok := d.pass.TypesInfo.ObjectOf(ident).(*types.Builtin)
 	if !ok || builtin.Name() != "new" {
 		return false
 	}
 
-	argTV := v.pass.TypesInfo.Types[call.Args[0]]
+	argTV := d.pass.TypesInfo.Types[call.Args[0]]
 	if !argTV.IsType() {
 		// new(expr), Go 1.26: allocates from a value, nothing to bypass.
 		return true
 	}
 
 	named, ok := protectedNamed(argTV.Type)
-	if ok && v.isProtected(named) {
-		v.report(call, named)
+	if ok && d.isProtected(named) {
+		d.report(call, named)
 	}
 
 	return true
@@ -57,8 +57,8 @@ func (v *detector) checkNew(call *ast.CallExpr) bool {
 // already has the target's exact type and is not a constant, creates
 // nothing and stays silent; an untyped constant looks identical but must
 // still be reported.
-func (v *detector) checkConversion(call *ast.CallExpr) {
-	funTV := v.pass.TypesInfo.Types[call.Fun]
+func (d *detector) checkConversion(call *ast.CallExpr) {
+	funTV := d.pass.TypesInfo.Types[call.Fun]
 	if !funTV.IsType() {
 		return
 	}
@@ -68,7 +68,7 @@ func (v *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	argTV := v.pass.TypesInfo.Types[call.Args[0]]
+	argTV := d.pass.TypesInfo.Types[call.Args[0]]
 	if argTV.IsNil() {
 		return
 	}
@@ -78,9 +78,9 @@ func (v *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	if !v.isProtected(named) {
+	if !d.isProtected(named) {
 		return
 	}
 
-	v.report(call, named)
+	d.report(call, named)
 }

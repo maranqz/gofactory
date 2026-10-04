@@ -15,26 +15,26 @@ type detector struct {
 	strategy blockedStrategy
 }
 
-func (v *detector) visit(n ast.Node) {
+func (d *detector) visit(n ast.Node) {
 	switch n := n.(type) {
 	case *ast.CompositeLit:
-		v.checkLiteral(n)
+		d.checkLiteral(n)
 	case *ast.CallExpr:
-		v.checkCall(n)
+		d.checkCall(n)
 	}
 }
 
 // isProtected decides whether named may be bypassed from the current
 // package, following the existing package-scope policy (module scope is a
 // separate ticket).
-func (v *detector) isProtected(named *types.Named) bool {
-	return v.strategy.IsBlocked(v.pass.Pkg, named.Obj())
+func (d *detector) isProtected(named *types.Named) bool {
+	return d.strategy.IsBlocked(d.pass.Pkg, named.Obj())
 }
 
-func (v *detector) report(pos ast.Node, named *types.Named) {
+func (d *detector) report(pos ast.Node, named *types.Named) {
 	obj := named.Obj()
 
-	v.pass.Reportf(
+	d.pass.Reportf(
 		pos.Pos(),
 		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
 	)

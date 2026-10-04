@@ -6,8 +6,8 @@ import "go/ast"
 // type comes straight from the type checker, which already resolves elided
 // element literals at every nesting and keyed form, so a named container
 // literal and its elements are each visited and checked independently.
-func (v *detector) checkLiteral(lit *ast.CompositeLit) {
-	t := v.pass.TypesInfo.TypeOf(lit)
+func (d *detector) checkLiteral(lit *ast.CompositeLit) {
+	t := d.pass.TypesInfo.TypeOf(lit)
 	if t == nil {
 		return
 	}
@@ -17,9 +17,9 @@ func (v *detector) checkLiteral(lit *ast.CompositeLit) {
 		return
 	}
 
-	if !v.isProtected(named) {
+	if !d.isProtected(named) {
 		return
 	}
 
-	v.report(lit, named)
+	d.report(lit, named)
 }
