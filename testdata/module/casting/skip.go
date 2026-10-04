@@ -22,6 +22,13 @@ func SkipNoOpConversion() {
 	_ = nested.Struct(s)
 }
 
+// No diagnostic, known false negative: an untyped non-constant argument is
+// recorded with the target's type, so it looks like a no-op conversion.
+func SkipUntypedNonConstant(a, b int, n uint) {
+	_ = nested.Flag(a == b)
+	_ = nested.MyInt(1 << n)
+}
+
 // A conversion to an interface creates nothing, nor does new of one.
 func SkipInterfaceTarget(buf *bytes.Buffer) {
 	_ = io.Reader(buf)

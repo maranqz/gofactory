@@ -1,5 +1,9 @@
 package nested
 
+type Flag bool
+
+type MyInt int
+
 type Struct struct {
 	Field int
 }

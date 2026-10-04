@@ -55,7 +55,10 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 // is reached). A conversion whose argument is nil, or whose argument
 // already has the target's exact type and is not a constant, creates
 // nothing and stays silent; an untyped constant looks identical but must
-// still be reported.
+// still be reported. Known false negative: go/types also records the target
+// type on an untyped non-constant argument, such as a comparison
+// (Flag(a == b)) or a shift of an untyped constant (MyInt(1 << n)), so it
+// passes as a no-op too.
 func (d *detector) checkConversion(call *ast.CallExpr) {
 	funTV := d.pass.TypesInfo.Types[call.Fun]
 	if !funTV.IsType() {
