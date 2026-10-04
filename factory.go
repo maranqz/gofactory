@@ -37,10 +37,9 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-// newAnalyzer shares a *config pointer that each entry point populates on
-// its own schedule: the plugin constructor populates it before this call,
-// while NewAnalyzer populates it after, via the Flags.Var/BoolVar bindings
-// returned here.
+// newAnalyzer builds the analyzer around cfg; NewAnalyzer and newPlugin
+// share it so Name, Doc, URL and Run are set in one place. newPlugin fills
+// cfg before the call, NewAnalyzer binds its flags to cfg afterwards.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: name,
