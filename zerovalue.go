@@ -142,10 +142,10 @@ func zeroValueSpecNames(genDecl *ast.GenDecl) []*ast.Ident {
 }
 
 // collectSafeIdents marks every *ast.Ident that occurs as the whole target
-// of a whole-value assignment or as &x passed to any call: the two
-// interactions the spec calls OK. Every other mention of a tracked
-// variable's identifier is left unmarked, so it is reported if it is the
-// first interaction.
+// of a whole-value assignment or as &x passed to any call: the two OK
+// interactions for CONTEXT.md's First interaction. Every other mention of
+// a tracked variable's identifier is left unmarked, so it is reported if
+// it is the first interaction.
 //
 // A whole-value assignment is `x = …`, `x, err = …`, a `:=` that
 // redeclares x rather than shadowing it (go/types records that x in Uses
@@ -220,8 +220,8 @@ func markSafeAddressArgs(safe map[*ast.Ident]bool, node *ast.CallExpr) {
 
 // firstIdentUses returns, for every object in tracked, the earliest
 // *ast.Ident in body (including inside a nested function literal, which
-// may capture an outer local or result) that uses.Uses records as that
-// object. The declaring identifier itself is never recorded as a use.
+// may capture an outer local or result) that uses records as that object.
+// The declaring identifier itself is never recorded as a use.
 //
 // "Earliest" is evaluation order, not source position: an *ast.AssignStmt's
 // right-hand side runs before its left-hand targets are written, so it is

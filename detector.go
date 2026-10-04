@@ -8,8 +8,8 @@ import (
 )
 
 // detector resolves bypass routes through the type checker instead of
-// syntax, so a literal, conversion or new(T) of a protected type is reported
-// however it is spelled.
+// syntax, so a literal, conversion, new(T) or, with -zeroValues, a zero
+// value of a protected type is reported however it is spelled.
 type detector struct {
 	pass       *analysis.Pass
 	strategy   blockedStrategy

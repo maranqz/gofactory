@@ -1,5 +1,5 @@
-// Package zeroValuesOff mirrors the reported cases from zeroValues, run
-// with -zeroValues unset (its default is off), to pin down that none of
+// Package zeroValuesOff mirrors some of the reported cases from zeroValues,
+// run with -zeroValues unset (its default is off), to pin down that none of
 // them are reported without the setting.
 package zeroValuesOff
 

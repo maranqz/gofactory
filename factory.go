@@ -22,7 +22,7 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
-	zeroValuesDesc   = "report zero values of protected types left unassigned, in var declarations and named results"
+	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
 )
 
 // NewAnalyzer returns a new instance of the linter analyzer.
