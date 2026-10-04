@@ -35,7 +35,7 @@ for why.
 ### Options
 
 - `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
-By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
+By default, types from the current module must come from their factories (see [Protection scope](#protection-scope)), [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
