@@ -130,12 +130,14 @@ None of `testdata/module/unimplemented/` is wired into `analysistest` (it's
 excluded from `lint_test.go`'s test packages), so the `// want` comments in
 files under `testdata/module/unimplemented/` document the diagnostic we want
 once/if a case is handled — they are not asserted against the linter's
-actual output.
+actual output. Every case added there must carry such a `// want` comment.
 
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
 3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/module/unimplemented/named_return.go).
-4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
+4. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
+5. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
+6. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
  To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
 
 ## TODO
