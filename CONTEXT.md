@@ -12,6 +12,14 @@ Terms and their _Avoid_ lists describe the domain the analyzer reasons about —
 A named type, other than a func type or an interface, whose values outside its owner package must come from a factory.
 _Avoid_: blocked type, structure, struct
 
+**Current module**:
+The module of the package under analysis, by import path: a package belongs to it if its path
+equals the module path or starts with the module path plus `/`, so a nested module under that
+path counts too. By default only current-module types are protected; a type outside it (stdlib,
+a dependency, a `go.work` sibling module) is silent unless a fence names it. Without a module
+(GOPATH, Bazel `nogo`), every package other than the current one is protected instead.
+_Avoid_: own module, local module
+
 **Ignored type**:
 A type taken out of protection by a directive or a setting; anyone may create it without a factory.
 _Avoid_: excluded type, allowed type
