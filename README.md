@@ -29,7 +29,8 @@ conversion or `new`, [tests](testdata/module/zeroValues).
     whole-value assignment (`x = …`, `x, err = …`) or `&x` passed to a call is silent; a read, a field access, a
     method call or `return x` is reported. A naked `return` counts as an interaction with every named result.
   - Pointers, slices, maps and chans are not followed, and `make` and arrays are not reported yet, pending fill
-    analysis: `var a [N]T`, `make([]T, n)` and `make(map[K]T)` stay silent.
+    analysis: `var a [N]T`, `make([]T, n)` and `make(map[K]T)` stay silent. A defined type such as
+    `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
   - Goes through the same owner-package and fences policy as every other route.
 
 ### golangci-lint module plugin
@@ -189,9 +190,9 @@ actual output. Every case added there must carry such a `// want` comment.
 3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
 4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
 5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
-6. Filling a protected type's fields one at a time after a `var` or `make` leaves them at their zero value, instead of
-   through a factory. `--zeroValues` catches the `var`/named-result case up to the point the value escapes
-   unassigned, but not a field-by-field fill; use [gopublicfield](github.com/maranqz/gopublicfield) to prevent that.
+6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
+   elements filled after `make` or in arrays, which wait for fill analysis; use
+   [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
 
 ## TODO
 
