@@ -31,3 +31,9 @@ func OneAssignedOneZeroIsReported() (hack nested.Struct, other int) {
 func ExplicitReturnOfZeroIsReported() (hack nested.Struct) {
 	return hack // want `Use factory for nested.Struct: zero value`
 }
+
+// BlankNamedResultIsReported: `_` is still a named result, so a naked
+// return leaks its zero value just like a named one would.
+func BlankNamedResultIsReported() (_ nested.Struct, err error) {
+	return // want `Use factory for nested.Struct: zero value`
+}

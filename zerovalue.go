@@ -110,11 +110,12 @@ func (d *detector) collectZeroVars(
 	return tracked
 }
 
+// objectOf resolves name's object, blank named results included: a named
+// result called `_` (func F() (_ T, err error)) still has an object in
+// TypesInfo.Defs, and can only be reached through a naked return, which
+// firstInteraction already treats as the one interaction with every named
+// result. A blank local var is filtered earlier, by zeroValueSpecNames.
 func (d *detector) objectOf(name *ast.Ident) types.Object {
-	if name.Name == "_" {
-		return nil
-	}
-
 	return d.pass.TypesInfo.ObjectOf(name)
 }
 
