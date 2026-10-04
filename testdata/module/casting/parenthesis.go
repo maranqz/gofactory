@@ -6,11 +6,11 @@ import "factory/casting/nested"
 func ToNestedStructParenthesis() {
 	l := Struct{Field: 1}
 
-	_ = (nested.Struct)(l) // want `Use factory for nested.Struct`
+	_ = (nested.Struct)(l) // want `Use factory for nested.Struct \(nested.NewStruct\)`
 }
 
 func ToNestedStructPtrParenthesis() {
 	l := Struct{Field: 1}
 
-	_ = (*nested.Struct)(&l) // want `Use factory for nested.Struct`
+	_ = (*nested.Struct)(&l) // want `Use factory for nested.Struct \(nested.NewStruct\)`
 }

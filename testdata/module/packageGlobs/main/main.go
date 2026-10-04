@@ -7,13 +7,13 @@ import (
 )
 
 func main() {
-	n1 := blocked.Struct{} // want `Use factory for blocked.Struct`
+	n1 := blocked.Struct{} // want `Use factory for blocked.Struct \(blocked.New, blocked.NewPtr\)`
 	_ = n1
 	_ = blocked.New()
 
-	n1blockedPtr := &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
+	n1blockedPtr := &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct \(blocked_nested.New, blocked_nested.NewPtr\)`
 	_ = n1blockedPtr
-	_ = &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct`
+	_ = &blocked_nested.Struct{} // want `Use factory for blocked_nested.Struct \(blocked_nested.New, blocked_nested.NewPtr\)`
 	_ = blocked_nested.New()
 
 	n2 := nested.Struct{} // want `Use factory for nested.Struct`
