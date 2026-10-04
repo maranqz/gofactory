@@ -20,6 +20,14 @@ type Grid [3]Struct
 
 func (Struct) Method() {}
 
+// SetField takes a pointer receiver: calling it on x looks like the OK
+// `&x` form (it compiles down to the same address-of), but the ticket
+// still calls out a pointer-receiver method call as a reported
+// interaction.
+func (s *Struct) SetField(field int) {
+	s.Field = field
+}
+
 // Paid is a value-object wither: it reads s and returns a new Struct built
 // from it, the way `func (o Order) Paid() Order` does in the parent spec's
 // story 41.
