@@ -1,11 +1,11 @@
-// Package main is the unfenced side of the zeroValuesFences case: the same
-// bypass that -packageGlobs silences in blocked is reported here.
+// Package main is outside every fence: the same bypass of domain.Struct
+// that -packageGlobs silences inside blocked/other is reported here.
 package main
 
-import "factory/zeroValues/nested"
+import "factory/zeroValuesFences/blocked/domain"
 
 func ReadIsReportedOutsideFence() int {
-	var x nested.Struct
+	var x domain.Struct
 
-	return x.Field // want `Use factory for nested.Struct: zero value`
+	return x.Field // want `Use factory for domain.Struct: zero value`
 }
