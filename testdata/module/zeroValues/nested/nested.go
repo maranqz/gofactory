@@ -10,6 +10,19 @@ type Struct struct {
 
 func (Struct) Method() {}
 
+// Paid is a value-object wither: it reads s and returns a new Struct built
+// from it, the way `func (o Order) Paid() Order` does in the parent spec's
+// story 41.
+func (s Struct) Paid() Struct {
+	return s
+}
+
+// Validate reads s and returns it alongside an error, the shape a
+// validation step on a zero-valued var tends to have.
+func (s Struct) Validate() (Struct, error) {
+	return s, nil
+}
+
 func NewStruct(field int) Struct {
 	return Struct{Field: field}
 }

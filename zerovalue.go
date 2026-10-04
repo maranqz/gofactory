@@ -182,6 +182,12 @@ func collectSafeIdents(body *ast.BlockStmt) map[*ast.Ident]bool {
 // *ast.Ident in body (including inside a nested function literal, which
 // may capture an outer local or result) that uses.Uses records as that
 // object. The declaring identifier itself is never recorded as a use.
+//
+// "Earliest" is evaluation order, not source position: an *ast.AssignStmt's
+// right-hand side runs before its left-hand targets are written, so it is
+// visited first here even though it comes later in the text. Once an
+// object's first use is recorded it is kept, so the visit order alone
+// decides it.
 func firstIdentUses(
 	uses map[*ast.Ident]types.Object,
 	body *ast.BlockStmt,
@@ -189,8 +195,22 @@ func firstIdentUses(
 ) map[types.Object]*ast.Ident {
 	first := map[types.Object]*ast.Ident{}
 
-	ast.Inspect(body, func(n ast.Node) bool {
-		ident, ok := n.(*ast.Ident)
+	var visit func(node ast.Node) bool
+
+	visit = func(node ast.Node) bool {
+		if assign, ok := node.(*ast.AssignStmt); ok {
+			for _, e := range assign.Rhs {
+				ast.Inspect(e, visit)
+			}
+
+			for _, e := range assign.Lhs {
+				ast.Inspect(e, visit)
+			}
+
+			return false
+		}
+
+		ident, ok := node.(*ast.Ident)
 		if !ok {
 			return true
 		}
@@ -204,12 +224,14 @@ func firstIdentUses(
 			return true
 		}
 
-		if existing, ok := first[obj]; !ok || ident.Pos() < existing.Pos() {
+		if _, ok := first[obj]; !ok {
 			first[obj] = ident
 		}
 
 		return true
-	})
+	}
+
+	ast.Inspect(body, visit)
 
 	return first
 }

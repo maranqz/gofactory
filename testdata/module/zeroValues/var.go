@@ -65,3 +65,46 @@ func OnlyFirstInteractionDecidesIsSilent() nested.Struct {
 
 	return x
 }
+
+// SelfMethodCallOnAssignmentIsReported: the right-hand side's method call
+// runs on the zero-valued x before the assignment writes a new value into
+// it, so the first interaction is that call, not the assignment.
+func SelfMethodCallOnAssignmentIsReported() nested.Struct {
+	var o nested.Struct
+
+	o = o.Paid() // want `Use factory for nested.Struct: zero value`
+
+	return o
+}
+
+// SelfFieldReadOnAssignmentIsReported: same reasoning, through a field read
+// passed as an argument instead of a method call.
+func SelfFieldReadOnAssignmentIsReported() nested.Struct {
+	var x nested.Struct
+
+	x = nested.NewStruct(x.Field) // want `Use factory for nested.Struct: zero value`
+
+	return x
+}
+
+// SwapIsReported: each side of the swap reads the other's zero value on
+// the right-hand side before either assignment runs.
+func SwapIsReported() (nested.Struct, nested.Struct) {
+	var x, y nested.Struct
+
+	x, y = y, x // want `Use factory for nested.Struct: zero value` `Use factory for nested.Struct: zero value`
+
+	return x, y
+}
+
+// SelfValidateOnAssignmentIsReported: x.Validate() reads the zero-valued x
+// on the right-hand side before the assignment writes x and err.
+func SelfValidateOnAssignmentIsReported() (nested.Struct, error) {
+	var x nested.Struct
+
+	var err error
+
+	x, err = x.Validate() // want `Use factory for nested.Struct: zero value`
+
+	return x, err
+}
