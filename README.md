@@ -16,11 +16,12 @@ the current module if its import path equals the module path or starts with the 
 plus `/`, so a nested module under the same path (its own `go.mod`, but still under your
 module's path) counts too. Stdlib and third-party types (`strings.Builder{}`, `sync.WaitGroup{}`,
 `http.Header{}`, `time.Duration(5)`) are silent, and so are a `go.work` sibling module's types —
-their import path does not start with your module path. Add a sibling module, or any other
-package you want protected, to `--packageGlobs` to bring it into scope.
+their import path does not start with your module path. Bring a sibling module, or any other
+package, into scope with `--packageGlobs='example.com/sibling/**'` (an exact path does not match
+yet).
 
-Running without a module (GOPATH, or `go vet`'s Bazel `nogo` integration) falls back to the
-previous behaviour: every package other than the current one is protected.
+Running without a module (GOPATH, or Bazel's `nogo`) falls back to the previous behaviour: every
+package other than the current one is protected.
 
 Within scope, gofactory is **strict by default**: every bypass of a protected type is reported,
 whether or not the type has a factory. See [the ADR](docs/adr/0001-strict-default-and-module-scope.md)
