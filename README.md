@@ -42,9 +42,12 @@ plugins:
 golangci-lint custom
 ```
 
+This writes `./custom-gcl`; run it in place of `golangci-lint`, e.g. `./custom-gcl run ./...`.
+
 Then enable it in `.golangci.yml`, with settings in kebab-case mirroring the command-line flags:
 
 ```yaml
+version: "2"
 linters:
   enable:
     - gofactory
