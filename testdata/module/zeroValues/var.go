@@ -66,6 +66,14 @@ func OnlyFirstInteractionDecidesIsSilent() nested.Struct {
 	return x
 }
 
+// VarWithInitializerIsSilent: a `var` with an initializer is a literal or
+// call route, not a zero value, so zeroValueSpecNames never tracks x here.
+func VarWithInitializerIsSilent() int {
+	var x nested.Struct = nested.NewStruct(1)
+
+	return x.Field
+}
+
 // SelfMethodCallOnAssignmentIsReported: the right-hand side's method call
 // runs on the zero-valued x before the assignment writes a new value into
 // it, so the first interaction is that call, not the assignment.

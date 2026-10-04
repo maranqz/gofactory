@@ -37,3 +37,12 @@ func ExplicitReturnOfZeroIsReported() (hack nested.Struct) {
 func BlankNamedResultIsReported() (_ nested.Struct, err error) {
 	return // want `Use factory for nested.Struct: zero value`
 }
+
+// NeverMentionedResultIsSilent: hack is never mentioned by name, and the
+// return is not naked, so there is nothing to decide: hack's zero value
+// never has a chance to leak through its own identifier.
+func NeverMentionedResultIsSilent() (hack nested.Struct) {
+	x := nested.NewStruct(5)
+
+	return x
+}
