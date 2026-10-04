@@ -141,41 +141,80 @@ func zeroValueSpecNames(genDecl *ast.GenDecl) []*ast.Ident {
 }
 
 // collectSafeIdents marks every *ast.Ident that occurs as the whole target
-// of a plain assignment (x = …, x, err = …) or as &x passed to any call:
-// the two interactions the spec calls OK. Every other mention of a tracked
-// variable's identifier is left unmarked, and so reported.
+// of a whole-value assignment or as &x passed to any call: the two
+// interactions the spec calls OK. Every other mention of a tracked
+// variable's identifier is left unmarked, so it is reported if it is the
+// first interaction.
+//
+// A whole-value assignment is `x = …`, `x, err = …`, a `:=` that
+// redeclares x rather than shadowing it (go/types records that x in Uses
+// as the same object as the earlier declaration, so collectZeroVars never
+// tracks the ident on its own), or a range clause's key or value with
+// `=` rather than `:=`.
 func collectSafeIdents(body *ast.BlockStmt) map[*ast.Ident]bool {
 	safe := map[*ast.Ident]bool{}
 
 	ast.Inspect(body, func(node ast.Node) bool {
 		switch node := node.(type) {
 		case *ast.AssignStmt:
-			if node.Tok != token.ASSIGN {
-				return true
-			}
-
-			for _, lhs := range node.Lhs {
-				if ident, ok := lhs.(*ast.Ident); ok {
-					safe[ident] = true
-				}
-			}
+			markSafeAssignTargets(safe, node)
+		case *ast.RangeStmt:
+			markSafeRangeTargets(safe, node)
 		case *ast.CallExpr:
-			for _, arg := range node.Args {
-				unary, ok := ast.Unparen(arg).(*ast.UnaryExpr)
-				if !ok || unary.Op != token.AND {
-					continue
-				}
-
-				if ident, ok := unary.X.(*ast.Ident); ok {
-					safe[ident] = true
-				}
-			}
+			markSafeAddressArgs(safe, node)
 		}
 
 		return true
 	})
 
 	return safe
+}
+
+// markSafeAssignTargets marks node's left-hand targets safe when node is a
+// whole-value assignment: plain `=`, or a `:=` that redeclares its targets
+// rather than shadowing them.
+func markSafeAssignTargets(safe map[*ast.Ident]bool, node *ast.AssignStmt) {
+	if node.Tok != token.ASSIGN && node.Tok != token.DEFINE {
+		return
+	}
+
+	for _, lhs := range node.Lhs {
+		if ident, ok := lhs.(*ast.Ident); ok {
+			safe[ident] = true
+		}
+	}
+}
+
+// markSafeRangeTargets marks node's key and value safe when node assigns
+// them with `=` rather than declaring them with `:=`: that overwrites the
+// whole value on every iteration, like a plain assignment.
+func markSafeRangeTargets(safe map[*ast.Ident]bool, node *ast.RangeStmt) {
+	if node.Tok != token.ASSIGN {
+		return
+	}
+
+	if ident, ok := node.Key.(*ast.Ident); ok {
+		safe[ident] = true
+	}
+
+	if ident, ok := node.Value.(*ast.Ident); ok {
+		safe[ident] = true
+	}
+}
+
+// markSafeAddressArgs marks every &x argument of node safe: passing a
+// variable's address to any call is the other OK interaction.
+func markSafeAddressArgs(safe map[*ast.Ident]bool, node *ast.CallExpr) {
+	for _, arg := range node.Args {
+		unary, ok := ast.Unparen(arg).(*ast.UnaryExpr)
+		if !ok || unary.Op != token.AND {
+			continue
+		}
+
+		if ident, ok := unary.X.(*ast.Ident); ok {
+			safe[ident] = true
+		}
+	}
 }
 
 // firstIdentUses returns, for every object in tracked, the earliest

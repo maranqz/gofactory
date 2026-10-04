@@ -108,3 +108,51 @@ func SelfValidateOnAssignmentIsReported() (nested.Struct, error) {
 
 	return x, err
 }
+
+// RedeclareWithDefineIsSilent: `x, err := …` reuses the outer x already
+// declared in this block instead of shadowing it, so it is a whole-value
+// assignment of x just like `x, err = …`.
+func RedeclareWithDefineIsSilent() (nested.Struct, error) {
+	var x nested.Struct
+
+	x, err := nested.NewStructOrErr()
+
+	return x, err
+}
+
+// RangeAssignIsSilent: `for _, x = range …` overwrites the whole value of
+// the outer x on every iteration, the same as a plain `x = …`.
+func RangeAssignIsSilent(xs []nested.Struct) nested.Struct {
+	var x nested.Struct
+
+	for _, x = range xs {
+	}
+
+	return x
+}
+
+// RangeChannelAssignIsSilent: ranging over a channel assigns only the key,
+// which is still a whole-value overwrite of x.
+func RangeChannelAssignIsSilent(ch chan nested.Struct) nested.Struct {
+	var x nested.Struct
+
+	for x = range ch {
+	}
+
+	return x
+}
+
+// ShadowedDefineDoesNotCountIsReported: the inner `x, err := …` is in a
+// nested block, so it declares its own x rather than reusing the outer one;
+// the outer x is only mentioned, unassigned, at the final return.
+func ShadowedDefineDoesNotCountIsReported() nested.Struct {
+	var x nested.Struct
+
+	{
+		x, err := nested.NewStructOrErr()
+		_ = err
+		_ = x
+	}
+
+	return x // want `Use factory for nested.Struct: zero value`
+}
