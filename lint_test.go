@@ -23,7 +23,7 @@ func TestAnalyzerURL(t *testing.T) {
 	t.Parallel()
 
 	assertAbsoluteURL(t, "NewAnalyzer", gofactory.NewAnalyzer().URL)
-	assertAbsoluteURL(t, "plugin", pluginAnalyzer(t, nil, false).URL)
+	assertAbsoluteURL(t, "plugin", pluginAnalyzer(t, caseSettings{}).URL)
 }
 
 func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
@@ -76,21 +76,24 @@ func TestLinterSuite(t *testing.T) {
 	root := moduleRoot()
 
 	tests := map[string]struct {
-		pkgs             []string
-		packageGlobs     []string
-		packageGlobsOnly bool
+		pkgs     []string
+		settings caseSettings
 	}{
 		"simple":  {pkgs: []string{"simple/..."}},
 		"casting": {pkgs: []string{"casting/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
 		"packageGlobs": {
-			pkgs:         []string{"packageGlobs/..."},
-			packageGlobs: []string{"factory/packageGlobs/blocked/**"},
+			pkgs: []string{"packageGlobs/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/packageGlobs/blocked/**"},
+			},
 		},
 		"packageGlobsOnly": {
-			pkgs:             []string{"packageGlobsOnly/main/..."},
-			packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
-			packageGlobsOnly: true,
+			pkgs: []string{"packageGlobsOnly/main/..."},
+			settings: caseSettings{
+				packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
+				packageGlobsOnly: true,
+			},
 		},
 	}
 	for name, tt := range tests {
@@ -106,7 +109,7 @@ func TestLinterSuite(t *testing.T) {
 			t.Run("flags", func(t *testing.T) {
 				t.Parallel()
 
-				analyzer := flagsAnalyzer(t, tt.packageGlobs, tt.packageGlobsOnly)
+				analyzer := flagsAnalyzer(t, tt.settings)
 
 				analysistest.Run(t, root, analyzer, dirs...)
 			})
@@ -114,7 +117,7 @@ func TestLinterSuite(t *testing.T) {
 			t.Run("plugin", func(t *testing.T) {
 				t.Parallel()
 
-				analyzer := pluginAnalyzer(t, tt.packageGlobs, tt.packageGlobsOnly)
+				analyzer := pluginAnalyzer(t, tt.settings)
 
 				analysistest.Run(t, root, analyzer, dirs...)
 			})
@@ -122,26 +125,29 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
+// caseSettings is one case's configuration, applied through either entry
+// point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+type caseSettings struct {
+	packageGlobs     []string
+	packageGlobsOnly bool
+}
+
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
 // Flags.Set the way a command-line user or go vet driver would, mirroring
 // pluginAnalyzer's golangci-lint entry point.
-func flagsAnalyzer(
-	t *testing.T,
-	packageGlobs []string,
-	packageGlobsOnly bool,
-) *analysis.Analyzer {
+func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	t.Helper()
 
 	analyzer := gofactory.NewAnalyzer()
 
-	for _, g := range packageGlobs {
+	for _, g := range s.packageGlobs {
 		err := analyzer.Flags.Set("packageGlobs", g)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if packageGlobsOnly {
+	if s.packageGlobsOnly {
 		err := analyzer.Flags.Set("packageGlobsOnly", "true")
 		if err != nil {
 			t.Fatal(err)
@@ -154,11 +160,7 @@ func flagsAnalyzer(
 // pluginAnalyzer builds the analyzer through the golangci-lint plugin entry
 // point registered by gofactory's init, decoding the same settings a
 // golangci-lint YAML/JSON config would supply in kebab-case.
-func pluginAnalyzer(
-	t *testing.T,
-	packageGlobs []string,
-	packageGlobsOnly bool,
-) *analysis.Analyzer {
+func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	t.Helper()
 
 	newPlugin, err := register.GetPlugin(pluginName)
@@ -167,8 +169,8 @@ func pluginAnalyzer(
 	}
 
 	rawSettings := map[string]any{
-		"package-globs":      packageGlobs,
-		"package-globs-only": packageGlobsOnly,
+		"package-globs":      s.packageGlobs,
+		"package-globs-only": s.packageGlobsOnly,
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
