@@ -1,7 +1,9 @@
 package workspace
 
 import (
+	"factory"
 	"factory/nestedmodule"
+	"factoryext"
 	"sibling"
 )
 
@@ -21,4 +23,19 @@ func NestedModule() {
 	_ = nestedmodule.Struct{}  // want `Use factory for nestedmodule.Struct`
 	_ = &nestedmodule.Struct{} // want `Use factory for nestedmodule.Struct`
 	_ = nestedmodule.NewStruct()
+}
+
+// PrefixSibling's import path, "factoryext", shares its first seven
+// characters with the current module path ("factory") but is not "factory"
+// followed by "/", so it is a go.work sibling like Sibling above, not a
+// nested module, and stays silent.
+func PrefixSibling() {
+	_ = factoryext.Struct{}
+}
+
+// ModuleRoot's import path, "factory", equals the current module path
+// exactly — the other half of the membership rule besides the "+ /" prefix
+// NestedModule relies on — so it counts as the current module too.
+func ModuleRoot() {
+	_ = factory.Struct{} // want `Use factory for factory.Struct`
 }
