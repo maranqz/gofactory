@@ -100,6 +100,16 @@ func TestLinterSuite(t *testing.T) {
 		},
 
 		"directive": {pkgs: []string{"directive/..."}},
+
+		"ignoreTypes": {
+			pkgs: []string{"ignoreTypes/main/..."},
+			settings: caseSettings{
+				ignoreTypes: []string{
+					"factory/ignoreTypes/exact.Struct",
+					"factory/ignoreTypes/glob/*",
+				},
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -146,6 +156,7 @@ func forEachEntryPoint(
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+	ignoreTypes      []string
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -170,6 +181,13 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		}
 	}
 
+	for _, g := range s.ignoreTypes {
+		err := analyzer.Flags.Set("ignoreTypes", g)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	return analyzer
 }
 
@@ -187,6 +205,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"ignore-types":       s.ignoreTypes,
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)

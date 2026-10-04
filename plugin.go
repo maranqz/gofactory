@@ -25,6 +25,7 @@ func init() {
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
+	IgnoreTypes      []string `json:"ignore-types"`
 }
 
 type plugin struct {
@@ -48,6 +49,13 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	}
 
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
+
+	for _, g := range decoded.IgnoreTypes {
+		err = cfg.ignoreTypes.Set(g)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+	}
 
 	return &plugin{analyzer: newAnalyzer(cfg)}, nil
 }

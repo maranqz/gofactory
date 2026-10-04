@@ -22,6 +22,9 @@ The checking helps to provide invariants without exclusion and helps avoid creat
 By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
+- `--ignoreTypes` – list of qualified name globs (`import/path.Name`) for types that may be created
+without a factory everywhere, not just inside a glob package, [tests](testdata/module/ignoreTypes).
+See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 
 ### Directives
 
@@ -33,8 +36,8 @@ so an importing package's analysis sees them even though it never parses the fil
 comment.
 
 - `//gofactory:ignore`, written directly above a type declaration, takes that type out of
-  protection: nothing in any package needs a factory to obtain a value of it, on any bypass route,
-  [tests](testdata/module/directive).
+  protection: nothing in any package needs a factory to obtain a value of it, on any bypass route.
+  It is the directive form of `--ignoreTypes`, [tests](testdata/module/directive).
 
   ```go
   //gofactory:ignore
@@ -83,10 +86,13 @@ linters:
           package-globs:
             - "mypkg/internal/**"
           package-globs-only: false
+          ignore-types:
+            - "mypkg.Point"
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
+- `ignore-types` – equivalent to `--ignoreTypes`.
 
 ## Example
 

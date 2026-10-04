@@ -12,6 +12,7 @@ import (
 type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
+	ignoreTypes  qualifiedGlobsFlag
 }
 
 const (
@@ -21,6 +22,7 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+	ignoreTypesDesc  = "list of qualified name globs (import/path.Name) for types that may be created without a factory"
 )
 
 // NewAnalyzer returns a new instance of the linter analyzer.
@@ -32,6 +34,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
+
+	analyzer.Flags.Var(&cfg.ignoreTypes, "ignoreTypes", ignoreTypesDesc)
 
 	return analyzer
 }
@@ -75,7 +79,11 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := &detector{pass: pass, strategy: strategy}
+		v := &detector{
+			pass:        pass,
+			strategy:    strategy,
+			ignoreTypes: cfg.ignoreTypes.Value(),
+		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{

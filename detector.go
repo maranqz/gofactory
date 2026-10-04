@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/types"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -11,8 +12,9 @@ import (
 // syntax, so a literal, conversion or new(T) of a protected type is reported
 // however it is spelled.
 type detector struct {
-	pass     *analysis.Pass
-	strategy blockedStrategy
+	pass        *analysis.Pass
+	strategy    blockedStrategy
+	ignoreTypes []glob.Glob
 }
 
 func (d *detector) visit(n ast.Node) {
@@ -44,11 +46,24 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 
 // isIgnored reports whether named was taken out of protection by a
 // //gofactory:ignore directive, local or propagated as a fact from the
-// package that declares it.
+// package that declares it, or by a -ignoreTypes glob matching its
+// qualified name (import/path.Name).
 func (d *detector) isIgnored(named *types.Named) bool {
-	var fact ignoredFact
+	obj := named.Obj()
 
-	return d.pass.ImportObjectFact(named.Obj(), &fact)
+	var fact ignoredFact
+	if d.pass.ImportObjectFact(obj, &fact) {
+		return true
+	}
+
+	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+	for _, g := range d.ignoreTypes {
+		if g.Match(qualifiedName) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named) {
