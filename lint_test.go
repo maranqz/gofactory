@@ -85,6 +85,8 @@ func TestLinterSuite(t *testing.T) {
 
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
+		"stdlib": {pkgs: []string{"stdlib/..."}},
+
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
 			settings: caseSettings{
