@@ -31,6 +31,17 @@ func (d *detector) isProtected(named *types.Named) bool {
 	return d.strategy.IsBlocked(d.pass.Pkg, named.Obj())
 }
 
+// reportProtected reports node when t resolves to a protected type that may
+// not be built from the current package.
+func (d *detector) reportProtected(node ast.Node, t types.Type) {
+	named, ok := protectedNamed(t)
+	if !ok || !d.isProtected(named) {
+		return
+	}
+
+	d.report(node, named)
+}
+
 func (d *detector) report(pos ast.Node, named *types.Named) {
 	obj := named.Obj()
 

@@ -12,14 +12,5 @@ func (d *detector) checkLiteral(lit *ast.CompositeLit) {
 		return
 	}
 
-	named, ok := protectedNamed(t)
-	if !ok {
-		return
-	}
-
-	if !d.isProtected(named) {
-		return
-	}
-
-	d.report(lit, named)
+	d.reportProtected(lit, t)
 }

@@ -39,10 +39,7 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 		return true
 	}
 
-	named, ok := protectedNamed(argTV.Type)
-	if ok && d.isProtected(named) {
-		d.report(call, named)
-	}
+	d.reportProtected(call, argTV.Type)
 
 	return true
 }
@@ -63,11 +60,6 @@ func (d *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	named, ok := protectedNamed(funTV.Type)
-	if !ok {
-		return
-	}
-
 	argTV := d.pass.TypesInfo.Types[call.Args[0]]
 	if argTV.IsNil() {
 		return
@@ -78,9 +70,5 @@ func (d *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	if !d.isProtected(named) {
-		return
-	}
-
-	d.report(call, named)
+	d.reportProtected(call, funTV.Type)
 }
