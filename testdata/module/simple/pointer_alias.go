@@ -12,3 +12,11 @@ func PointerAlias() {
 
 	_ = StructPtr(&l) // want `Use factory for nested.Struct`
 }
+
+// A locally defined pointer type still builds the nested.Struct behind it.
+type DefinedStructPtr *nested.Struct
+
+func DefinedPointer() {
+	_ = []DefinedStructPtr{{}}               // want `Use factory for nested.Struct`
+	_ = map[string]DefinedStructPtr{"a": {}} // want `Use factory for nested.Struct`
+}

@@ -25,8 +25,11 @@ func protectedNamed(t types.Type) (*types.Named, bool) {
 }
 
 // pointee returns the type a pointer type points to, seeing through
-// aliases, and t itself otherwise. Literals (the elided &T{}) and
-// conversions ((*T)(x)) build the T behind one pointer; new(*T) does not.
+// aliases, and t itself otherwise. A conversion such as (*T)(x) builds the
+// T behind one pointer; new(*T) does not. A defined pointer type P is kept
+// as-is: P(x) needs an x whose underlying type is already *T, so it only
+// retypes an existing pointer. Literals see through defined pointer types
+// too (checkLiteral).
 func pointee(t types.Type) types.Type {
 	if ptr, ok := types.Unalias(t).(*types.Pointer); ok {
 		return ptr.Elem()
