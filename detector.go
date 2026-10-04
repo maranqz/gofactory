@@ -16,16 +16,16 @@ type detector struct {
 	zeroValues bool
 }
 
-func (d *detector) visit(n ast.Node) {
-	switch n := n.(type) {
+func (d *detector) visit(node ast.Node) {
+	switch node := node.(type) {
 	case *ast.CompositeLit:
-		d.checkLiteral(n)
+		d.checkLiteral(node)
 	case *ast.CallExpr:
-		d.checkCall(n)
+		d.checkCall(node)
 	case *ast.FuncDecl:
-		d.checkFuncZeroValues(n.Type, n.Body)
+		d.checkFuncZeroValues(node.Type, node.Body)
 	case *ast.FuncLit:
-		d.checkFuncZeroValues(n.Type, n.Body)
+		d.checkFuncZeroValues(node.Type, node.Body)
 	}
 }
 
