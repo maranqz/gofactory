@@ -14,10 +14,10 @@ module (GOPATH, Bazel `nogo`) keeps the pre-#43 behaviour — every other packag
 the upgrade doesn't silently turn the linter off for those setups.
 
 This is a breaking change, shipped as v1.1.0 rather than v2 (a separate decision, #43's
-"breaking behaviour shipped as v1.1.0, not v2" candidate): existing users relying on stdlib
-types being reported, or on `-onlyWithFactory` semantics implied by "only what has a factory
-counts", will see their diagnostics change on upgrade. `-onlyWithFactory` remains available for
-teams that want to adopt gradually.
+"breaking behaviour shipped as v1.1.0, not v2" candidate): existing users relying on types
+outside the current module (stdlib, a dependency, a `go.work` sibling module) being reported
+will see their diagnostics change on upgrade. `-onlyWithFactory`, planned in #43, will let teams
+adopt the stronger detector gradually once it ships.
 
 ## Considered options
 
