@@ -1,7 +1,8 @@
-// Package zeroValues: this file exercises the three closure special cases
-// the detector handles, which no other testdata file reaches: a closure's
-// own locals, a closure's own naked return, and an outer local or result
-// captured and used inside a closure.
+// This file exercises the three closure special cases the detector
+// handles, which no other testdata file reaches: a closure's own locals,
+// a closure's own naked return, and an outer local captured and used
+// inside a closure.
+
 package zeroValues
 
 import "factory/zeroValues/nested"
@@ -46,8 +47,8 @@ func OuterVarUsedInsideClosureIsReported() {
 // OuterResultSilentDespiteInnerNakedReturnIsSilent shows that
 // firstNakedReturn does not descend into a nested function literal: the
 // closure's naked return is an interaction with its own result, inner, not
-// with the enclosing function's hack, which is assigned before either
-// return runs.
+// with the enclosing function's hack. The inner return runs inside fn(),
+// before fn()'s result is ever assigned to hack.
 func OuterResultSilentDespiteInnerNakedReturnIsSilent() (hack nested.Struct) {
 	fn := func() (inner nested.Struct) {
 		return // want `Use factory for nested.Struct: zero value`

@@ -29,8 +29,7 @@ func (s *Struct) SetField(field int) {
 }
 
 // Paid is a value-object wither: it reads s and returns a new Struct built
-// from it, the way `func (o Order) Paid() Order` does in the parent spec's
-// story 41.
+// from it.
 func (s Struct) Paid() Struct {
 	return s
 }

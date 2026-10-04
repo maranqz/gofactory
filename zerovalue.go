@@ -142,11 +142,12 @@ func zeroValueSpecNames(genDecl *ast.GenDecl) []*ast.Ident {
 // a tracked variable's identifier is left unmarked, so it is reported if
 // it is the first interaction.
 //
-// A whole-value assignment is `x = …`, `x, err = …`, a `:=` that
-// redeclares x rather than shadowing it (go/types records that x in Uses
-// as the same object as the earlier declaration, so collectZeroVars never
-// tracks the ident on its own), or a range clause's key or value with
-// `=` rather than `:=`.
+// A whole-value assignment is `x = …`, `x, err = …`, any `:=` target
+// (whether it redeclares x or shadows it with a new variable — a shadowing
+// `:=` is harmless because firstIdentUses reads only TypesInfo.Uses, and
+// the new variable it declares lands in Defs instead, so it is never
+// looked up as a use of the outer object), or a range clause's key or
+// value with `=` rather than `:=`.
 func collectSafeIdents(body *ast.BlockStmt) map[*ast.Ident]bool {
 	safe := map[*ast.Ident]bool{}
 
@@ -167,8 +168,9 @@ func collectSafeIdents(body *ast.BlockStmt) map[*ast.Ident]bool {
 }
 
 // markSafeAssignTargets marks node's left-hand targets safe when node is a
-// whole-value assignment: plain `=`, or a `:=` that redeclares its targets
-// rather than shadowing them.
+// whole-value assignment: plain `=`, or `:=` — every `:=` target is marked,
+// including one that shadows rather than redeclares; see collectSafeIdents
+// for why that is harmless.
 func markSafeAssignTargets(safe map[*ast.Ident]bool, node *ast.AssignStmt) {
 	if node.Tok != token.ASSIGN && node.Tok != token.DEFINE {
 		return
@@ -335,11 +337,13 @@ func firstNakedReturn(body *ast.BlockStmt) *ast.ReturnStmt {
 	return first
 }
 
-// firstInteraction picks a variable's first mention, textually, between its
-// earliest identifier use (ident, nil if none) and, for a named result, the
-// function's earliest naked return, and reports whether that mention is
-// safe (an OK interaction). A nil node means the variable is never
-// mentioned, so there is nothing to decide: its zero value never leaks.
+// firstInteraction picks a variable's first mention between its earliest
+// identifier use (ident, nil if none) and, for a named result, the
+// function's earliest naked return — compared by position below, since
+// ident is already firstIdentUses' evaluation-order pick — and reports
+// whether that mention is safe (an OK interaction). A nil node means the
+// variable is never mentioned, so there is nothing to decide: its zero
+// value never leaks.
 func firstInteraction(
 	v zeroVar,
 	ident *ast.Ident,

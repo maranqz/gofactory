@@ -95,8 +95,9 @@ func OnlyFirstInteractionDecidesIsSilent() nested.Struct {
 	return x
 }
 
-// VarWithInitializerIsSilent: a `var` with an initializer is a literal or
-// call route, not a zero value, so zeroValueSpecNames never tracks x here.
+// VarWithInitializerIsSilent: a `var` with an initializer is a literal or a
+// factory call, not a zero value, so zeroValueSpecNames never tracks x
+// here.
 func VarWithInitializerIsSilent() int {
 	var x nested.Struct = nested.NewStruct(1)
 
