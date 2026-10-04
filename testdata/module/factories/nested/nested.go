@@ -10,6 +10,18 @@ func (s Struct) Paid() Struct {
 	return s
 }
 
+// NewCopy and NewClone are withers too, but named like a factory: a method
+// of Struct itself is never its factory even when the name matches ^New,
+// so deleting the "methods of target are never factories" rule would make
+// one of them appear in the suffix at factories.go:11.
+func (s Struct) NewCopy() Struct {
+	return s
+}
+
+func (s *Struct) NewClone() *Struct {
+	return s
+}
+
 // NewFromStruct takes a Struct parameter, so it is never a factory.
 func NewFromStruct(_ Struct) Struct {
 	return Struct{}
