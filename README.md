@@ -26,7 +26,10 @@ By default, all structures from another package should be created by factories, 
 ### Message format
 
 Every diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix is a public
-contract that does not change, so an exclusion regex written against it keeps working.
+contract that does not change. A golangci-lint `linters.exclusions.rules[].text` or
+`severity.rules[].text` regex that matches the prefix without anchoring the end of the message (for
+example `^Use factory for`) keeps matching; one anchored to the end of the old, suffix-less message
+(`^Use factory for pkg\.T$`) stops matching once a factory suffix is appended.
 
 When `T` has a factory the reported site can call, the message gets a suffix naming up to three of
 them, `New…` first, in a deterministic order: `Use factory for order.Order (order.NewOrder)`. A type
