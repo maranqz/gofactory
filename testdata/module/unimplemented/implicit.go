@@ -13,9 +13,10 @@ func ImplicitConversion() {
 	_, _ = s, m
 }
 
-// An elided element of a defined pointer type with an unnamed pointee is
-// the &struct{...}{} literal implicitly converted to nested.PU, so it is
-// the same false negative as the explicit []nested.PU{&struct{ Field int }{}}.
+// The elided {} means &struct{ Field int }{} converted to nested.PU.
+// go/types records nested.PU on it, but checkLiteral dereferences that to
+// the unnamed struct, so catching it is a checkLiteral change. The explicit
+// form keeps its own type and needs the expected type, as above.
 func ImplicitPointerConversion() {
 	_ = []nested.PU{{}}                     // want `Use factory for nested.PU`
 	_ = []nested.PU{&struct{ Field int }{}} // want `Use factory for nested.PU`
