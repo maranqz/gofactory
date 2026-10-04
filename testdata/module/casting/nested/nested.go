@@ -2,6 +2,8 @@ package nested
 
 type MyInt int
 
+const One MyInt = 1
+
 type Flag bool
 
 type Struct struct {
