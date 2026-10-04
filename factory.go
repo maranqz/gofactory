@@ -37,21 +37,29 @@ func NewAnalyzer() *analysis.Analyzer {
 }
 
 // newAnalyzer builds the analyzer around cfg; NewAnalyzer and newPlugin
-// share it so Name, Doc, URL, Requires and Run are set in one place.
-// newPlugin fills cfg before the call, NewAnalyzer binds its flags to cfg
-// afterwards.
+// share it so Name, Doc, URL, Requires, FactTypes and Run are set in one
+// place. newPlugin fills cfg before the call, NewAnalyzer binds its flags
+// to cfg afterwards.
+//
+// FactTypes declares ignoredFact, which makes drivers (go vet, golangci-lint)
+// analyse the current package's dependencies so a //gofactory:ignore
+// directive propagates from the package that declares a type to every
+// package and module that imports it, by default.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name:     name,
-		Doc:      doc,
-		URL:      url,
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
-		Run:      run(cfg),
+		Name:      name,
+		Doc:       doc,
+		URL:       url,
+		Requires:  []*analysis.Analyzer{inspect.Analyzer},
+		Run:       run(cfg),
+		FactTypes: []analysis.Fact{new(ignoredFact)},
 	}
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
+		checkDirectives(pass)
+
 		var strategy blockedStrategy = newAnotherPkg()
 
 		pkgGlobs := cfg.pkgGlobs.Value()

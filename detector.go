@@ -26,14 +26,29 @@ func (d *detector) visit(n ast.Node) {
 
 // reportProtected reports node when t resolves to a protected type that may
 // not be built from the current package, following the existing
-// package-scope policy (module scope is a separate ticket).
+// package-scope policy (module scope is a separate ticket). An ignored
+// type is never protected, on any bypass route, so it is checked before
+// the package-scope strategy.
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	named, ok := protectedNamed(t)
-	if !ok || !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
+	if !ok || d.isIgnored(named) {
+		return
+	}
+
+	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
 		return
 	}
 
 	d.report(node, named)
+}
+
+// isIgnored reports whether named was taken out of protection by a
+// //gofactory:ignore directive, local or propagated as a fact from the
+// package that declares it.
+func (d *detector) isIgnored(named *types.Named) bool {
+	var fact ignoredFact
+
+	return d.pass.ImportObjectFact(named.Obj(), &fact)
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named) {

@@ -23,6 +23,30 @@ By default, all structures from another package should be created by factories, 
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
+### Directives
+
+A `//gofactory:` comment, written directly above a declaration with no space after the slashes
+(like `//go:build` or `//nolint:`), marks that declaration for the linter. It takes effect in
+every package and module that imports the declaration, not just the one that writes it: gofactory
+exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
+so an importing package's analysis sees them even though it never parses the file that carries the
+comment.
+
+- `//gofactory:ignore`, written directly above a type declaration, takes that type out of
+  protection: nothing in any package needs a factory to obtain a value of it, on any bypass route,
+  [tests](testdata/module/directive).
+
+  ```go
+  //gofactory:ignore
+  type Point struct {
+      X, Y int
+  }
+  ```
+
+An unknown directive name, or a known one on the wrong kind of declaration (for example
+`//gofactory:ignore` on a function), is reported as a diagnostic at the comment, so a typo does not
+silently disable protection.
+
 ### golangci-lint module plugin
 
 gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),

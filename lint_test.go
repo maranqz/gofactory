@@ -98,6 +98,8 @@ func TestLinterSuite(t *testing.T) {
 				packageGlobsOnly: true,
 			},
 		},
+
+		"directive": {pkgs: []string{"directive/..."}},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
