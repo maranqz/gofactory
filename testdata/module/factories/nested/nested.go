@@ -53,9 +53,9 @@ func (Builder) NewWidget() Widget {
 	return Widget{}
 }
 
-// WithErr has a recognised factory that also returns an error; the error
-// result is ignored, both for "no target parameter" and for "returns
-// target", the same way a declared factory's results ignore error.
+// WithErr has a recognised factory that also returns an error: the rule is
+// "target or *target among its results", and an extra error result is just
+// another result that isn't target, so it doesn't disqualify the function.
 type WithErr struct{}
 
 func NewWithErr() (*WithErr, error) {

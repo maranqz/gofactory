@@ -33,8 +33,8 @@ them, `New…` first, in a deterministic order: `Use factory for order.Order (or
 with no accessible factory keeps the bare prefix.
 
 A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
-exported method of another type than `T`, that returns `T` or `*T` (an error result is ignored) among
-its results, takes no `T` or `*T` parameter, and is named `New…`. Methods of `T` itself are never
+exported method of another type than `T`, that returns `T` or `*T` among its results, takes no `T` or
+`*T` parameter, and is named `New…`. Methods of `T` itself are never
 factories, so withers and clones are not suggested. A factory function is named `pkg.NewT` in the
 suffix; a factory method of another type `U` is named `pkg.U.NewT`, [tests](testdata/module/factories).
 

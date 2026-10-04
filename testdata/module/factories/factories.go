@@ -17,7 +17,8 @@ func MethodFactory() {
 	_ = nested.Widget{} // want `Use factory for nested.Widget \(nested.Builder.NewWidget\)`
 }
 
-// FactoryWithError exercises a factory whose error result is ignored.
+// FactoryWithError exercises a factory with an extra error result, which
+// doesn't disqualify it: the rule only asks for target among the results.
 func FactoryWithError() {
 	_ = nested.WithErr{} // want `Use factory for nested.WithErr \(nested.NewWithErr\)`
 }

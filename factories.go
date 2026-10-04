@@ -44,9 +44,9 @@ func factorySuffix(site *types.Package, target *types.TypeName) string {
 // recognisedFactories returns every function the owner package of target
 // declares that counts as a recognised factory of target: an exported
 // function, or an exported method of another type than target, that
-// returns target or *target among its non-error results, takes no target
-// or *target parameter, and is named like a factory. Methods of target
-// itself are never factories, so withers and clones are excluded.
+// returns target or *target among its results, takes no target or *target
+// parameter, and is named like a factory. Methods of target itself are
+// never factories, so withers and clones are excluded.
 func recognisedFactories(target *types.TypeName) []*types.Func {
 	pkg := target.Pkg()
 	if pkg == nil {
@@ -96,8 +96,8 @@ func methodFactories(target, candidate *types.TypeName) []*types.Func {
 }
 
 // isFactory reports whether fn is a recognised factory of target: exported,
-// named like a factory, returning target or *target among its non-error
-// results, and taking no target or *target parameter.
+// named like a factory, returning target or *target among its results, and
+// taking no target or *target parameter.
 func isFactory(target *types.TypeName, fn *types.Func) bool {
 	if !fn.Exported() || !defaultFactoryPattern.MatchString(fn.Name()) {
 		return false
@@ -115,25 +115,12 @@ func isFactory(target *types.TypeName, fn *types.Func) bool {
 	}
 
 	for result := range sig.Results().Variables() {
-		t := result.Type()
-		if isErrorType(t) {
-			continue
-		}
-
-		if isTargetType(t, target) {
+		if isTargetType(result.Type(), target) {
 			return true
 		}
 	}
 
 	return false
-}
-
-// isErrorType reports whether t is go/types' universal error interface, so
-// an error result can be ignored when checking what a candidate factory
-// returns, the same way a declared factory's results ignore error (spec:
-// "Declared factory").
-func isErrorType(t types.Type) bool {
-	return types.Identical(t, types.Universe.Lookup("error").Type())
 }
 
 // isTargetType reports whether t is target or a pointer to it, seeing
