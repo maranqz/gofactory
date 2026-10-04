@@ -22,6 +22,13 @@ func FactoryWithError() {
 	_ = nested.WithErr{} // want `Use factory for nested.WithErr \(nested.NewWithErr\)`
 }
 
+// InaccessibleFactory exercises a factory method of an unexported type:
+// outside nested, nothing can write nested.hidden, so the factory is never
+// suggested here even though it is a recognised factory of Secret.
+func InaccessibleFactory() {
+	_ = nested.Secret{} // want `Use factory for nested.Secret$`
+}
+
 // CappedFactories exercises the three-factory cap and the deterministic,
 // alphabetical tie-break among four equally-ranked candidates: NewD is
 // dropped.

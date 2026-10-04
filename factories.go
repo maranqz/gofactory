@@ -148,20 +148,52 @@ func isTargetType(t types.Type, target *types.TypeName) bool {
 	return named.Obj() == target
 }
 
-// accessibleFactories filters factories to the ones a diagnostic at site
-// may suggest: exported ones, plus any declared in site itself.
+// accessibleFactories filters factories to the ones a diagnostic at site may
+// suggest: any factory declared in site itself, plus exported factories
+// whose receiver, if any, is also exported. An exported method of an
+// unexported receiver type cannot be named from outside its package
+// (pkg.builder.NewX), so it is only accessible inside its own package.
 func accessibleFactories(
 	site *types.Package, factories []*types.Func,
 ) []*types.Func {
 	accessible := make([]*types.Func, 0, len(factories))
 
 	for _, fn := range factories {
-		if fn.Exported() || fn.Pkg() == site {
+		if fn.Pkg() == site || fn.Exported() && receiverExported(fn) {
 			accessible = append(accessible, fn)
 		}
 	}
 
 	return accessible
+}
+
+// receiverExported reports whether fn's receiver type, if any, is exported.
+// A plain function has no receiver and is always reported as true.
+func receiverExported(fn *types.Func) bool {
+	named := receiverNamed(fn)
+	if named == nil {
+		return true
+	}
+
+	return named.Obj().Exported()
+}
+
+// receiverNamed returns the named type behind fn's receiver, seeing through
+// aliases and defined pointer types the same way isTargetType does for
+// parameters and results, or nil for a plain function or a receiver whose
+// type isn't a defined type.
+func receiverNamed(fn *types.Func) *types.Named {
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok || sig.Recv() == nil {
+		return nil
+	}
+
+	named, ok := types.Unalias(pointee(sig.Recv().Type())).(*types.Named)
+	if !ok {
+		return nil
+	}
+
+	return named
 }
 
 // sortFactories orders factories the way messages list them: ones matching
@@ -192,13 +224,8 @@ func sortFactories(factories []*types.Func) {
 func factoryQualifiedName(factory *types.Func) string {
 	pkgName := factory.Pkg().Name()
 
-	sig, ok := factory.Type().(*types.Signature)
-	if !ok || sig.Recv() == nil {
-		return pkgName + "." + factory.Name()
-	}
-
-	recv, ok := types.Unalias(pointee(sig.Recv().Type())).(*types.Named)
-	if !ok {
+	recv := receiverNamed(factory)
+	if recv == nil {
 		return pkgName + "." + factory.Name()
 	}
 

@@ -50,6 +50,19 @@ func NewWithErr() (*WithErr, error) {
 	return &WithErr{}, nil
 }
 
+// Secret has one recognised factory, but it is a method of hidden, an
+// unexported type: outside this package nobody can write nested.hidden, so
+// the factory is never accessible from another package's diagnostic.
+type Secret struct{}
+
+type hidden struct{}
+
+// NewSecret is a recognised factory of Secret, accessible only from within
+// this package.
+func (hidden) NewSecret() Secret {
+	return Secret{}
+}
+
 // Multi has four recognised factories, to exercise the three-factory cap
 // and the deterministic (alphabetical) tie-break among equally-ranked
 // names.
