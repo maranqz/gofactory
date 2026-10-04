@@ -18,7 +18,7 @@ func NewBuiltin() {
 	// new(*T) allocates a nil *T and builds no T.
 	_ = new(*nested.Struct)
 
-	// make is not new: it builds an empty map, not a bypass.
+	// make is a bypass too, but it is deferred until fill analysis exists.
 	_ = make(nested.Mp)
 }
 
