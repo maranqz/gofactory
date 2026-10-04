@@ -1,41 +1,98 @@
 package gofactory_test
 
 import (
+	"net/url"
 	"path/filepath"
 	"testing"
 
+	"github.com/golangci/plugin-module-register/register"
 	"github.com/maranqz/gofactory"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
+// pluginName is the name gofactory registers itself under with
+// register.Plugin, which golangci-lint would use as the plugin key in its
+// own configuration.
+const pluginName = "gofactory"
+
+// TestAnalyzerURL checks that both entry points produce an Analyzer.URL
+// that parses as an absolute URL: golangci-lint fails to load an analyzer
+// whose derived diagnostic URL does not parse.
+func TestAnalyzerURL(t *testing.T) {
+	t.Parallel()
+
+	assertAbsoluteURL(t, "NewAnalyzer", gofactory.NewAnalyzer().URL)
+	assertAbsoluteURL(t, "plugin", pluginAnalyzer(t, caseSettings{}).URL)
+}
+
+func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
+	t.Helper()
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		t.Fatalf("%s: Analyzer.URL %q does not parse: %v", entryPoint, raw, err)
+	}
+
+	if !parsed.IsAbs() {
+		t.Fatalf("%s: Analyzer.URL %q is not an absolute URL", entryPoint, raw)
+	}
+}
+
+// TestPluginRejectsBadSettings checks that the plugin fails on settings it
+// cannot apply instead of silently ignoring them: a key spelled like the
+// flag rather than in kebab-case, and a glob that does not compile.
+func TestPluginRejectsBadSettings(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]map[string]any{
+		"flag spelling": {"packageGlobs": []string{"factory/**"}},
+		"invalid glob":  {"package-globs": []string{"["}},
+	}
+	for name, rawSettings := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			newPlugin, err := register.GetPlugin(pluginName)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newPlugin(rawSettings)
+			if err == nil {
+				t.Fatalf("settings %v: got no error, want one", rawSettings)
+			}
+		})
+	}
+}
+
+// TestLinterSuite runs every case through both entry points that populate
+// the shared config: NewAnalyzer configured via Flags.Set, the way a
+// command-line user or go vet driver would, and the golangci-lint plugin
+// constructor configured via kebab-case settings.
 func TestLinterSuite(t *testing.T) {
 	t.Parallel()
 
 	root := moduleRoot()
 
 	tests := map[string]struct {
-		pkgs    []string
-		prepare func(t *testing.T, a *analysis.Analyzer) error
+		pkgs     []string
+		settings caseSettings
 	}{
 		"simple":  {pkgs: []string{"simple/..."}},
 		"casting": {pkgs: []string{"casting/..."}},
 		"generic": {pkgs: []string{"generic/..."}},
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
-			prepare: func(_ *testing.T, a *analysis.Analyzer) error {
-				return a.Flags.Set("packageGlobs", "factory/packageGlobs/blocked/**")
+			settings: caseSettings{
+				packageGlobs: []string{"factory/packageGlobs/blocked/**"},
 			},
 		},
 		"packageGlobsOnly": {
 			pkgs: []string{"packageGlobsOnly/main/..."},
-			prepare: func(_ *testing.T, a *analysis.Analyzer) error {
-				err := a.Flags.Set("packageGlobs", "factory/packageGlobsOnly/blocked/**")
-				if err != nil {
-					return err
-				}
-
-				return a.Flags.Set("packageGlobsOnly", "true")
+			settings: caseSettings{
+				packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
+				packageGlobsOnly: true,
 			},
 		},
 	}
@@ -49,26 +106,107 @@ func TestLinterSuite(t *testing.T) {
 				dirs = append(dirs, filepath.Join(root, pkg))
 			}
 
-			analyzer := gofactory.NewAnalyzer()
-
-			if tt.prepare != nil {
-				err := tt.prepare(t, analyzer)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			analysistest.Run(t, root, analyzer, dirs...)
+			forEachEntryPoint(t, tt.settings,
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					analysistest.Run(t, root, analyzer, dirs...)
+				})
 		})
 	}
+}
+
+// forEachEntryPoint runs check as a "flags" and a "plugin" parallel subtest,
+// each with an analyzer built from settings through that entry point.
+func forEachEntryPoint(
+	t *testing.T,
+	settings caseSettings,
+	check func(t *testing.T, analyzer *analysis.Analyzer),
+) {
+	t.Helper()
+
+	entryPoints := map[string]func(*testing.T, caseSettings) *analysis.Analyzer{
+		"flags":  flagsAnalyzer,
+		"plugin": pluginAnalyzer,
+	}
+	for name, build := range entryPoints {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			check(t, build(t, settings))
+		})
+	}
+}
+
+// caseSettings is one case's configuration, applied through either entry
+// point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+type caseSettings struct {
+	packageGlobs     []string
+	packageGlobsOnly bool
+}
+
+// flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
+// Flags.Set the way a command-line user or go vet driver would, mirroring
+// pluginAnalyzer's golangci-lint entry point.
+func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
+	t.Helper()
+
+	analyzer := gofactory.NewAnalyzer()
+
+	for _, g := range s.packageGlobs {
+		err := analyzer.Flags.Set("packageGlobs", g)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if s.packageGlobsOnly {
+		err := analyzer.Flags.Set("packageGlobsOnly", "true")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return analyzer
+}
+
+// pluginAnalyzer builds the analyzer through the golangci-lint plugin entry
+// point registered by gofactory's init, decoding the same settings a
+// golangci-lint YAML/JSON config would supply in kebab-case.
+func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
+	t.Helper()
+
+	newPlugin, err := register.GetPlugin(pluginName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rawSettings := map[string]any{
+		"package-globs":      s.packageGlobs,
+		"package-globs-only": s.packageGlobsOnly,
+	}
+
+	linterPlugin, err := newPlugin(rawSettings)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	analyzers, err := linterPlugin.BuildAnalyzers()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(analyzers) != 1 {
+		t.Fatalf("got %d analyzers, want 1", len(analyzers))
+	}
+
+	return analyzers[0]
 }
 
 // testdataGoVersion is the go directive of every module-mode testdata module.
 const testdataGoVersion = "1.26"
 
 // TestTestdataRoots pins down how analysistest loads the two testdata roots,
-// which later cases rely on. Module mode in analysistest is undocumented
-// (x/tools v0.50.0, analysistest.loadPackages):
+// which later cases rely on; it runs through both entry points. Module mode in
+// analysistest is undocumented (x/tools v0.50.0, analysistest.loadPackages):
 //
 //   - A root holding a go.mod is loaded with GO111MODULE=on, GOPROXY=off and,
 //     when the root also holds a go.work, GOWORK=<root>/go.work. Packages of
@@ -129,11 +267,11 @@ func TestTestdataRoots(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			results := analysistest.Run(
-				t, tt.root, gofactory.NewAnalyzer(), tt.pkgs...,
-			)
-
-			assertModules(t, results, tt.modules)
+			forEachEntryPoint(t, caseSettings{},
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					results := analysistest.Run(t, tt.root, analyzer, tt.pkgs...)
+					assertModules(t, results, tt.modules)
+				})
 		})
 	}
 }
