@@ -41,6 +41,7 @@ func (d *detector) report(pos ast.Node, named *types.Named) {
 
 	d.pass.Reportf(
 		pos.Pos(),
-		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
+		"Use factory for %s.%s%s", obj.Pkg().Name(), obj.Name(),
+		factorySuffix(d.pass.Pkg, obj),
 	)
 }

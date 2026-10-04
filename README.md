@@ -23,6 +23,21 @@ By default, all structures from another package should be created by factories, 
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
+### Message format
+
+Every diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix is a public
+contract that does not change, so an exclusion regex written against it keeps working.
+
+When `T` has a factory the reported site can call, the message gets a suffix naming up to three of
+them, `New…` first, in a deterministic order: `Use factory for order.Order (order.NewOrder)`. A type
+with no accessible factory keeps the bare prefix.
+
+A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
+exported method of another type than `T`, that returns `T` or `*T` (an error result is ignored) among
+its results, takes no `T` or `*T` parameter, and is named `New…`. Methods of `T` itself are never
+factories, so withers and clones are not suggested. A factory function is named `pkg.NewT` in the
+suffix; a factory method of another type `U` is named `pkg.U.NewT`, [tests](testdata/module/factories).
+
 ### golangci-lint module plugin
 
 gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),
