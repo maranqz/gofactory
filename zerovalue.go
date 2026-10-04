@@ -224,10 +224,11 @@ func markSafeAddressArgs(safe map[*ast.Ident]bool, node *ast.CallExpr) {
 // The declaring identifier itself is never recorded as a use.
 //
 // "Earliest" is evaluation order, not source position: an *ast.AssignStmt's
-// right-hand side runs before its left-hand targets are written, so it is
-// visited first here even though it comes later in the text. Once an
-// object's first use is recorded it is kept, so the visit order alone
-// decides it.
+// right-hand side runs before its left-hand targets are written, and an
+// *ast.RangeStmt's range expression runs once before any key or value is
+// assigned, so each is visited first here even though it comes later in
+// the text. Once an object's first use is recorded it is kept, so the
+// visit order alone decides it.
 func firstIdentUses(
 	uses map[*ast.Ident]types.Object,
 	body *ast.BlockStmt,
@@ -238,35 +239,18 @@ func firstIdentUses(
 	var visit func(node ast.Node) bool
 
 	visit = func(node ast.Node) bool {
-		if assign, ok := node.(*ast.AssignStmt); ok {
-			for _, e := range assign.Rhs {
-				ast.Inspect(e, visit)
-			}
+		switch node := node.(type) {
+		case *ast.AssignStmt:
+			inspectInOrder(visit, assignEvalOrder(node))
 
-			for _, e := range assign.Lhs {
-				ast.Inspect(e, visit)
-			}
+			return false
+		case *ast.RangeStmt:
+			inspectInOrder(visit, []ast.Node{node.X, node.Key, node.Value, node.Body})
 
 			return false
 		}
 
-		ident, ok := node.(*ast.Ident)
-		if !ok {
-			return true
-		}
-
-		obj := uses[ident]
-		if obj == nil {
-			return true
-		}
-
-		if _, ok := tracked[obj]; !ok {
-			return true
-		}
-
-		if _, ok := first[obj]; !ok {
-			first[obj] = ident
-		}
+		recordIdentUse(first, uses, tracked, node)
 
 		return true
 	}
@@ -274,6 +258,61 @@ func firstIdentUses(
 	ast.Inspect(body, visit)
 
 	return first
+}
+
+// assignEvalOrder returns assign's operands in the order they run: every
+// right-hand side expression (the values), then every left-hand target
+// (the assignment itself).
+func assignEvalOrder(assign *ast.AssignStmt) []ast.Node {
+	nodes := make([]ast.Node, 0, len(assign.Rhs)+len(assign.Lhs))
+
+	for _, e := range assign.Rhs {
+		nodes = append(nodes, e)
+	}
+
+	for _, e := range assign.Lhs {
+		nodes = append(nodes, e)
+	}
+
+	return nodes
+}
+
+// inspectInOrder runs visit over each of nodes in turn, skipping a nil
+// entry (an *ast.RangeStmt's Key or Value is nil when the clause omits it).
+func inspectInOrder(visit func(ast.Node) bool, nodes []ast.Node) {
+	for _, n := range nodes {
+		if n != nil {
+			ast.Inspect(n, visit)
+		}
+	}
+}
+
+// recordIdentUse records node as the first use of its object when node is
+// an *ast.Ident that uses records as one of tracked, and no earlier use was
+// already recorded for that object.
+func recordIdentUse(
+	first map[types.Object]*ast.Ident,
+	uses map[*ast.Ident]types.Object,
+	tracked map[types.Object]zeroVar,
+	node ast.Node,
+) {
+	ident, ok := node.(*ast.Ident)
+	if !ok {
+		return
+	}
+
+	obj := uses[ident]
+	if obj == nil {
+		return
+	}
+
+	if _, ok := tracked[obj]; !ok {
+		return
+	}
+
+	if _, ok := first[obj]; !ok {
+		first[obj] = ident
+	}
 }
 
 // firstNakedReturn returns the earliest bare `return` statement directly in

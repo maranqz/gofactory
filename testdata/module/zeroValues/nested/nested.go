@@ -23,6 +23,12 @@ func (s Struct) Validate() (Struct, error) {
 	return s, nil
 }
 
+// Items reads s and returns a slice built from it, the way a value object's
+// own collection accessor would.
+func (s Struct) Items() []Struct {
+	return []Struct{s}
+}
+
 func NewStruct(field int) Struct {
 	return Struct{Field: field}
 }

@@ -150,6 +150,38 @@ func RangeChannelAssignIsSilent(ch chan nested.Struct) nested.Struct {
 	return x
 }
 
+// RangeAssignOnSelfMethodCallIsReported: the range expression's method call
+// runs on the zero-valued x before the loop's `=` ever assigns into it, so
+// the first interaction is that call, not the assignment.
+func RangeAssignOnSelfMethodCallIsReported() nested.Struct {
+	var x nested.Struct
+
+	for _, x = range x.Items() { // want `Use factory for nested.Struct: zero value`
+	}
+
+	return x
+}
+
+// RangeAssignOnSelfReadIsReported: same reasoning, through a read of x
+// inside the range expression instead of a method call.
+func RangeAssignOnSelfReadIsReported() nested.Struct {
+	var x nested.Struct
+
+	for _, x = range []nested.Struct{x} { // want `Use factory for nested.Struct: zero value`
+	}
+
+	return x
+}
+
+// RangeAssignOnSelfNamedResultIsReported: the same evaluation-order rule
+// applies to a named result ranging over its own zero value.
+func RangeAssignOnSelfNamedResultIsReported() (best nested.Struct) {
+	for _, best = range best.Items() { // want `Use factory for nested.Struct: zero value`
+	}
+
+	return
+}
+
 // ShadowedDefineDoesNotCountIsReported: the inner `x, err := …` is in a
 // nested block, so it declares its own x rather than reusing the outer one;
 // the outer x is only mentioned, unassigned, at the final return.
