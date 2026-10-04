@@ -49,9 +49,9 @@ type myErr struct{}
 
 func (*myErr) Error() string { return "" }
 
-// A universe type (nil package) does not panic. Every universe named type
-// (error, comparable) is an interface, so the interface rule silences it
-// before protectedNamed's nil-package guard matters; that guard is defensive.
+// A universe type (nil package) does not panic: protectedNamed's nil-package
+// guard silences error. Every universe named type is also an interface, so
+// the interface rule would silence it too; neither can be pinned alone.
 func SkipUniverseType() error {
 	return error(&myErr{})
 }
