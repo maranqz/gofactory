@@ -6,6 +6,10 @@ import (
 
 func ToNestedMyInt() {
 	_ = nested.MyInt(1) // want `Use factory for nested.MyInt`
+
+	// A typed constant of the target's own type is still a constant, so it
+	// is not a no-op conversion.
+	_ = nested.MyInt(nested.One) // want `Use factory for nested.MyInt`
 }
 
 type Struct struct {

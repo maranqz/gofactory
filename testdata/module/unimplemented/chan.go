@@ -11,6 +11,6 @@ func NestedChan() {
 
 	// False-Negative result
 	// You can create struct and linter doesn't catch it.
-	v, ok := <-bufCh
+	v, ok := <-bufCh   // want `Use factory for nested.Struct`
 	fmt.Println(v, ok) // nested.Struct{}, false
 }

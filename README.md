@@ -167,10 +167,19 @@ func nextID() int64 {
 
 Linter doesn't catch some cases.
 
+None of `testdata/module/unimplemented/` is wired into `analysistest` (it's
+excluded from `lint_test.go`'s test packages), so the `// want` comments in
+files under `testdata/module/unimplemented/` document the diagnostic we want
+once/if a case is handled — they are not asserted against the linter's
+actual output. Every case added there must carry such a `// want` comment.
+
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
 3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/module/unimplemented/named_return.go).
-4. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
+4. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
+5. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
+6. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
+7. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
  To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
 
 ## TODO
@@ -187,4 +196,4 @@ Linter doesn't catch some cases.
 
 ### Features that are difficult to implement and unplanned
 
-1. Type assertion, type declaration and type underlying, [tests](testdata/module/simple/type_nested.go.skip).
+1. Reusing a protected type's underlying layout, including its unexported fields, to silently skip an invariant the factory establishes on them, [example](testdata/module/unimplemented/underlying.go). A local `type D ext.T` belongs to the current package, so it only hides an invariant when `ext.T` has unexported fields. Protection is keyed by type identity, not structural layout, so this needs a different detection model than anything currently planned.
