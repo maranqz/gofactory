@@ -78,10 +78,14 @@ func (d *detector) collectZeroVars(
 ) map[types.Object]zeroVar {
 	tracked := map[types.Object]zeroVar{}
 
+	// A named result called `_` (func F() (_ T, err error)) still has an
+	// object in TypesInfo.Defs, found through ObjectOf, and can only be
+	// reached through a naked return, which firstInteraction already
+	// treats as the one interaction with every named result.
 	if fnType.Results != nil {
 		for _, field := range fnType.Results.List {
 			for _, name := range field.Names {
-				if obj := d.objectOf(name); obj != nil {
+				if obj := d.pass.TypesInfo.ObjectOf(name); obj != nil {
 					tracked[obj] = zeroVar{typ: obj.Type(), isResult: true}
 				}
 			}
@@ -99,7 +103,7 @@ func (d *detector) collectZeroVars(
 		}
 
 		for _, name := range zeroValueSpecNames(genDecl) {
-			if obj := d.objectOf(name); obj != nil {
+			if obj := d.pass.TypesInfo.ObjectOf(name); obj != nil {
 				tracked[obj] = zeroVar{typ: obj.Type()}
 			}
 		}
@@ -108,15 +112,6 @@ func (d *detector) collectZeroVars(
 	})
 
 	return tracked
-}
-
-// objectOf resolves name's object, blank named results included: a named
-// result called `_` (func F() (_ T, err error)) still has an object in
-// TypesInfo.Defs, and can only be reached through a naked return, which
-// firstInteraction already treats as the one interaction with every named
-// result. A blank local var is filtered earlier, by zeroValueSpecNames.
-func (d *detector) objectOf(name *ast.Ident) types.Object {
-	return d.pass.TypesInfo.ObjectOf(name)
 }
 
 // zeroValueSpecNames returns the declared names of every `var x T` (or
