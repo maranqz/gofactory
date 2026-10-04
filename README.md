@@ -22,6 +22,15 @@ The checking helps to provide invariants without exclusion and helps avoid creat
 By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
+- `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
+conversion or `new`, [tests](testdata/module/zeroValues).
+  - A package-level `var x T` is always reported.
+  - A local `var x T` and a named result are decided by their first interaction anywhere in the function: a
+    whole-value assignment (`x = …`, `x, err = …`) or `&x` passed to a call is silent; a read, a field access, a
+    method call or `return x` is reported. A naked `return` counts as an interaction with every named result.
+  - Pointers, slices, maps and chans are not followed, and `make` and arrays are not reported yet, pending fill
+    analysis: `var a [N]T`, `make([]T, n)` and `make(map[K]T)` stay silent.
+  - Goes through the same owner-package and fences policy as every other route.
 
 ### golangci-lint module plugin
 
@@ -59,10 +68,12 @@ linters:
           package-globs:
             - "mypkg/internal/**"
           package-globs-only: false
+          zero-values: false
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
+- `zero-values` – equivalent to `--zeroValues`.
 
 ## Example
 
@@ -175,12 +186,12 @@ actual output. Every case added there must carry such a `// want` comment.
 
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
-3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/module/unimplemented/named_return.go).
-4. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
-5. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
-6. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
-7. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
- To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
+3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
+4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
+5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
+6. Filling a protected type's fields one at a time after a `var` or `make` leaves them at their zero value, instead of
+   through a factory. `--zeroValues` catches the `var`/named-result case up to the point the value escapes
+   unassigned, but not a field-by-field fill; use [gopublicfield](github.com/maranqz/gopublicfield) to prevent that.
 
 ## TODO
 
@@ -192,7 +203,6 @@ actual output. Every case added there must carry such a `// want` comment.
        Other: OtherStruct{}, // want `Use factory for nested.Struct`
    }
    ```
-2. Resolve false negative issue with `var declaration`.
 
 ### Features that are difficult to implement and unplanned
 
