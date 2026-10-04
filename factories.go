@@ -180,9 +180,9 @@ func receiverExported(fn *types.Func) bool {
 }
 
 // receiverNamed returns the named type behind fn's receiver, seeing through
-// aliases and defined pointer types the same way isTargetType does for
-// parameters and results, or nil for a plain function or a receiver whose
-// type isn't a defined type.
+// aliases and a *T receiver (Go rejects a defined pointer type as a
+// receiver, so pointee's plain *T unwrap is enough), or nil for a plain
+// function or a receiver whose type isn't a defined type.
 func receiverNamed(fn *types.Func) *types.Named {
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok || sig.Recv() == nil {
