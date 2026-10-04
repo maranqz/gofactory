@@ -1,6 +1,7 @@
 package casting
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"unsafe"
@@ -21,14 +22,15 @@ func SkipNoOpConversion() {
 	_ = nested.Struct(s)
 }
 
-// A conversion to an interface creates nothing.
-func SkipInterfaceTarget(r io.Reader) {
-	_ = io.Reader(r)
+// A conversion to an interface creates nothing, nor does new of one.
+func SkipInterfaceTarget(buf *bytes.Buffer) {
+	_ = io.Reader(buf)
+	_ = new(io.Reader)
 }
 
 // A conversion to unsafe.Pointer creates nothing.
-func SkipUnsafePointerTarget(x unsafe.Pointer) {
-	_ = unsafe.Pointer(x)
+func SkipUnsafePointerTarget(s *nested.Struct) {
+	_ = unsafe.Pointer(s)
 }
 
 // A conversion to a func type creates nothing: func types are not protected.
@@ -36,7 +38,13 @@ func SkipFuncTypeTarget(f func(http.ResponseWriter, *http.Request)) {
 	_ = http.HandlerFunc(f)
 }
 
-// A universe type (nil package) is guarded rather than panicking.
-func SkipUniverseType(err error) error {
-	return error(err)
+type myErr struct{}
+
+func (*myErr) Error() string { return "" }
+
+// A universe type (nil package) does not panic. Every universe named type
+// (error, comparable) is an interface, so the interface rule silences it
+// before protectedNamed's nil-package guard matters; that guard is defensive.
+func SkipUniverseType() error {
+	return error(&myErr{})
 }
