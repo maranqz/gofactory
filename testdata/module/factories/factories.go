@@ -23,6 +23,13 @@ func FactoryWithError() {
 	_ = nested.WithErr{} // want `Use factory for nested.WithErr \(nested.NewWithErr\)`
 }
 
+// SortedFactories exercises the alphabetical tie-break among methods
+// declared out of source order: NewSortedA must come first even though
+// NewSortedB is declared first.
+func SortedFactories() {
+	_ = nested.Sorted{} // want `Use factory for nested.Sorted \(nested.Maker.NewSortedA, nested.Maker.NewSortedB\)$`
+}
+
 // InaccessibleFactory exercises a factory method of an unexported type:
 // outside nested, nothing can write nested.hidden, so the factory is never
 // suggested here even though it is a recognised factory of Secret.

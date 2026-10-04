@@ -72,6 +72,22 @@ func NewWithErr() (*WithErr, error) {
 	return &WithErr{}, nil
 }
 
+// Sorted has two recognised factory methods declared out of source order,
+// to pin the alphabetical tie-break: package-level names are already
+// listed alphabetically by the type checker, so only methods, which come
+// out in source order, can tell the sort apart from no sort at all.
+type Sorted struct{}
+
+type Maker struct{}
+
+func (Maker) NewSortedB() Sorted {
+	return Sorted{}
+}
+
+func (Maker) NewSortedA() Sorted {
+	return Sorted{}
+}
+
 // Secret has one recognised factory, but it is a method of hidden, an
 // unexported type: outside this package nobody can write nested.hidden, so
 // the factory is never accessible from another package's diagnostic.
