@@ -32,8 +32,8 @@ conversion or `new`, [tests](testdata/module/zeroValues).
     range expression count before the assignment itself (so `x = x.Paid()` and `for _, x = range x.Items()` are
     reported), and a `for` loop's body counts before its post statement. A function literal counts where it is
     written, even under `defer`.
-  - Pointers, slices, maps and chans are not followed, and `make` and arrays are not reported yet, pending fill
-    analysis: `var a [N]T`, `make([]T, n)` and `make(map[K]T)` stay silent. A defined type such as
+  - Pointers, slices, maps and chans are not followed, and `make([]T, n)` and arrays are not reported yet, pending
+    fill analysis: `var a [N]T` and `make([]T, n)` stay silent. A defined type such as
     `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
   - Goes through the same owner-package and fences policy as every other route.
 
@@ -217,7 +217,7 @@ actual output. Every case added there must carry such a `// want` comment.
 4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
 5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
-   elements filled after `make` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
+   elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
 
 ## TODO

@@ -2,9 +2,9 @@ package unimplemented
 
 import "factory/unimplemented/nested"
 
-// -zeroValues defers make and arrays until fill analysis exists; whether it
-// will report arrays at all is still open. Each want marks the zero element
-// that would be the first interaction under -zeroValues.
+// -zeroValues defers make([]T, n) and arrays until fill analysis exists;
+// whether it will report arrays at all is still open. Each want marks the zero
+// element that would be the first interaction under -zeroValues.
 
 func MakeSlice() nested.Struct {
 	s := make([]nested.Struct, 1)
