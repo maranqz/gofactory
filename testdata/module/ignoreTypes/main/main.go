@@ -12,6 +12,13 @@ import (
 
 func main() {
 	_ = exact.Struct{}
+	_ = &exact.Struct{}
+	_ = new(exact.Struct)
+	_ = exact.Struct(struct{}{})
+	_ = []exact.Struct{{}}
+
 	_ = sub.Struct{}
+	_ = new(sub.Struct)
+
 	_ = deep.Struct{} // want `Use factory for deep.Struct`
 }
