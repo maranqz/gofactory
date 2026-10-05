@@ -24,7 +24,7 @@ func FactoryWithError() {
 }
 
 // SortedFactories exercises the alphabetical tie-break among methods
-// declared out of source order: NewSortedA must come first even though
+// declared out of alphabetical order: NewSortedA must come first even though
 // NewSortedB is declared first.
 func SortedFactories() {
 	_ = nested.Sorted{} // want `Use factory for nested.Sorted \(nested.Maker.NewSortedA, nested.Maker.NewSortedB\)$`
@@ -37,16 +37,14 @@ func InaccessibleFactory() {
 	_ = nested.Secret{} // want `Use factory for nested.Secret$`
 }
 
-// CappedFactories exercises the three-factory cap and the deterministic,
-// alphabetical tie-break among four equally-ranked candidates: NewD is
-// dropped.
+// CappedFactories exercises the three-factory cap: NewD is dropped.
 func CappedFactories() {
 	_ = nested.Multi{} // want `Use factory for nested.Multi \(nested.NewA, nested.NewB, nested.NewC\)`
 }
 
 // NamedPointerFactory exercises a protected type that is itself a defined
-// pointer type: BoxPtr's own factory, NewBoxPtr, must still be suggested
-// for BoxPtr, not just for the Box it points to.
+// pointer type: BoxPtr's own factory, NewBoxPtr, must be suggested for
+// BoxPtr, not just for the Box it points to.
 func NamedPointerFactory() {
 	_ = new(nested.BoxPtr) // want `Use factory for nested.BoxPtr \(nested.NewBoxPtr\)$`
 	_ = nested.Box{}       // want `Use factory for nested.Box \(nested.NewBoxPtr\)$`

@@ -7,20 +7,10 @@ import (
 	"strings"
 )
 
-// defaultFactoryPattern is the built-in factory-name pattern. A later
-// ticket makes it configurable through -factoryPatterns and lets it be
-// dropped through -useDefaultFactoryPattern.
 var defaultFactoryPattern = regexp.MustCompile(`^New`)
 
-// maxSuggestedFactories caps how many factories a diagnostic suggests, so
-// the message stays short.
 const maxSuggestedFactories = 3
 
-// factorySuffix renders the factories of target that are accessible from
-// site as a diagnostic message suffix: empty when none are accessible,
-// otherwise " (pkg.NewX, pkg.Type.NewY)" for up to maxSuggestedFactories of
-// them. Factories matching the default name pattern sort first, then
-// alphabetically by qualified name, for a deterministic order.
 func factorySuffix(site *types.Package, target *types.TypeName) string {
 	factories := accessibleFactories(site, recognisedFactories(target))
 	if len(factories) == 0 {
@@ -41,12 +31,6 @@ func factorySuffix(site *types.Package, target *types.TypeName) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
-// recognisedFactories returns every function the owner package of target
-// declares that counts as a recognised factory of target: an exported
-// function, or an exported method of another type than target, that
-// returns target or *target among its results, takes no target or *target
-// parameter, and is named like a factory. Methods of target itself are
-// never factories, so withers and clones are excluded.
 func recognisedFactories(target *types.TypeName) []*types.Func {
 	pkg := target.Pkg()
 	if pkg == nil {
@@ -70,10 +54,12 @@ func recognisedFactories(target *types.TypeName) []*types.Func {
 	return factories
 }
 
-// methodFactories returns the recognised factory methods declared on
-// candidate, a type declared alongside target in its owner package.
-// Methods of target itself are skipped here: target's own methods can
-// never be its factories, whatever their name and signature.
+// isFactory ignores the receiver, so target's own methods (withers,
+// clones) are dropped here: they are never its factories. Aliases are
+// skipped too: under GODEBUG=gotypesalias=0 an alias's Type() is the
+// aliased *types.Named itself, so an alias of target would hand back
+// target's own methods, and an alias of another type would list its
+// factories twice.
 func methodFactories(target, candidate *types.TypeName) []*types.Func {
 	if candidate == target || candidate.IsAlias() {
 		return nil
@@ -95,9 +81,6 @@ func methodFactories(target, candidate *types.TypeName) []*types.Func {
 	return factories
 }
 
-// isFactory reports whether fn is a recognised factory of target: exported,
-// named like a factory, returning target or *target among its results, and
-// taking no target or *target parameter.
 func isFactory(target *types.TypeName, fn *types.Func) bool {
 	if !fn.Exported() || !defaultFactoryPattern.MatchString(fn.Name()) {
 		return false
@@ -123,14 +106,9 @@ func isFactory(target *types.TypeName, fn *types.Func) bool {
 	return false
 }
 
-// isTargetType reports whether candidate is target or a pointer to it,
-// seeing through aliases and defined pointer types the same way
-// checkLiteral does for an elided &T{}: a defined pointer type P (type
-// P *T) takes a T just as directly as *T does, so a parameter or result of
-// type P must count too, unlike pointee's deliberately narrower pointer
-// check for bypass sites. candidate is compared against target before any
-// pointer is unwrapped, so a protected type that is itself a defined
-// pointer type (type BoxPtr *Box) still matches its own factory.
+// A defined pointer type (type P *T) counts as *T here, unlike in pointee.
+// target is matched before unwrapping, because it may itself be a defined
+// pointer type (type BoxPtr *Box).
 func isTargetType(candidate types.Type, target *types.TypeName) bool {
 	if isTargetNamed(candidate, target) {
 		return true
@@ -141,19 +119,14 @@ func isTargetType(candidate types.Type, target *types.TypeName) bool {
 	return ok && isTargetNamed(ptr.Elem(), target)
 }
 
-// isTargetNamed reports whether t, seen through aliases, is the named type
-// target.
 func isTargetNamed(t types.Type, target *types.TypeName) bool {
 	named, ok := types.Unalias(t).(*types.Named)
 
 	return ok && named.Obj() == target
 }
 
-// accessibleFactories filters factories to the ones a diagnostic at site may
-// suggest: any factory declared in site itself, plus exported factories
-// whose receiver, if any, is also exported. An exported method of an
-// unexported receiver type cannot be named from outside its package
-// (pkg.builder.NewX), so it is only accessible inside its own package.
+// Outside its package, a method of an unexported type renders as
+// pkg.builder.NewX, which doesn't compile.
 func accessibleFactories(
 	site *types.Package, factories []*types.Func,
 ) []*types.Func {
@@ -168,8 +141,6 @@ func accessibleFactories(
 	return accessible
 }
 
-// receiverExported reports whether fn's receiver type, if any, is exported.
-// A plain function has no receiver and is always reported as true.
 func receiverExported(fn *types.Func) bool {
 	named := receiverNamed(fn)
 	if named == nil {
@@ -179,10 +150,8 @@ func receiverExported(fn *types.Func) bool {
 	return named.Obj().Exported()
 }
 
-// receiverNamed returns the named type behind fn's receiver, seeing through
-// aliases and a *T receiver (Go rejects a defined pointer type as a
-// receiver, so pointee's plain *T unwrap is enough), or nil for a plain
-// function or a receiver whose type isn't a defined type.
+// Go rejects a defined pointer type as a receiver, so pointee's *T unwrap
+// is enough.
 func receiverNamed(fn *types.Func) *types.Named {
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok || sig.Recv() == nil {
@@ -197,10 +166,6 @@ func receiverNamed(fn *types.Func) *types.Named {
 	return named
 }
 
-// sortFactories orders factories the way messages list them: ones matching
-// the default name pattern first (today, every recognised factory does, so
-// this only matters once declared factories with other names exist), then
-// alphabetically by qualified name, for a deterministic order either way.
 func sortFactories(factories []*types.Func) {
 	sort.Slice(factories, func(left, right int) bool {
 		leftName := factoryQualifiedName(factories[left])
@@ -217,11 +182,6 @@ func sortFactories(factories []*types.Func) {
 	})
 }
 
-// factoryQualifiedName renders factory the way -factories globs name a
-// function or method (spec: "qualified names (import/path.Name,
-// import/path.Type.Method)"): pkg.Name for a free function, pkg.Type.Name
-// for a method, naming the method's receiver type without its type
-// arguments.
 func factoryQualifiedName(factory *types.Func) string {
 	pkgName := factory.Pkg().Name()
 

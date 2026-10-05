@@ -4,16 +4,7 @@ package nested
 // below is disqualified by a different recognition rule.
 type Struct struct{}
 
-// Paid is a wither: a method of Struct itself is never a factory, however
-// its name and signature look.
-func (s Struct) Paid() Struct {
-	return s
-}
-
-// NewCopy and NewClone are withers too, but named like a factory: a method
-// of Struct itself is never its factory even when the name matches ^New,
-// so deleting the "methods of target are never factories" rule would make
-// one of them appear in the suffix at factories.go:11.
+// A method of Struct itself is never its factory, even when named New….
 func (s Struct) NewCopy() Struct {
 	return s
 }
@@ -72,8 +63,8 @@ func NewWithErr() (*WithErr, error) {
 	return &WithErr{}, nil
 }
 
-// Sorted has two recognised factory methods declared out of source order,
-// to pin the alphabetical tie-break: package-level names are already
+// Sorted has two recognised factory methods declared out of alphabetical
+// order, to pin the alphabetical tie-break: package-level names are already
 // listed alphabetically by the type checker, so only methods, which come
 // out in source order, can tell the sort apart from no sort at all.
 type Sorted struct{}
@@ -101,9 +92,7 @@ func (hidden) NewSecret() Secret {
 	return Secret{}
 }
 
-// Multi has four recognised factories, to exercise the three-factory cap
-// and the deterministic (alphabetical) tie-break among equally-ranked
-// names.
+// Multi has four recognised factories, to exercise the three-factory cap.
 type Multi struct{}
 
 func NewA() Multi {
@@ -122,10 +111,6 @@ func NewD() *Multi {
 	return &Multi{}
 }
 
-// Box has a factory returning its own defined pointer type, BoxPtr, to pin
-// that a protected type which is itself a defined pointer type still
-// matches its own factory: isTargetType must compare BoxPtr to BoxPtr
-// before unwrapping the pointer behind it.
 type Box struct{}
 
 // BoxPtr is a defined pointer type to Box, and protected in its own right.
