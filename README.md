@@ -195,7 +195,7 @@ actual output. Every case added there must carry such a `// want` comment.
 4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
 5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
-   elements filled after `make` or in arrays, which wait for fill analysis; use
+   elements filled after `make` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
 
 ## TODO
