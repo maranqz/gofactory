@@ -2,8 +2,8 @@
 
 `//gofactory:ignore` lives next to the type it describes, in that type's owner package. For the
 directive to take effect in every importer, as #53 requires, the owner package's analysis must hand the
-decision to every package and module that imports the type, including ones the user never
-configures or re-annotates.
+decision to every package and module that imports the type, even where the user neither
+configures `--ignoreTypes` nor repeats the directive.
 
 We export it as an `analysis.Fact` (`FactTypes = []analysis.Fact{new(ignoredFact)}`) and read it
 back with `ImportObjectFact`, rather than, say, re-deriving it from source comments at each import
