@@ -1,6 +1,9 @@
 package factories
 
-import "factory/factories/nested"
+import (
+	"factory/factories/nested"
+	"factory/factories/nested/public"
+)
 
 // NoFactory exercises every rule that disqualifies a New-named candidate at
 // once: a wither (method of the type itself), a function taking the type,
@@ -48,4 +51,11 @@ func CappedFactories() {
 func NamedPointerFactory() {
 	_ = new(nested.BoxPtr) // want `Use factory for nested.BoxPtr \(nested.NewBoxPtr\)$`
 	_ = nested.Box{}       // want `Use factory for nested.Box \(nested.NewBoxPtr\)$`
+}
+
+// InternalFactory exercises a factory in an internal package reached
+// through a public alias: this package lies outside the internal tree, so
+// it can't import owner and owner.NewT is not suggested.
+func InternalFactory() {
+	_ = public.T{} // want `Use factory for owner.T$`
 }

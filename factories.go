@@ -139,12 +139,31 @@ func accessibleFactories(
 	accessible := make([]*types.Func, 0, len(factories))
 
 	for _, fn := range factories {
-		if fn.Pkg() == site || fn.Exported() && receiverExported(fn) {
+		if fn.Pkg() == site ||
+			fn.Exported() && receiverExported(fn) &&
+				importable(site.Path(), fn.Pkg().Path()) {
 			accessible = append(accessible, fn)
 		}
 	}
 
 	return accessible
+}
+
+// Go's internal rule: a/b/internal/c may only be imported from within the
+// tree rooted at a/b, the parent of its last internal element.
+func importable(from, path string) bool {
+	elems := strings.Split(path, "/")
+
+	for i, elem := range slices.Backward(elems) {
+		if elem == "internal" {
+			root := strings.Join(elems[:i], "/")
+
+			return root == "" || from == root ||
+				strings.HasPrefix(from, root+"/")
+		}
+	}
+
+	return true
 }
 
 func receiverExported(fn *types.Func) bool {
