@@ -103,16 +103,7 @@ func checkGenDeclDirectives(
 	consumed map[*ast.CommentGroup]bool,
 ) {
 	if decl.Tok != token.TYPE {
-		processDoc(pass, decl.Doc, declOther, nil)
-		consumed[decl.Doc] = true
-
-		for _, spec := range decl.Specs {
-			doc := specDoc(spec)
-			processDoc(pass, doc, declOther, nil)
-			consumed[doc] = true
-		}
-
-		return
+		return // the file-wide sweep reports these as misplaced
 	}
 
 	// The parser leaves a doc above "type" on the GenDecl, and a doc above a
@@ -131,19 +122,6 @@ func checkGenDeclDirectives(
 
 		processDoc(pass, typeSpec.Doc, declType, typeSpec)
 		consumed[typeSpec.Doc] = true
-	}
-}
-
-func specDoc(spec ast.Spec) *ast.CommentGroup {
-	switch spec := spec.(type) {
-	case *ast.ValueSpec:
-		return spec.Doc
-	case *ast.ImportSpec:
-		return spec.Doc
-	case *ast.TypeSpec:
-		return spec.Doc
-	default:
-		return nil
 	}
 }
 
