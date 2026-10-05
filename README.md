@@ -25,7 +25,7 @@ Running without a module (GOPATH, Bazel's `nogo`, or a list of `.go` files inste
 falls back to the previous behaviour: every package other than the current one is protected.
 
 Within scope, gofactory is **strict by default**: every bypass of a protected type is reported,
-whether or not the type has a factory. See [the ADR](docs/adr/0001-strict-default-and-module-scope.md)
+whether or not the type has a factory. See [the ADR](docs/adr/0002-strict-default-and-module-scope.md)
 for why.
 
 ## Usage
