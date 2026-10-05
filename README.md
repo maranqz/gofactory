@@ -22,6 +22,15 @@ The checking helps to provide invariants without exclusion and helps avoid creat
 By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
+- `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
+e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
+- `--useDefaultFactoryPattern` – recognise the default `^New` pattern, `true` by default; set to
+`false` to drop it, following the append-plus-bool-to-drop-builtins convention also used by errcheck,
+asasalint and canonicalheader. With `--useDefaultFactoryPattern=false` and no `--factoryPatterns` at
+all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPattern).
+- `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
+team can adopt the linter gradually, starting from the types that already have one,
+[tests](testdata/module/onlyWithFactory).
 
 ### Message format
 
@@ -42,6 +51,11 @@ Methods of `T` itself are never factories, so withers and clones are not suggest
 declared on an interface type is never recognised either. A factory function is named `pkg.NewT` in
 the suffix; a factory method of another type `U` is named `pkg.U.NewT`, with a generic `U` rendered
 without its type arguments, [tests](testdata/module/factories).
+
+`--factoryPatterns` and `--useDefaultFactoryPattern` widen or replace which names count: a candidate
+is recognised as soon as its name matches any configured pattern, default `^New` included unless
+dropped. A `New…` candidate still sorts first in the suggestion even when another pattern also
+matches it.
 
 ### golangci-lint module plugin
 
@@ -79,10 +93,17 @@ linters:
           package-globs:
             - "mypkg/internal/**"
           package-globs-only: false
+          factory-patterns:
+            - "^Make"
+          use-default-factory-pattern: true
+          only-with-factory: false
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
+- `factory-patterns` – equivalent to `--factoryPatterns`.
+- `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
+- `only-with-factory` – equivalent to `--onlyWithFactory`.
 
 ## Example
 
