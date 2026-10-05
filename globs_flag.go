@@ -8,6 +8,7 @@ import (
 )
 
 type globsFlag struct {
+	separators  []rune
 	globsString []string
 	globs       []glob.Glob
 }
@@ -19,7 +20,7 @@ func (g *globsFlag) String() string {
 func (g *globsFlag) Set(globString string) error {
 	globString = strings.TrimSpace(globString)
 
-	compiled, err := glob.Compile(globString)
+	compiled, err := glob.Compile(globString, g.separators...)
 	if err != nil {
 		return fmt.Errorf("unable to compile globs %s: %w", globString, err)
 	}

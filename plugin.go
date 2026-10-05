@@ -37,7 +37,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
-	cfg := &config{}
+	cfg := newConfig()
 
 	for _, g := range decoded.PackageGlobs {
 		err = cfg.pkgGlobs.Set(g)

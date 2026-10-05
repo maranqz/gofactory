@@ -12,7 +12,16 @@ import (
 type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
-	ignoreTypes  qualifiedGlobsFlag
+	ignoreTypes  globsFlag
+}
+
+// newConfig compiles -ignoreTypes gitignore-like, with '/' as the only
+// separator, so '*' crosses '.' but not '/' in a qualified name
+// (import/path.Name).
+func newConfig() *config {
+	return &config{
+		ignoreTypes: globsFlag{separators: []rune{'/'}},
+	}
 }
 
 const (
@@ -27,7 +36,7 @@ const (
 
 // NewAnalyzer returns a new instance of the linter analyzer.
 func NewAnalyzer() *analysis.Analyzer {
-	cfg := &config{}
+	cfg := newConfig()
 
 	analyzer := newAnalyzer(cfg)
 

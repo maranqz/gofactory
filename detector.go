@@ -49,14 +49,7 @@ func (d *detector) isIgnored(named *types.Named) bool {
 		return true
 	}
 
-	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
-	for _, g := range d.ignoreTypes {
-		if g.Match(qualifiedName) {
-			return true
-		}
-	}
-
-	return false
+	return containsMatchGlob(d.ignoreTypes, obj.Pkg().Path()+"."+obj.Name())
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named) {
