@@ -81,14 +81,15 @@ func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	}
 }
 
-func linterSuiteCases() map[string]struct {
+const factoryPatternMake = "^Make"
+
+type linterSuiteCase struct {
 	pkgs     []string
 	settings caseSettings
-} {
-	return map[string]struct {
-		pkgs     []string
-		settings caseSettings
-	}{
+}
+
+func linterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -113,7 +114,7 @@ func linterSuiteCases() map[string]struct {
 		"factoryPatterns": {
 			pkgs: []string{"factoryPatterns/..."},
 			settings: caseSettings{
-				factoryPatterns: []string{"^Make"},
+				factoryPatterns: []string{factoryPatternMake},
 			},
 		},
 		"useDefaultFactoryPattern": {
@@ -125,7 +126,7 @@ func linterSuiteCases() map[string]struct {
 		"replaceFactoryPattern": {
 			pkgs: []string{"replaceFactoryPattern/..."},
 			settings: caseSettings{
-				factoryPatterns:          []string{"^Make", "^Restore"},
+				factoryPatterns:          []string{factoryPatternMake, "^Restore"},
 				useDefaultFactoryPattern: new(false),
 			},
 		},
@@ -133,6 +134,14 @@ func linterSuiteCases() map[string]struct {
 			pkgs: []string{"onlyWithFactory/..."},
 			settings: caseSettings{
 				onlyWithFactory: true,
+			},
+		},
+		"onlyWithFactoryPatterns": {
+			pkgs: []string{"onlyWithFactoryPatterns/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				factoryPatterns:          []string{factoryPatternMake},
+				useDefaultFactoryPattern: new(false),
 			},
 		},
 	}
