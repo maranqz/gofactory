@@ -18,6 +18,7 @@ type declKind int
 const (
 	declOther declKind = iota
 	declType
+	declAlias
 	declFunc
 	declPackage
 )
@@ -109,18 +110,23 @@ func checkGenDeclDirectives(
 	// The parser leaves a doc above "type" on the GenDecl, and a doc above a
 	// spec inside "type ( ... )" on that TypeSpec; the GenDecl's doc can
 	// only belong to a type when the group declares exactly one.
-	if len(decl.Specs) == 1 {
-		processDoc(pass, decl.Doc, declType, decl.Specs[0])
-		consumed[decl.Doc] = true
-	}
-
 	for _, spec := range decl.Specs {
 		typeSpec, ok := spec.(*ast.TypeSpec)
 		if !ok {
 			continue
 		}
 
-		processDoc(pass, typeSpec.Doc, declType, typeSpec)
+		kind := declType
+		if typeSpec.Assign.IsValid() {
+			kind = declAlias
+		}
+
+		if len(decl.Specs) == 1 {
+			processDoc(pass, decl.Doc, kind, typeSpec)
+			consumed[decl.Doc] = true
+		}
+
+		processDoc(pass, typeSpec.Doc, kind, typeSpec)
 		consumed[typeSpec.Doc] = true
 	}
 }
@@ -170,6 +176,19 @@ func applyDirective(
 	place, known := placementOf(name)
 	if !known {
 		pass.Reportf(comment.Pos(), "unknown directive %q", directivePrefix+name)
+
+		return
+	}
+
+	// The fact would land on the alias, but the detector looks types up
+	// unaliased, and ExportObjectFact cannot reach the aliased type when it
+	// lives in another package.
+	if kind == declAlias && slices.Contains(place.kinds, declType) {
+		pass.Reportf(
+			comment.Pos(),
+			"%s%s must be on a type definition, not an alias",
+			directivePrefix, name,
+		)
 
 		return
 	}

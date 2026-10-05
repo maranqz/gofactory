@@ -11,3 +11,11 @@ func Misplaced() {}
 
 //gofactory:ignore // want `//gofactory:ignore must be on a type declaration`
 var MisplacedVar int
+
+//gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
+type Alias = Bogus
+
+type (
+	//gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
+	GroupedAlias = Bogus
+)
