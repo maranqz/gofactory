@@ -122,6 +122,13 @@ func linterSuiteCases() map[string]struct {
 				useDefaultFactoryPattern: new(false),
 			},
 		},
+		"replaceFactoryPattern": {
+			pkgs: []string{"replaceFactoryPattern/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{"^Make", "^Restore"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
 		"onlyWithFactory": {
 			pkgs: []string{"onlyWithFactory/..."},
 			settings: caseSettings{
