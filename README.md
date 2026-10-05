@@ -47,6 +47,10 @@ comment.
   }
   ```
 
+`//gofactory:factory` (on a function or method) and `//gofactory:trusted` (on a function, a method,
+or in a package's doc comment) are reserved: they are placement-checked like `ignore` but have no
+effect yet.
+
 An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
 function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
 disable protection.
