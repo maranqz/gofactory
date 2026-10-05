@@ -40,15 +40,12 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-// newAnalyzer builds the analyzer around cfg; NewAnalyzer and newPlugin
-// share it so Name, Doc, URL, Requires, FactTypes and Run are set in one
-// place. newPlugin fills cfg before the call, NewAnalyzer binds its flags
-// to cfg afterwards.
+// newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
+// newPlugin. newPlugin fills cfg before the call, NewAnalyzer binds its
+// flags to cfg afterwards.
 //
-// FactTypes declares ignoredFact, which makes drivers (go vet, golangci-lint)
-// analyse the current package's dependencies so a //gofactory:ignore
-// directive propagates from the package that declares a type to every
-// package and module that imports it, by default.
+// Declaring FactTypes makes drivers analyse every dependency; see
+// docs/adr/0001-cross-package-directives-via-facts.md.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:      name,

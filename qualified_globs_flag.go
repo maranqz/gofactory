@@ -9,8 +9,7 @@ import (
 
 // qualifiedGlobsFlag holds globs matched against qualified names
 // (import/path.Name), gitignore-like: compiled with '/' as the only
-// separator, so '*' crosses '.' but not '/'. -ignoreTypes uses it today;
-// -factories and -trusted will reuse it once their tickets land.
+// separator, so '*' crosses '.' but not '/'.
 type qualifiedGlobsFlag struct {
 	raw   []string
 	globs []glob.Glob

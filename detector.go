@@ -27,10 +27,7 @@ func (d *detector) visit(n ast.Node) {
 }
 
 // reportProtected reports node when t resolves to a protected type that may
-// not be built from the current package, following the existing
-// package-scope policy (module scope is a separate ticket). An ignored
-// type is never protected, on any bypass route, so it is checked before
-// the package-scope strategy.
+// not be built from the current package.
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	named, ok := protectedNamed(t)
 	if !ok || d.isIgnored(named) {
@@ -44,10 +41,6 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.report(node, named)
 }
 
-// isIgnored reports whether named was taken out of protection by a
-// //gofactory:ignore directive, local or propagated as a fact from the
-// package that declares it, or by a -ignoreTypes glob matching its
-// qualified name (import/path.Name).
 func (d *detector) isIgnored(named *types.Named) bool {
 	obj := named.Obj()
 
