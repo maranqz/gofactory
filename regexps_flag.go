@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// regexpsFlag is a repeatable flag.Value of compiled regexes, mirroring
-// globsFlag: each Set call validates and appends one more pattern.
 type regexpsFlag struct {
 	patternStrings []string
 	patterns       []*regexp.Regexp

@@ -8,10 +8,8 @@ import (
 	"strings"
 )
 
-// defaultFactoryPattern is the built-in ^New recognition pattern, on by
-// default and dropped by -useDefaultFactoryPattern=false. It also stays the
-// fixed tie-break in sortFactories, so a New... factory keeps sorting first
-// in a suggestion even when other patterns also recognise it.
+// sortFactories ranks names matching it first, even when
+// -useDefaultFactoryPattern=false drops it from recognition.
 var defaultFactoryPattern = regexp.MustCompile(`^New`)
 
 const maxSuggestedFactories = 3

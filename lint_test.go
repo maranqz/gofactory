@@ -41,8 +41,7 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 }
 
 // TestPluginRejectsBadSettings checks that the plugin fails on settings it
-// cannot apply instead of silently ignoring them: a key spelled like the
-// flag rather than in kebab-case, and a glob that does not compile.
+// cannot apply instead of silently ignoring them.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
@@ -82,9 +81,6 @@ func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	}
 }
 
-// linterSuiteCases is TestLinterSuite's table, pulled out of the test
-// function so its body stays short: each entry names the packages to
-// analyse and the settings to apply through both entry points.
 func linterSuiteCases() map[string]struct {
 	pkgs     []string
 	settings caseSettings
@@ -228,9 +224,6 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	return analyzer
 }
 
-// setFlag is flagsAnalyzer's Flags.Set, failing the test on an error a case
-// isn't expected to produce; TestFlagsRejectBadFactoryPattern checks the
-// error path directly instead of through this helper.
 func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
 	t.Helper()
 
