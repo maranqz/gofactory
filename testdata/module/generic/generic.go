@@ -9,31 +9,31 @@ func Local() {
 }
 
 func Nested() {
-	_ = nested.Struct[int]{}     // want `Use factory for nested.Struct`
-	_ = &nested.Struct[string]{} // want `Use factory for nested.Struct`
+	_ = nested.Struct[int]{}     // want `Use factory for nested.Struct \(nested.NewStruct\)`
+	_ = &nested.Struct[string]{} // want `Use factory for nested.Struct \(nested.NewStruct\)`
 
 	_ = []nested.Struct[string]{
-		{},                      // want `Use factory for nested.Struct`
-		nested.Struct[string]{}, // want `Use factory for nested.Struct`
+		{},                      // want `Use factory for nested.Struct \(nested.NewStruct\)`
+		nested.Struct[string]{}, // want `Use factory for nested.Struct \(nested.NewStruct\)`
 	}
 	_ = []*nested.Struct[string]{
-		{},                       // want `Use factory for nested.Struct`
-		&nested.Struct[string]{}, // want `Use factory for nested.Struct`
+		{},                       // want `Use factory for nested.Struct \(nested.NewStruct\)`
+		&nested.Struct[string]{}, // want `Use factory for nested.Struct \(nested.NewStruct\)`
 		nil,
 	}
 
 	_ = map[*nested.Struct[any]]*nested.Struct[string]{}
 	_ = map[*nested.Struct[string]]*nested.Struct[int]{
-		{}:// want `Use factory for nested.Struct`
-		{}, // want `Use factory for nested.Struct`
-		&nested.Struct[string]{}:// want `Use factory for nested.Struct`
-		&nested.Struct[int]{}, // want `Use factory for nested.Struct`
+		{}:// want `Use factory for nested.Struct \(nested.NewStruct\)`
+		{}, // want `Use factory for nested.Struct \(nested.NewStruct\)`
+		&nested.Struct[string]{}:// want `Use factory for nested.Struct \(nested.NewStruct\)`
+		&nested.Struct[int]{}, // want `Use factory for nested.Struct \(nested.NewStruct\)`
 		nil:                   nil,
 	}
 }
 
 func SeveralTypeParams() {
-	_ = nested.Pair[int, string]{} // want `Use factory for nested.Pair`
+	_ = nested.Pair[int, string]{} // want `Use factory for nested.Pair \(nested.NewPair\)`
 }
 
 // IntG aliases a specific instantiation.
@@ -43,6 +43,6 @@ type IntG = nested.Generic[int]
 type GA[T any] = nested.Generic[T]
 
 func AliasOfGeneric() {
-	_ = IntG{}    // want `Use factory for nested.Generic`
-	_ = GA[int]{} // want `Use factory for nested.Generic`
+	_ = IntG{}    // want `Use factory for nested.Generic \(nested.NewGeneric\)`
+	_ = GA[int]{} // want `Use factory for nested.Generic \(nested.NewGeneric\)`
 }

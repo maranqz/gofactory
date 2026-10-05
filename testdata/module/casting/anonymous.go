@@ -7,7 +7,7 @@ import "factory/casting/nested"
 func ToNestedStructFromAnonymousLiteral() {
 	var l nested.Struct
 
-	l = nested.Struct(struct{ Field int }{}) // want `Use factory for nested.Struct`
+	l = nested.Struct(struct{ Field int }{}) // want `Use factory for nested.Struct \(nested.NewStruct\)`
 
 	_ = l
 }

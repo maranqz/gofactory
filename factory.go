@@ -71,7 +71,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := &detector{pass: pass, strategy: strategy, zeroValues: cfg.zeroValues}
+		v := newDetector(pass, strategy, cfg.zeroValues)
 
 		for _, file := range pass.Files {
 			v.checkPackageVars(file)

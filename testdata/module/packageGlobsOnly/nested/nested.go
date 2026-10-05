@@ -15,8 +15,8 @@ func NewPtr() *Struct {
 }
 
 func callNested1() {
-	n := blocked.Struct{} // want `Use factory for blocked.Struct`
+	n := blocked.Struct{} // want `Use factory for blocked.Struct \(blocked.New, blocked.NewPtr\)`
 	_ = n
-	_ = blocked.Struct{}       // want `Use factory for blocked.Struct`
-	n = blocked.Struct{}.Ret() // want `Use factory for blocked.Struct`
+	_ = blocked.Struct{}       // want `Use factory for blocked.Struct \(blocked.New, blocked.NewPtr\)`
+	n = blocked.Struct{}.Ret() // want `Use factory for blocked.Struct \(blocked.New, blocked.NewPtr\)`
 }
