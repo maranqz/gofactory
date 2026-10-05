@@ -14,7 +14,7 @@ type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 
-	factoryPatterns          regexpsFlag
+	extraFactoryPatterns     regexpsFlag
 	useDefaultFactoryPattern bool
 	onlyWithFactory          bool
 }
@@ -42,7 +42,7 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
-	analyzer.Flags.Var(&cfg.factoryPatterns, "factoryPatterns", factoryPatternsDesc)
+	analyzer.Flags.Var(&cfg.extraFactoryPatterns, "factoryPatterns", factoryPatternsDesc)
 
 	analyzer.Flags.BoolVar(
 		&cfg.useDefaultFactoryPattern, "useDefaultFactoryPattern", true, useDefaultFactoryPatternDesc,
@@ -84,7 +84,9 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := newDetector(pass, strategy, factoryPatterns(cfg), cfg.onlyWithFactory)
+		v := newDetector(
+			pass, strategy, cfg.recognitionPatterns(), cfg.onlyWithFactory,
+		)
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{
@@ -96,12 +98,8 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	}
 }
 
-// factoryPatterns combines the default ^New pattern, when enabled, with the
-// configured extra patterns, default first so a New... factory keeps
-// sorting first in a suggestion (factorySuffix's tie-break matches
-// defaultFactoryPattern directly, independent of this list).
-func factoryPatterns(cfg *config) []*regexp.Regexp {
-	extra := cfg.factoryPatterns.Value()
+func (cfg *config) recognitionPatterns() []*regexp.Regexp {
+	extra := cfg.extraFactoryPatterns.Value()
 	if !cfg.useDefaultFactoryPattern {
 		return extra
 	}

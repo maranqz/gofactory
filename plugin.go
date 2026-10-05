@@ -59,7 +59,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
 
 	for _, p := range decoded.FactoryPatterns {
-		err = cfg.factoryPatterns.Set(p)
+		err = cfg.extraFactoryPatterns.Set(p)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", name, err)
 		}
