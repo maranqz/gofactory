@@ -135,7 +135,7 @@ func processDoc(
 	pass *analysis.Pass,
 	doc *ast.CommentGroup,
 	kind declKind,
-	spec ast.Spec,
+	typeSpec *ast.TypeSpec,
 ) {
 	if doc == nil {
 		return
@@ -147,7 +147,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, spec)
+		applyDirective(pass, comment, name, kind, typeSpec)
 	}
 }
 
@@ -171,7 +171,7 @@ func applyDirective(
 	comment *ast.Comment,
 	name string,
 	kind declKind,
-	spec ast.Spec,
+	typeSpec *ast.TypeSpec,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -204,16 +204,11 @@ func applyDirective(
 	}
 
 	if name == directiveIgnore {
-		applyIgnore(pass, spec)
+		applyIgnore(pass, typeSpec)
 	}
 }
 
-func applyIgnore(pass *analysis.Pass, spec ast.Spec) {
-	typeSpec, ok := spec.(*ast.TypeSpec)
-	if !ok {
-		return
-	}
-
+func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
 	obj := pass.TypesInfo.ObjectOf(typeSpec.Name)
 	if obj == nil {
 		return
