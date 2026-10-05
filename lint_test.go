@@ -3,6 +3,7 @@ package gofactory_test
 import (
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -46,8 +47,9 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling": {"packageGlobs": []string{"factory/**"}},
-		"invalid glob":  {"package-globs": []string{"["}},
+		"flag spelling":           {"packageGlobs": []string{"factory/**"}},
+		"invalid glob":            {"package-globs": []string{"["}},
+		"invalid factory pattern": {"factory-patterns": []string{"("}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -61,6 +63,33 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 			_, err = newPlugin(rawSettings)
 			if err == nil {
 				t.Fatalf("settings %v: got no error, want one", rawSettings)
+			}
+		})
+	}
+}
+
+// TestFlagsRejectBadValues checks that NewAnalyzer's flags fail on a value
+// they cannot apply, the flags-entry-point counterpart to
+// TestPluginRejectsBadSettings's plugin-side coverage of the same flags.
+func TestFlagsRejectBadValues(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flag  string
+		value string
+	}{
+		"invalid glob":            {flag: "packageGlobs", value: "["},
+		"invalid factory pattern": {flag: "factoryPatterns", value: "("},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			analyzer := gofactory.NewAnalyzer()
+
+			err := analyzer.Flags.Set(tt.flag, tt.value)
+			if err == nil {
+				t.Fatalf("%s=%q: got no error, want one", tt.flag, tt.value)
 			}
 		})
 	}
@@ -97,6 +126,25 @@ func TestLinterSuite(t *testing.T) {
 			settings: caseSettings{
 				packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
 				packageGlobsOnly: true,
+			},
+		},
+
+		"factoryPatterns": {
+			pkgs: []string{"factoryPatterns/..."},
+			settings: caseSettings{
+				factoryPatterns: []string{"^Make"},
+			},
+		},
+		"useDefaultFactoryPattern": {
+			pkgs: []string{"useDefaultFactoryPattern/..."},
+			settings: caseSettings{
+				useDefaultFactoryPattern: falsePtr(),
+			},
+		},
+		"onlyWithFactory": {
+			pkgs: []string{"onlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory: true,
 			},
 		},
 	}
@@ -142,9 +190,24 @@ func forEachEntryPoint(
 
 // caseSettings is one case's configuration, applied through either entry
 // point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+// useDefaultFactoryPattern is a pointer so a case can leave it unset
+// (the true default on both entry points) rather than force false.
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+
+	factoryPatterns          []string
+	useDefaultFactoryPattern *bool
+	onlyWithFactory          bool
+}
+
+// falsePtr is a *bool literal for caseSettings.useDefaultFactoryPattern,
+// which must distinguish "unset" (nil, true by default) from an explicit
+// false.
+func falsePtr() *bool {
+	b := false
+
+	return &b
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -169,6 +232,29 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		}
 	}
 
+	for _, p := range s.factoryPatterns {
+		err := analyzer.Flags.Set("factoryPatterns", p)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if s.useDefaultFactoryPattern != nil {
+		err := analyzer.Flags.Set(
+			"useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if s.onlyWithFactory {
+		err := analyzer.Flags.Set("onlyWithFactory", "true")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	return analyzer
 }
 
@@ -186,6 +272,11 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"factory-patterns":   s.factoryPatterns,
+		"only-with-factory":  s.onlyWithFactory,
+	}
+	if s.useDefaultFactoryPattern != nil {
+		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
