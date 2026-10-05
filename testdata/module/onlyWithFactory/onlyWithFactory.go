@@ -13,3 +13,11 @@ func Reported() {
 func Silent() {
 	_ = nested.WithoutFactory{}
 }
+
+// SilentInaccessible exercises -onlyWithFactory: Hidden has a recognised
+// factory, but it belongs to an unexported type and so is not accessible
+// from here, keeping -onlyWithFactory silent just as with no factory at
+// all.
+func SilentInaccessible() {
+	_ = nested.Hidden{}
+}
