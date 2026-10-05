@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+// defaultFactoryPattern is the built-in ^New recognition pattern, on by
+// default and dropped by -useDefaultFactoryPattern=false. It also stays the
+// fixed tie-break in sortFactories, so a New... factory keeps sorting first
+// in a suggestion even when other patterns also recognise it.
 var defaultFactoryPattern = regexp.MustCompile(`^New`)
 
 const maxSuggestedFactories = 3
@@ -32,10 +36,24 @@ func factorySuffix(site *types.Package, recognised []*types.Func) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
-type factoryIndex map[*types.TypeName][]*types.Func
+// factoryIndex maps each protected type to its recognised factories.
+// patterns holds the configured factory-name patterns a candidate must
+// match at least one of; it travels with the index because add needs it
+// and indexFactories is called once per owner package per analyzer run.
+type factoryIndex struct {
+	byTarget map[*types.TypeName][]*types.Func
+	patterns []*regexp.Regexp
+}
 
-func indexFactories(pkg *types.Package) factoryIndex {
-	index := factoryIndex{}
+func (index factoryIndex) factoriesOf(target *types.TypeName) []*types.Func {
+	return index.byTarget[target]
+}
+
+func indexFactories(pkg *types.Package, patterns []*regexp.Regexp) factoryIndex {
+	index := factoryIndex{
+		byTarget: map[*types.TypeName][]*types.Func{},
+		patterns: patterns,
+	}
 
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
@@ -73,8 +91,7 @@ func (index factoryIndex) addMethods(receiver *types.TypeName) {
 func (index factoryIndex) add(
 	candidate *types.Func, receiver *types.TypeName,
 ) {
-	if !candidate.Exported() ||
-		!defaultFactoryPattern.MatchString(candidate.Name()) {
+	if !candidate.Exported() || !matchesAny(index.patterns, candidate.Name()) {
 		return
 	}
 
@@ -82,9 +99,19 @@ func (index factoryIndex) add(
 
 	for _, target := range resultTargets(sig) {
 		if target != receiver && !takesTarget(sig, target) {
-			index[target] = append(index[target], candidate)
+			index.byTarget[target] = append(index.byTarget[target], candidate)
 		}
 	}
+}
+
+func matchesAny(patterns []*regexp.Regexp, name string) bool {
+	for _, pattern := range patterns {
+		if pattern.MatchString(name) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func resultTargets(sig *types.Signature) []*types.TypeName {
