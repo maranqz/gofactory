@@ -81,9 +81,10 @@ func TestLinterSuite(t *testing.T) {
 		pkgs     []string
 		settings caseSettings
 	}{
-		"simple":  {pkgs: []string{"simple/..."}},
-		"casting": {pkgs: []string{"casting/..."}},
-		"generic": {pkgs: []string{"generic/..."}},
+		"simple":    {pkgs: []string{"simple/..."}},
+		"casting":   {pkgs: []string{"casting/..."}},
+		"generic":   {pkgs: []string{"generic/..."}},
+		"factories": {pkgs: []string{"factories/..."}},
 
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 

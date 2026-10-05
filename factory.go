@@ -84,11 +84,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := &detector{
-			pass:        pass,
-			strategy:    strategy,
-			ignoreTypes: cfg.ignoreTypes.Value(),
-		}
+		v := newDetector(pass, strategy, cfg.ignoreTypes.Value())
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{

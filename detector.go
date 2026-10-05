@@ -15,6 +15,23 @@ type detector struct {
 	pass        *analysis.Pass
 	strategy    blockedStrategy
 	ignoreTypes []glob.Glob
+
+	factories map[*types.Package]factoryIndex
+	suffixes  map[*types.TypeName]string
+}
+
+func newDetector(
+	pass *analysis.Pass,
+	strategy blockedStrategy,
+	ignoreTypes []glob.Glob,
+) *detector {
+	return &detector{
+		pass:        pass,
+		strategy:    strategy,
+		ignoreTypes: ignoreTypes,
+		factories:   map[*types.Package]factoryIndex{},
+		suffixes:    map[*types.TypeName]string{},
+	}
 }
 
 func (d *detector) visit(n ast.Node) {
@@ -57,6 +74,24 @@ func (d *detector) report(pos ast.Node, named *types.Named) {
 
 	d.pass.Reportf(
 		pos.Pos(),
-		"Use factory for %s.%s", obj.Pkg().Name(), obj.Name(),
+		"Use factory for %s.%s%s", obj.Pkg().Name(), obj.Name(),
+		d.factorySuffix(obj),
 	)
+}
+
+func (d *detector) factorySuffix(target *types.TypeName) string {
+	if suffix, ok := d.suffixes[target]; ok {
+		return suffix
+	}
+
+	index, ok := d.factories[target.Pkg()]
+	if !ok {
+		index = indexFactories(target.Pkg())
+		d.factories[target.Pkg()] = index
+	}
+
+	suffix := factorySuffix(d.pass.Pkg, index[target])
+	d.suffixes[target] = suffix
+
+	return suffix
 }
