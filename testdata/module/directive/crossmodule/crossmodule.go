@@ -14,6 +14,7 @@ func NestedModule() {
 	_ = &nestedmodule.Ignored{}
 	_ = new(nestedmodule.Ignored)
 	_ = nestedmodule.Ignored(struct{}{})
+	_ = []nestedmodule.Ignored{{}}
 }
 
 func Sibling() {
@@ -21,4 +22,5 @@ func Sibling() {
 	_ = &sibling.Ignored{}
 	_ = new(sibling.Ignored)
 	_ = sibling.Ignored(struct{}{})
+	_ = []sibling.Ignored{{}}
 }
