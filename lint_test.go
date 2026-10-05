@@ -123,7 +123,7 @@ func linterSuiteCases() map[string]struct {
 		"useDefaultFactoryPattern": {
 			pkgs: []string{"useDefaultFactoryPattern/..."},
 			settings: caseSettings{
-				useDefaultFactoryPattern: falsePtr(),
+				useDefaultFactoryPattern: new(false),
 			},
 		},
 		"onlyWithFactory": {
@@ -195,15 +195,6 @@ type caseSettings struct {
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
 	onlyWithFactory          bool
-}
-
-// falsePtr is a *bool literal for caseSettings.useDefaultFactoryPattern,
-// which must distinguish "unset" (nil, true by default) from an explicit
-// false.
-func falsePtr() *bool {
-	b := false
-
-	return &b
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
