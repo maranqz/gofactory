@@ -1,7 +1,7 @@
 # Cross-package directives via analysis facts, on by default
 
 `//gofactory:ignore` lives next to the type it describes, in that type's owner package. For the
-directive to protect every importer, as #53 requires, the owner package's analysis must hand the
+directive to take effect in every importer, as #53 requires, the owner package's analysis must hand the
 decision to every package and module that imports the type, including ones the user never
 configures or re-annotates.
 

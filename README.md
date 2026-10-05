@@ -23,7 +23,10 @@ By default, all structures from another package should be created by factories, 
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 - `--ignoreTypes` – list of qualified name globs (`import/path.Name`) for types that may be created
-without a factory everywhere, not just inside a glob package, [tests](testdata/module/ignoreTypes).
+without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
+`*` stays within one path segment and may cross `.`; `**` also crosses `/`. For example,
+`mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`, and `mymod/**` matches both but not `mymod.T`.
+Repeat the flag to give several globs.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 
 ### Directives
