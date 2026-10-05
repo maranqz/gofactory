@@ -46,7 +46,7 @@ A factory bypass by declaring a variable, field or element of a protected type w
 _Avoid_: zero-value creation
 
 **First interaction**:
-The first mention of a zero-valued variable in its function, in the order the function runs; it decides whether that zero value counts as a factory bypass.
+The first mention of a zero-valued variable in its function; it decides whether that zero value counts as a factory bypass.
 
 **Reconstitution**:
 Rebuilding an existing object from storage, as a DDD repository does. For gofactory it is a factory bypass unless it goes through a factory or happens in trusted code.

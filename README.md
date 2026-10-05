@@ -28,9 +28,10 @@ conversion or `new`, [tests](testdata/module/zeroValues).
   - A local `var x T` and a named result are decided by their first interaction anywhere in the function: a
     whole-value assignment (`x = …`, `x, err = …`) or `&x` passed to a call is silent; anything else, such as a
     read, a field access, a method call or `return x`, is reported. A naked `return` counts as an interaction with
-    every named result. The function is read in the order it runs: an assignment's right-hand side and a range
-    expression count before the assignment itself, so `x = x.Paid()` and `for _, x = range x.Items()` are reported,
-    and a `for` loop's body counts before its post statement.
+    every named result. The function is read top to bottom, except that an assignment's right-hand side and a
+    range expression count before the assignment itself (so `x = x.Paid()` and `for _, x = range x.Items()` are
+    reported), and a `for` loop's body counts before its post statement. A function literal counts where it is
+    written, even under `defer`.
   - Pointers, slices, maps and chans are not followed, and `make` and arrays are not reported yet, pending fill
     analysis: `var a [N]T`, `make([]T, n)` and `make(map[K]T)` stay silent. A defined type such as
     `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
