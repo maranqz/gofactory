@@ -15,9 +15,8 @@ type config struct {
 	ignoreTypes  globsFlag
 }
 
-// newConfig compiles -ignoreTypes gitignore-like, with '/' as the only
-// separator, so '*' crosses '.' but not '/' in a qualified name
-// (import/path.Name).
+// newConfig gives -ignoreTypes '/' as its only glob separator, so '*'
+// crosses '.' but not '/' in a qualified name (import/path.Name).
 func newConfig() *config {
 	return &config{
 		ignoreTypes: globsFlag{separators: []rune{'/'}},

@@ -1,6 +1,6 @@
 // Package ignored declares types taken out of protection by
-// //gofactory:ignore, so that importing packages, in this module and in
-// another one, see them as unprotected too.
+// //gofactory:ignore, so that importing packages see them as unprotected
+// too.
 package ignored
 
 //gofactory:ignore
