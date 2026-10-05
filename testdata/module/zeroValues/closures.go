@@ -37,10 +37,10 @@ func OuterVarUsedInsideClosureIsReported() {
 	_ = fn()
 }
 
-// OuterResultSilentDespiteInnerNakedReturnIsSilent: the closure's naked
+// ClosureNakedReturnIsReportedOnlyForItsOwnResult: the closure's naked
 // return is an interaction with its own result, inner, not with the
 // enclosing function's hack.
-func OuterResultSilentDespiteInnerNakedReturnIsSilent() (hack nested.Struct) {
+func ClosureNakedReturnIsReportedOnlyForItsOwnResult() (hack nested.Struct) {
 	fn := func() (inner nested.Struct) {
 		return // want `Use factory for nested.Struct: zero value`
 	}
