@@ -30,10 +30,8 @@ func ClosureNamedReturnIsReported() {
 	_ = fn()
 }
 
-// OuterVarUsedInsideClosureIsReported shows that firstIdentUses, unlike
-// collectZeroVars and firstNakedReturn, does descend into a nested function
-// literal: a capture of an outer local counts as that local's first
-// interaction.
+// OuterVarUsedInsideClosureIsReported: a capture of an outer local counts as
+// that local's first interaction.
 func OuterVarUsedInsideClosureIsReported() {
 	var x nested.Struct
 
@@ -44,11 +42,9 @@ func OuterVarUsedInsideClosureIsReported() {
 	_ = fn()
 }
 
-// OuterResultSilentDespiteInnerNakedReturnIsSilent shows that
-// firstNakedReturn does not descend into a nested function literal: the
-// closure's naked return is an interaction with its own result, inner, not
-// with the enclosing function's hack. The inner return runs inside fn(),
-// before fn()'s result is ever assigned to hack.
+// OuterResultSilentDespiteInnerNakedReturnIsSilent: the closure's naked
+// return is an interaction with its own result, inner, not with the
+// enclosing function's hack.
 func OuterResultSilentDespiteInnerNakedReturnIsSilent() (hack nested.Struct) {
 	fn := func() (inner nested.Struct) {
 		return // want `Use factory for nested.Struct: zero value`

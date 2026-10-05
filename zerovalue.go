@@ -55,17 +55,17 @@ func (d *detector) checkFuncZeroValues(
 		return
 	}
 
-	safeIdents := collectSafeIdents(body)
-	firstIdent := firstIdentUses(d.pass.TypesInfo.Uses, body, tracked)
-	nakedReturn := firstNakedReturn(body)
+	walk := firstInteractionWalk{
+		uses:    d.pass.TypesInfo.Uses,
+		tracked: tracked,
+		first:   map[types.Object]interaction{},
+	}
+	ast.Inspect(body, walk.visit)
 
-	for obj, v := range tracked {
-		node, safe := firstInteraction(v, firstIdent[obj], nakedReturn, safeIdents)
-		if node == nil || safe {
-			continue
+	for obj, first := range walk.first {
+		if !first.safe {
+			d.reportProtectedSuffix(first.node, tracked[obj].typ, zeroValueSuffix)
 		}
-
-		d.reportProtectedSuffix(node, v.typ, zeroValueSuffix)
 	}
 }
 
@@ -79,9 +79,7 @@ func (d *detector) collectZeroVars(
 	tracked := map[types.Object]zeroVar{}
 
 	// A named result called `_` (func F() (_ T, err error)) still has an
-	// object in TypesInfo.Defs, found through ObjectOf, and can only be
-	// reached through a naked return, which firstInteraction already
-	// treats as the one interaction with every named result.
+	// object, and only a naked return can reach it.
 	if fnType.Results != nil {
 		for _, field := range fnType.Results.List {
 			for _, name := range field.Names {
@@ -136,229 +134,136 @@ func zeroValueSpecNames(genDecl *ast.GenDecl) []*ast.Ident {
 	return names
 }
 
-// collectSafeIdents marks every *ast.Ident that occurs as the whole target
-// of a whole-value assignment or as &x passed to any call: the two OK
-// interactions for CONTEXT.md's First interaction. Every other mention of
-// a tracked variable's identifier is left unmarked, so it is reported if
-// it is the first interaction.
-//
-// A whole-value assignment is `x = …`, `x, err = …`, any `:=` target
-// (whether it redeclares x or shadows it with a new variable — a shadowing
-// `:=` is harmless because firstIdentUses reads only TypesInfo.Uses, and
-// the new variable it declares lands in Defs instead, so it is never
-// looked up as a use of the outer object), or a range clause's key or
-// value with `=` rather than `:=`.
-func collectSafeIdents(body *ast.BlockStmt) map[*ast.Ident]bool {
-	safe := map[*ast.Ident]bool{}
+type interaction struct {
+	node ast.Node
+	safe bool
+}
 
-	ast.Inspect(body, func(node ast.Node) bool {
-		switch node := node.(type) {
-		case *ast.AssignStmt:
-			markSafeAssignTargets(safe, node)
-		case *ast.RangeStmt:
-			markSafeRangeTargets(safe, node)
-		case *ast.CallExpr:
-			markSafeAddressArgs(safe, node)
-		}
+// firstInteractionWalk records each tracked object's first interaction, in
+// evaluation order rather than source order: an assignment's right-hand side
+// before its targets, a range expression before its key and value, and a for
+// loop's body before its post statement.
+type firstInteractionWalk struct {
+	uses    map[*ast.Ident]types.Object
+	tracked map[types.Object]zeroVar
+	first   map[types.Object]interaction
+	inLit   bool
+}
+
+func (w *firstInteractionWalk) visit(node ast.Node) bool {
+	switch node := node.(type) {
+	case *ast.FuncLit:
+		w.visitFuncLit(node)
+	case *ast.AssignStmt:
+		w.visitAssign(node)
+	case *ast.RangeStmt:
+		w.inspect(node.X)
+		w.target(node.Key, true)
+		w.target(node.Value, true)
+		w.inspect(node.Body)
+	case *ast.ForStmt:
+		w.inspect(node.Init)
+		w.inspect(node.Cond)
+		w.inspect(node.Body)
+		w.inspect(node.Post)
+	case *ast.CallExpr:
+		w.visitCall(node)
+	case *ast.ReturnStmt:
+		w.recordNakedReturn(node)
 
 		return true
-	})
+	case *ast.Ident:
+		w.record(node, false)
 
-	return safe
-}
-
-// markSafeAssignTargets marks node's left-hand targets safe when node is a
-// whole-value assignment: plain `=`, or `:=` — every `:=` target is marked,
-// including one that shadows rather than redeclares; see collectSafeIdents
-// for why that is harmless.
-func markSafeAssignTargets(safe map[*ast.Ident]bool, node *ast.AssignStmt) {
-	if node.Tok != token.ASSIGN && node.Tok != token.DEFINE {
-		return
-	}
-
-	for _, lhs := range node.Lhs {
-		if ident, ok := lhs.(*ast.Ident); ok {
-			safe[ident] = true
-		}
-	}
-}
-
-// markSafeRangeTargets marks node's key and value safe: assigned with `=`,
-// that overwrites the whole value on every iteration, like a plain
-// assignment. A `:=` target is marked too, but harmlessly: it always
-// declares a new variable, which collectZeroVars never tracks on its own,
-// so it is never looked up as a use of a tracked object.
-func markSafeRangeTargets(safe map[*ast.Ident]bool, node *ast.RangeStmt) {
-	if ident, ok := node.Key.(*ast.Ident); ok {
-		safe[ident] = true
-	}
-
-	if ident, ok := node.Value.(*ast.Ident); ok {
-		safe[ident] = true
-	}
-}
-
-// markSafeAddressArgs marks every &x argument of node safe: passing a
-// variable's address to any call is the other OK interaction.
-func markSafeAddressArgs(safe map[*ast.Ident]bool, node *ast.CallExpr) {
-	for _, arg := range node.Args {
-		unary, ok := ast.Unparen(arg).(*ast.UnaryExpr)
-		if !ok || unary.Op != token.AND {
-			continue
-		}
-
-		if ident, ok := unary.X.(*ast.Ident); ok {
-			safe[ident] = true
-		}
-	}
-}
-
-// firstIdentUses returns, for every object in tracked, the earliest
-// *ast.Ident in body (including inside a nested function literal, which
-// may capture an outer local or result) that uses records as that object.
-// The declaring identifier itself is never recorded as a use.
-//
-// "Earliest" is evaluation order, not source position: an *ast.AssignStmt's
-// right-hand side runs before its left-hand targets are written, and an
-// *ast.RangeStmt's range expression runs once before any key or value is
-// assigned, so each is visited first here even though it comes later in
-// the text. Once an object's first use is recorded it is kept, so the
-// visit order alone decides it.
-func firstIdentUses(
-	uses map[*ast.Ident]types.Object,
-	body *ast.BlockStmt,
-	tracked map[types.Object]zeroVar,
-) map[types.Object]*ast.Ident {
-	first := map[types.Object]*ast.Ident{}
-
-	var visit func(node ast.Node) bool
-
-	visit = func(node ast.Node) bool {
-		switch node := node.(type) {
-		case *ast.AssignStmt:
-			inspectInOrder(visit, assignEvalOrder(node))
-
-			return false
-		case *ast.RangeStmt:
-			inspectInOrder(visit, []ast.Node{node.X, node.Key, node.Value, node.Body})
-
-			return false
-		}
-
-		recordIdentUse(first, uses, tracked, node)
-
+		return true
+	default:
 		return true
 	}
 
-	ast.Inspect(body, visit)
-
-	return first
+	return false
 }
 
-// assignEvalOrder returns assign's operands in the order they run: every
-// right-hand side expression (the values), then every left-hand target
-// (the assignment itself).
-func assignEvalOrder(assign *ast.AssignStmt) []ast.Node {
-	nodes := make([]ast.Node, 0, len(assign.Rhs)+len(assign.Lhs))
-
-	for _, e := range assign.Rhs {
-		nodes = append(nodes, e)
-	}
-
-	for _, e := range assign.Lhs {
-		nodes = append(nodes, e)
-	}
-
-	return nodes
+func (w *firstInteractionWalk) visitFuncLit(lit *ast.FuncLit) {
+	inLit := w.inLit
+	w.inLit = true
+	ast.Inspect(lit.Body, w.visit)
+	w.inLit = inLit
 }
 
-// inspectInOrder runs visit over each of nodes in turn, skipping a nil
-// entry (an *ast.RangeStmt's Key or Value is nil when the clause omits it).
-func inspectInOrder(visit func(ast.Node) bool, nodes []ast.Node) {
-	for _, n := range nodes {
-		if n != nil {
-			ast.Inspect(n, visit)
+func (w *firstInteractionWalk) visitAssign(assign *ast.AssignStmt) {
+	wholeValue := assign.Tok == token.ASSIGN || assign.Tok == token.DEFINE
+
+	for _, rhs := range assign.Rhs {
+		w.inspect(rhs)
+	}
+
+	for _, lhs := range assign.Lhs {
+		w.target(lhs, wholeValue)
+	}
+}
+
+func (w *firstInteractionWalk) visitCall(call *ast.CallExpr) {
+	w.inspect(call.Fun)
+
+	for _, arg := range call.Args {
+		if ident, ok := addressedIdent(arg); ok {
+			w.record(ident, true)
+		} else {
+			w.inspect(arg)
 		}
 	}
 }
 
-// recordIdentUse records node as the first use of its object when node is
-// an *ast.Ident that uses records as one of tracked, and no earlier use was
-// already recorded for that object.
-func recordIdentUse(
-	first map[types.Object]*ast.Ident,
-	uses map[*ast.Ident]types.Object,
-	tracked map[types.Object]zeroVar,
-	node ast.Node,
-) {
-	ident, ok := node.(*ast.Ident)
-	if !ok {
+func (w *firstInteractionWalk) inspect(node ast.Node) {
+	if node != nil {
+		ast.Inspect(node, w.visit)
+	}
+}
+
+// target records expr as a safe interaction when it is a bare identifier
+// and safe holds, and walks it as a plain expression otherwise.
+func (w *firstInteractionWalk) target(expr ast.Expr, safe bool) {
+	if ident, ok := expr.(*ast.Ident); ok {
+		w.record(ident, safe)
+
 		return
 	}
 
-	obj := uses[ident]
-	if obj == nil {
+	w.inspect(expr)
+}
+
+func (w *firstInteractionWalk) record(ident *ast.Ident, safe bool) {
+	obj := w.uses[ident]
+	if _, ok := w.tracked[obj]; !ok {
 		return
 	}
 
-	if _, ok := tracked[obj]; !ok {
+	if _, ok := w.first[obj]; !ok {
+		w.first[obj] = interaction{node: ident, safe: safe}
+	}
+}
+
+func (w *firstInteractionWalk) recordNakedReturn(ret *ast.ReturnStmt) {
+	// A naked return in a function literal returns from the literal, not
+	// from the function whose results are tracked.
+	if len(ret.Results) != 0 || w.inLit {
 		return
 	}
 
-	if _, ok := first[obj]; !ok {
-		first[obj] = ident
+	for obj, v := range w.tracked {
+		if _, ok := w.first[obj]; v.isResult && !ok {
+			w.first[obj] = interaction{node: ret}
+		}
 	}
 }
 
-// firstNakedReturn returns the earliest bare `return` statement directly in
-// body, not descending into a nested function literal: such a return exits
-// the literal, not the enclosing function, so it is not an interaction with
-// the enclosing function's named results.
-func firstNakedReturn(body *ast.BlockStmt) *ast.ReturnStmt {
-	var first *ast.ReturnStmt
-
-	ast.Inspect(body, func(n ast.Node) bool {
-		if _, ok := n.(*ast.FuncLit); ok {
-			return false
-		}
-
-		ret, ok := n.(*ast.ReturnStmt)
-		if !ok || len(ret.Results) != 0 {
-			return true
-		}
-
-		if first == nil || ret.Pos() < first.Pos() {
-			first = ret
-		}
-
-		return true
-	})
-
-	return first
-}
-
-// firstInteraction picks a variable's first mention between its earliest
-// identifier use (ident, nil if none) and, for a named result, the
-// function's earliest naked return — compared by position below, since
-// ident is already firstIdentUses' evaluation-order pick — and reports
-// whether that mention is safe (an OK interaction). A nil node means the
-// variable is never mentioned, so there is nothing to decide: its zero
-// value never leaks.
-func firstInteraction(
-	v zeroVar,
-	ident *ast.Ident,
-	nakedReturn *ast.ReturnStmt,
-	safeIdents map[*ast.Ident]bool,
-) (ast.Node, bool) {
-	if v.isResult && nakedReturn != nil {
-		if ident == nil || nakedReturn.Pos() < ident.Pos() {
-			return nakedReturn, false
-		}
-	}
-
-	if ident == nil {
+func addressedIdent(arg ast.Expr) (*ast.Ident, bool) {
+	unary, ok := ast.Unparen(arg).(*ast.UnaryExpr)
+	if !ok || unary.Op != token.AND {
 		return nil, false
 	}
 
-	return ident, safeIdents[ident]
+	ident, ok := unary.X.(*ast.Ident)
+
+	return ident, ok
 }

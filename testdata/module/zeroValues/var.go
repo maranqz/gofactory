@@ -226,3 +226,33 @@ func ShadowedDefineDoesNotCountIsReported() nested.Struct {
 
 	return x // want `Use factory for nested.Struct: zero value`
 }
+
+// ForPostAssignReadInBodyIsReported: the body runs before the post
+// statement, so the first pass reads the zero x.
+func ForPostAssignReadInBodyIsReported(n int) int {
+	var x nested.Struct
+
+	total := 0
+
+	for i := 0; i < n; x = nested.NewStruct(i) {
+		total += x.Field // want `Use factory for nested.Struct: zero value`
+	}
+
+	return total
+}
+
+func ForBodyAssignBeforePostWriteIsSilent(n int) nested.Struct {
+	var y nested.Struct
+
+	for i := 0; i < n; y.Field++ {
+		y = nested.NewStruct(i)
+	}
+
+	return y
+}
+
+func ForPostAssignNakedReturnInBodyIsReported() (x nested.Struct) {
+	for ; ; x = nested.NewStruct(1) {
+		return // want `Use factory for nested.Struct: zero value`
+	}
+}
