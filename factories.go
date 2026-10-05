@@ -49,7 +49,9 @@ func (index factoryIndex) factoriesOf(target *types.TypeName) []*types.Func {
 	return index.byTarget[target]
 }
 
-func indexFactories(pkg *types.Package, patterns []*regexp.Regexp) factoryIndex {
+func indexFactories(
+	pkg *types.Package, patterns []*regexp.Regexp,
+) factoryIndex {
 	index := factoryIndex{
 		byTarget: map[*types.TypeName][]*types.Func{},
 		patterns: patterns,

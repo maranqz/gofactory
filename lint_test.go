@@ -68,43 +68,28 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// TestFlagsRejectBadValues checks that NewAnalyzer's flags fail on a value
-// they cannot apply, the flags-entry-point counterpart to
-// TestPluginRejectsBadSettings's plugin-side coverage of the same flags.
-func TestFlagsRejectBadValues(t *testing.T) {
+// TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
+// flag fails on an invalid regex, the flags-entry-point counterpart to
+// TestPluginRejectsBadSettings's "invalid factory pattern" plugin-side case.
+func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	t.Parallel()
 
-	tests := map[string]struct {
-		flag  string
-		value string
-	}{
-		"invalid glob":            {flag: "packageGlobs", value: "["},
-		"invalid factory pattern": {flag: "factoryPatterns", value: "("},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+	analyzer := gofactory.NewAnalyzer()
 
-			analyzer := gofactory.NewAnalyzer()
-
-			err := analyzer.Flags.Set(tt.flag, tt.value)
-			if err == nil {
-				t.Fatalf("%s=%q: got no error, want one", tt.flag, tt.value)
-			}
-		})
+	err := analyzer.Flags.Set("factoryPatterns", "(")
+	if err == nil {
+		t.Fatal("got no error, want one")
 	}
 }
 
-// TestLinterSuite runs every case through both entry points that populate
-// the shared config: NewAnalyzer configured via Flags.Set, the way a
-// command-line user or go vet driver would, and the golangci-lint plugin
-// constructor configured via kebab-case settings.
-func TestLinterSuite(t *testing.T) {
-	t.Parallel()
-
-	root := moduleRoot()
-
-	tests := map[string]struct {
+// linterSuiteCases is TestLinterSuite's table, pulled out of the test
+// function so its body stays short: each entry names the packages to
+// analyse and the settings to apply through both entry points.
+func linterSuiteCases() map[string]struct {
+	pkgs     []string
+	settings caseSettings
+} {
+	return map[string]struct {
 		pkgs     []string
 		settings caseSettings
 	}{
@@ -148,7 +133,18 @@ func TestLinterSuite(t *testing.T) {
 			},
 		},
 	}
-	for name, tt := range tests {
+}
+
+// TestLinterSuite runs every case through both entry points that populate
+// the shared config: NewAnalyzer configured via Flags.Set, the way a
+// command-line user or go vet driver would, and the golangci-lint plugin
+// constructor configured via kebab-case settings.
+func TestLinterSuite(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot()
+
+	for name, tt := range linterSuiteCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -219,43 +215,38 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	analyzer := gofactory.NewAnalyzer()
 
 	for _, g := range s.packageGlobs {
-		err := analyzer.Flags.Set("packageGlobs", g)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobs", g)
 	}
 
 	if s.packageGlobsOnly {
-		err := analyzer.Flags.Set("packageGlobsOnly", "true")
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobsOnly", "true")
 	}
 
 	for _, p := range s.factoryPatterns {
-		err := analyzer.Flags.Set("factoryPatterns", p)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "factoryPatterns", p)
 	}
 
 	if s.useDefaultFactoryPattern != nil {
-		err := analyzer.Flags.Set(
-			"useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern),
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern))
 	}
 
 	if s.onlyWithFactory {
-		err := analyzer.Flags.Set("onlyWithFactory", "true")
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "onlyWithFactory", "true")
 	}
 
 	return analyzer
+}
+
+// setFlag is flagsAnalyzer's Flags.Set, failing the test on an error a case
+// isn't expected to produce; TestFlagsRejectBadFactoryPattern checks the
+// error path directly instead of through this helper.
+func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
+	t.Helper()
+
+	err := analyzer.Flags.Set(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // pluginAnalyzer builds the analyzer through the golangci-lint plugin entry
