@@ -45,7 +45,7 @@ func (d *detector) checkFuncZeroValues(
 	}
 
 	walk := firstInteractionWalk{
-		uses:    d.pass.TypesInfo.Uses,
+		info:    d.pass.TypesInfo,
 		tracked: tracked,
 		first:   map[types.Object]interaction{},
 	}
@@ -129,7 +129,7 @@ type interaction struct {
 // order where it differs from source order; a function literal's body counts
 // where it is written.
 type firstInteractionWalk struct {
-	uses    map[*ast.Ident]types.Object
+	info    *types.Info
 	tracked map[types.Object]zeroVar
 	first   map[types.Object]interaction
 	inLit   bool
@@ -190,8 +190,10 @@ func (w *firstInteractionWalk) visitAssign(assign *ast.AssignStmt) {
 func (w *firstInteractionWalk) visitCall(call *ast.CallExpr) {
 	w.inspect(call.Fun)
 
+	conversion := w.info.Types[call.Fun].IsType()
+
 	for _, arg := range call.Args {
-		if ident, ok := addressedIdent(arg); ok {
+		if ident, ok := addressedIdent(arg); ok && !conversion {
 			w.record(ident, true)
 		} else {
 			w.inspect(arg)
@@ -206,7 +208,7 @@ func (w *firstInteractionWalk) inspect(node ast.Node) {
 }
 
 func (w *firstInteractionWalk) target(expr ast.Expr, safe bool) {
-	if ident, ok := expr.(*ast.Ident); ok {
+	if ident, ok := ast.Unparen(expr).(*ast.Ident); ok {
 		w.record(ident, safe)
 
 		return
@@ -216,7 +218,7 @@ func (w *firstInteractionWalk) target(expr ast.Expr, safe bool) {
 }
 
 func (w *firstInteractionWalk) record(ident *ast.Ident, safe bool) {
-	obj := w.uses[ident]
+	obj := w.info.Uses[ident]
 	if _, ok := w.tracked[obj]; !ok {
 		return
 	}
@@ -246,7 +248,7 @@ func addressedIdent(arg ast.Expr) (*ast.Ident, bool) {
 		return nil, false
 	}
 
-	ident, ok := unary.X.(*ast.Ident)
+	ident, ok := ast.Unparen(unary.X).(*ast.Ident)
 
 	return ident, ok
 }

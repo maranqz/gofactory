@@ -255,3 +255,29 @@ func ForPostAssignNakedReturnInBodyIsReported() (x nested.Struct) {
 		return // want `Use factory for nested.Struct: zero value`
 	}
 }
+
+// AddressInConversionIsReported: a conversion is not a call, so &x in it
+// is not the OK "&x passed to a call".
+func AddressInConversionIsReported() *nested.Struct {
+	var x nested.Struct
+
+	p := (*nested.Struct)(&x) // want `Use factory for nested.Struct: zero value`
+
+	return p
+}
+
+func ParenthesizedAddressPassedToCallIsSilent() nested.Struct {
+	var x nested.Struct
+
+	nested.Fill(&(x))
+
+	return x
+}
+
+func ParenthesizedAssignmentIsSilent() nested.Struct {
+	var x nested.Struct
+
+	(x) = nested.NewStruct(1)
+
+	return x
+}
