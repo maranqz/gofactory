@@ -48,6 +48,8 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	tests := map[string]map[string]any{
 		"flag spelling": {"packageGlobs": []string{"factory/**"}},
 		"invalid glob":  {"package-globs": []string{"["}},
+
+		"invalid ignore-types glob": {"ignore-types": []string{"["}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {

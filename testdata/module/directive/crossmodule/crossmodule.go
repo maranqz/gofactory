@@ -13,10 +13,12 @@ func NestedModule() {
 	_ = nestedmodule.Ignored{}
 	_ = &nestedmodule.Ignored{}
 	_ = new(nestedmodule.Ignored)
+	_ = nestedmodule.Ignored(struct{}{})
 }
 
 func Sibling() {
 	_ = sibling.Ignored{}
 	_ = &sibling.Ignored{}
 	_ = new(sibling.Ignored)
+	_ = sibling.Ignored(struct{}{})
 }
