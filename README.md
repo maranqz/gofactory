@@ -63,10 +63,13 @@ disable protection.
 gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),
 without waiting for it to be merged into golangci-lint itself.
 
+It needs golangci-lint v2.14.0 or newer: directives travel between packages as analysis facts, and
+the fact-cache fixes they rely on landed in v2.13 and v2.14.
+
 Build a custom golangci-lint binary that includes gofactory with a `.custom-gcl.yml`:
 
 ```yaml
-version: v2.12.2
+version: v2.14.0
 plugins:
   - module: github.com/maranqz/gofactory
     import: github.com/maranqz/gofactory
