@@ -69,7 +69,8 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 // TestLinterSuite runs every case through every entry point that populates
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
-// constructor configured via kebab-case settings.
+// constructor configured via kebab-case settings. The flags analyzer also
+// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
 func TestLinterSuite(t *testing.T) {
 	t.Parallel()
 
@@ -175,8 +176,9 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 // unitcheckerAnalyzer is flagsAnalyzer handed Pass.Module the way go vet's
 // unitchecker before Go 1.27 fills it: Path, Version and GoVersion without
-// Main, and nil without a module. analysistest always sets Main and never
-// passes nil, so only this entry point catches code relying on either.
+// Main, and nil without a module. analysistest sets Main on every module it
+// loads and never passes nil, so only this entry point catches code relying
+// on either.
 func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	t.Helper()
 
