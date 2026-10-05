@@ -37,33 +37,20 @@ func factorySuffix(site *types.Package, recognised []*types.Func) string {
 }
 
 // factoryIndex maps each protected type to its recognised factories.
-// patterns holds the configured factory-name patterns a candidate must
-// match at least one of; it travels with the index because add needs it
-// and indexFactories is called once per owner package per analyzer run.
-type factoryIndex struct {
-	byTarget map[*types.TypeName][]*types.Func
-	patterns []*regexp.Regexp
-}
-
-func (index factoryIndex) factoriesOf(target *types.TypeName) []*types.Func {
-	return index.byTarget[target]
-}
+type factoryIndex map[*types.TypeName][]*types.Func
 
 func indexFactories(
 	pkg *types.Package, patterns []*regexp.Regexp,
 ) factoryIndex {
-	index := factoryIndex{
-		byTarget: map[*types.TypeName][]*types.Func{},
-		patterns: patterns,
-	}
+	index := factoryIndex{}
 
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
 		switch obj := scope.Lookup(name).(type) {
 		case *types.Func:
-			index.add(obj, nil)
+			index.add(patterns, obj, nil)
 		case *types.TypeName:
-			index.addMethods(obj)
+			index.addMethods(patterns, obj)
 		}
 	}
 
@@ -74,7 +61,9 @@ func indexFactories(
 // the aliased *types.Named itself, so an alias of target would hand back
 // target's own methods, and an alias of another type would list its
 // factories twice.
-func (index factoryIndex) addMethods(receiver *types.TypeName) {
+func (index factoryIndex) addMethods(
+	patterns []*regexp.Regexp, receiver *types.TypeName,
+) {
 	if receiver.IsAlias() {
 		return
 	}
@@ -85,15 +74,15 @@ func (index factoryIndex) addMethods(receiver *types.TypeName) {
 	}
 
 	for method := range named.Methods() {
-		index.add(method, receiver)
+		index.add(patterns, method, receiver)
 	}
 }
 
 // A method is never a factory of its own receiver type (withers, clones).
 func (index factoryIndex) add(
-	candidate *types.Func, receiver *types.TypeName,
+	patterns []*regexp.Regexp, candidate *types.Func, receiver *types.TypeName,
 ) {
-	if !candidate.Exported() || !matchesAny(index.patterns, candidate.Name()) {
+	if !candidate.Exported() || !matchesAny(patterns, candidate.Name()) {
 		return
 	}
 
@@ -101,7 +90,7 @@ func (index factoryIndex) add(
 
 	for _, target := range resultTargets(sig) {
 		if target != receiver && !takesTarget(sig, target) {
-			index.byTarget[target] = append(index.byTarget[target], candidate)
+			index[target] = append(index[target], candidate)
 		}
 	}
 }

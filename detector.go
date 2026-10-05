@@ -85,7 +85,7 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 		d.factories[target.Pkg()] = index
 	}
 
-	suffix := factorySuffix(d.pass.Pkg, index.factoriesOf(target))
+	suffix := factorySuffix(d.pass.Pkg, index[target])
 	d.suffixes[target] = suffix
 
 	return suffix
