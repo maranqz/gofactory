@@ -26,6 +26,8 @@ By default, all structures from another package should be created by factories, 
 without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
 `*` stays within one path segment and may cross `.`; `**` also crosses `/`. For example,
 `mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`, and `mymod/**` matches both but not `mymod.T`.
+Name the type where it is defined: an alias's name does not match, and neither does a bare package
+path; `mymod/a.*` matches every type of package `mymod/a`.
 Repeat the flag to give several globs.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 
