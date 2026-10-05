@@ -24,10 +24,9 @@ func MethodCallIsReported() {
 	x.Method() // want `Use factory for nested.Struct: zero value`
 }
 
-// PointerReceiverMethodCallIsReported: x.SetField(1) implicitly passes &x
-// to call SetField, but that is not the OK `&x` form: the ticket calls out
-// a pointer-receiver method call as a reported interaction in its own
-// right.
+// PointerReceiverMethodCallIsReported: x.SetField(1) implicitly takes &x,
+// but a method call is reported whatever its receiver; only an explicit &x
+// argument is the OK form.
 func PointerReceiverMethodCallIsReported() {
 	var x nested.Struct
 
@@ -90,7 +89,7 @@ func OnlyFirstInteractionDecidesIsSilent() nested.Struct {
 
 	x = nested.NewStruct(2)
 
-	_ = x.Field // a later read no longer matters: the first interaction was a whole-value assignment
+	_ = x.Field
 
 	return x
 }

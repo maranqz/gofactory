@@ -1,8 +1,3 @@
-// This file exercises the three closure special cases the detector
-// handles, which no other testdata file reaches: a closure's own locals,
-// a closure's own naked return, and an outer local captured and used
-// inside a closure.
-
 package zeroValues
 
 import "factory/zeroValues/nested"

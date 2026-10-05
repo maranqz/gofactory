@@ -36,9 +36,8 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
 
-// reportProtectedSuffix is reportProtected plus a diagnostic suffix, shared
-// by every bypass route so the permission policy (owner package, fences)
-// stays in one place regardless of which route found the candidate.
+// Every bypass route reports through here, so the permission policy is
+// applied in one place.
 func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {

@@ -6,15 +6,10 @@ import (
 	"go/types"
 )
 
-// zeroValueSuffix marks the zero-value route in a diagnostic, after the
-// "Use factory for pkg.T" prefix every route shares.
 const zeroValueSuffix = ": zero value"
 
-// checkPackageVars reports every package-level `var x T` of a protected
-// type. Unlike a local var or a named result, a package-level var has no
-// function scope to decide a first interaction in, so it is always a
-// candidate bypass; the usual permission policy (owner package, fences)
-// still decides whether it is actually reported.
+// A package-level var has no function to decide a first interaction in, so
+// it is always a candidate.
 func (d *detector) checkPackageVars(file *ast.File) {
 	if !d.zeroValues {
 		return
@@ -32,17 +27,11 @@ func (d *detector) checkPackageVars(file *ast.File) {
 	}
 }
 
-// zeroVar is a local var or named result tracked for its first interaction.
 type zeroVar struct {
 	typ      types.Type
 	isResult bool
 }
 
-// checkFuncZeroValues reports a local `var x T` or named result of fnType
-// whose first interaction anywhere in the function is not a whole-value
-// assignment or &x passed to a call. It is called once per function
-// entity (a *ast.FuncDecl or a *ast.FuncLit); a nested function literal is
-// visited separately, with its own locals and results.
 func (d *detector) checkFuncZeroValues(
 	fnType *ast.FuncType, body *ast.BlockStmt,
 ) {
@@ -69,10 +58,6 @@ func (d *detector) checkFuncZeroValues(
 	}
 }
 
-// collectZeroVars gathers fnType's named results and every local `var x T`
-// declared directly in body, i.e. not inside a nested function literal:
-// that literal is its own function entity, visited separately by the
-// inspector.
 func (d *detector) collectZeroVars(
 	fnType *ast.FuncType, body *ast.BlockStmt,
 ) map[types.Object]zeroVar {
@@ -90,12 +75,14 @@ func (d *detector) collectZeroVars(
 		}
 	}
 
-	ast.Inspect(body, func(n ast.Node) bool {
-		if _, ok := n.(*ast.FuncLit); ok {
+	ast.Inspect(body, func(node ast.Node) bool {
+		// A function literal is checked as its own function, with its own
+		// locals and results.
+		if _, ok := node.(*ast.FuncLit); ok {
 			return false
 		}
 
-		genDecl, ok := n.(*ast.GenDecl)
+		genDecl, ok := node.(*ast.GenDecl)
 		if !ok || genDecl.Tok != token.VAR {
 			return true
 		}
@@ -112,9 +99,8 @@ func (d *detector) collectZeroVars(
 	return tracked
 }
 
-// zeroValueSpecNames returns the declared names of every `var x T` (or
-// `var x, y T`) spec in genDecl that has no initializer: a var with a value
-// is a literal, conversion or other route, not a zero value.
+// A var with a value is not a zero value; a literal or conversion in it is
+// checked by its own route.
 func zeroValueSpecNames(genDecl *ast.GenDecl) []*ast.Ident {
 	var names []*ast.Ident
 
@@ -220,8 +206,6 @@ func (w *firstInteractionWalk) inspect(node ast.Node) {
 	}
 }
 
-// target records expr as a safe interaction when it is a bare identifier
-// and safe holds, and walks it as a plain expression otherwise.
 func (w *firstInteractionWalk) target(expr ast.Expr, safe bool) {
 	if ident, ok := expr.(*ast.Ident); ok {
 		w.record(ident, safe)

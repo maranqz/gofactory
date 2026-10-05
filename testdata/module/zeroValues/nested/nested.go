@@ -9,8 +9,7 @@ type Struct struct {
 }
 
 // Count is a defined type over a basic kind, protected like any other named
-// type: README.md's `+=` example reports a zero Count the same way a read
-// of a zero Struct is reported.
+// type; see AddAssignIsReported.
 type Count int
 
 // Grid is a defined array type: a protected type in its own right, the way
@@ -20,10 +19,9 @@ type Grid [3]Struct
 
 func (Struct) Method() {}
 
-// SetField takes a pointer receiver: calling it on x looks like the OK
-// `&x` form (it compiles down to the same address-of), but the ticket
-// still calls out a pointer-receiver method call as a reported
-// interaction.
+// SetField takes a pointer receiver: calling it on x takes &x implicitly,
+// but a method call is reported whatever its receiver; only an explicit &x
+// argument is the OK form.
 func (s *Struct) SetField(field int) {
 	s.Field = field
 }
@@ -60,10 +58,6 @@ func Fill(s *Struct) {
 	s.Field = 1
 }
 
-// packageLevelZero shows that -zeroValues still goes through the owner-
-// package policy every other route already has: the owner package may
-// bypass its own factory anywhere, including by leaving a package-level
-// var at its zero value.
 var packageLevelZero Struct
 
 // OwnPackageZero shows the same exemption for a local var: reading it is
