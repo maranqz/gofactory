@@ -13,6 +13,8 @@ import (
 // the prefix: "// gofactory:ignore" is prose, neither applied nor reported.
 const directivePrefix = "//gofactory:"
 
+const misplacedDirectiveFormat = "%s%s must be in the doc comment of %s"
+
 type declKind int
 
 const (
@@ -40,7 +42,7 @@ func placementOf(name string) (placement, bool) {
 	case directiveIgnore:
 		return placement{
 			kinds: []declKind{declType},
-			desc:  "a single top-level type",
+			desc:  "a single top-level type definition",
 		}, true
 	case directiveFactory:
 		return placement{
@@ -186,8 +188,8 @@ func applyDirective(
 	if kind == declAlias && slices.Contains(place.kinds, declType) {
 		pass.Reportf(
 			comment.Pos(),
-			"%s%s must be on a type definition, not an alias",
-			directivePrefix, name,
+			misplacedDirectiveFormat+", not an alias",
+			directivePrefix, name, place.desc,
 		)
 
 		return
@@ -196,7 +198,7 @@ func applyDirective(
 	if !slices.Contains(place.kinds, kind) {
 		pass.Reportf(
 			comment.Pos(),
-			"%s%s must be in the doc comment of %s",
+			misplacedDirectiveFormat,
 			directivePrefix, name, place.desc,
 		)
 

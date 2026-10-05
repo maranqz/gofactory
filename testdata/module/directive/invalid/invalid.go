@@ -6,30 +6,30 @@ package invalid
 //gofactory:bogus // want `unknown directive "//gofactory:bogus"`
 type Bogus struct{}
 
-//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 func Misplaced() {}
 
-//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 var MisplacedVar int
 
-//gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition, not an alias`
 type Alias = Bogus
 
 type (
-	//gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
+	//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition, not an alias`
 	GroupedAlias = Bogus
 )
 
-//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 type (
 	GroupedA struct{}
 	GroupedB struct{}
 )
 
-type Trailing struct{} //gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+type Trailing struct{} //gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 
 func Local() {
-	//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+	//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 	type local struct{}
 
 	_ = local{}
