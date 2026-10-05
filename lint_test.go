@@ -66,7 +66,7 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// TestLinterSuite runs every case through both entry points that populate
+// TestLinterSuite runs every case through every entry point that populates
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
 // constructor configured via kebab-case settings.
@@ -119,8 +119,9 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
-// forEachEntryPoint runs check as a "flags" and a "plugin" parallel subtest,
-// each with an analyzer built from settings through that entry point.
+// forEachEntryPoint runs check as a "flags", a "plugin" and a "unitchecker"
+// parallel subtest, each with an analyzer built from settings through that
+// entry point.
 func forEachEntryPoint(
 	t *testing.T,
 	settings caseSettings,
@@ -129,8 +130,9 @@ func forEachEntryPoint(
 	t.Helper()
 
 	entryPoints := map[string]func(*testing.T, caseSettings) *analysis.Analyzer{
-		"flags":  flagsAnalyzer,
-		"plugin": pluginAnalyzer,
+		"flags":       flagsAnalyzer,
+		"plugin":      pluginAnalyzer,
+		"unitchecker": unitcheckerAnalyzer,
 	}
 	for name, build := range entryPoints {
 		t.Run(name, func(t *testing.T) {
@@ -173,6 +175,34 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	return analyzer
 }
 
+// unitcheckerAnalyzer is flagsAnalyzer handed Pass.Module the way go vet's
+// unitchecker before Go 1.27 fills it: Path, Version and GoVersion without
+// Main, and nil without a module. analysistest always sets Main and never
+// passes nil, so only this entry point catches code relying on either.
+func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
+	t.Helper()
+
+	analyzer := flagsAnalyzer(t, s)
+	run := analyzer.Run
+
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		vetPass := *pass
+		vetPass.Module = nil
+
+		if pass.Module != nil && pass.Module.Path != "" {
+			vetPass.Module = &analysis.Module{
+				Path:      pass.Module.Path,
+				Version:   pass.Module.Version,
+				GoVersion: pass.Module.GoVersion,
+			}
+		}
+
+		return run(&vetPass)
+	}
+
+	return analyzer
+}
+
 // pluginAnalyzer builds the analyzer through the golangci-lint plugin entry
 // point registered by gofactory's init, decoding the same settings a
 // golangci-lint YAML/JSON config would supply in kebab-case.
@@ -210,7 +240,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 const testdataGoVersion = "1.26"
 
 // TestTestdataRoots pins down how analysistest loads the two testdata roots,
-// which later cases rely on; it runs through both entry points. Module mode in
+// which later cases rely on; it runs through every entry point. Module mode in
 // analysistest is undocumented (x/tools v0.50.0, analysistest.loadPackages):
 //
 //   - A root holding a go.mod is loaded with GO111MODULE=on, GOPROXY=off and,
