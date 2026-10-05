@@ -28,7 +28,6 @@ func (d *detector) checkPackageVars(file *ast.File) {
 }
 
 type zeroVar struct {
-	typ      types.Type
 	isResult bool
 }
 
@@ -53,7 +52,7 @@ func (d *detector) checkFuncZeroValues(
 
 	for obj, first := range walk.first {
 		if !first.safe {
-			d.reportProtectedSuffix(first.node, tracked[obj].typ, zeroValueSuffix)
+			d.reportProtectedSuffix(first.node, obj.Type(), zeroValueSuffix)
 		}
 	}
 }
@@ -69,7 +68,7 @@ func (d *detector) collectZeroVars(
 		for _, field := range fnType.Results.List {
 			for _, name := range field.Names {
 				if obj := d.pass.TypesInfo.ObjectOf(name); obj != nil {
-					tracked[obj] = zeroVar{typ: obj.Type(), isResult: true}
+					tracked[obj] = zeroVar{isResult: true}
 				}
 			}
 		}
@@ -89,7 +88,7 @@ func (d *detector) collectZeroVars(
 
 		for _, name := range zeroValueSpecNames(genDecl) {
 			if obj := d.pass.TypesInfo.ObjectOf(name); obj != nil {
-				tracked[obj] = zeroVar{typ: obj.Type()}
+				tracked[obj] = zeroVar{}
 			}
 		}
 
