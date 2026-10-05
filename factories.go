@@ -34,7 +34,6 @@ func factorySuffix(site *types.Package, recognised []*types.Func) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
-// factoryIndex maps each protected type to its recognised factories.
 type factoryIndex map[*types.TypeName][]*types.Func
 
 func indexFactories(
