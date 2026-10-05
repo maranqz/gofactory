@@ -6,10 +6,10 @@ package invalid
 //gofactory:bogus // want `unknown directive "//gofactory:bogus"`
 type Bogus struct{}
 
-//gofactory:ignore // want `//gofactory:ignore must be on a type declaration`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
 func Misplaced() {}
 
-//gofactory:ignore // want `//gofactory:ignore must be on a type declaration`
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
 var MisplacedVar int
 
 //gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
@@ -19,3 +19,18 @@ type (
 	//gofactory:ignore // want `//gofactory:ignore must be on a type definition, not an alias`
 	GroupedAlias = Bogus
 )
+
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+type (
+	GroupedA struct{}
+	GroupedB struct{}
+)
+
+type Trailing struct{} //gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+
+func Local() {
+	//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type`
+	type local struct{}
+
+	_ = local{}
+}

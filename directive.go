@@ -40,17 +40,17 @@ func placementOf(name string) (placement, bool) {
 	case directiveIgnore:
 		return placement{
 			kinds: []declKind{declType},
-			desc:  "a type declaration",
+			desc:  "a single top-level type",
 		}, true
 	case directiveFactory:
 		return placement{
 			kinds: []declKind{declFunc},
-			desc:  "a function or method declaration",
+			desc:  "a function or method",
 		}, true
 	case directiveTrusted:
 		return placement{
 			kinds: []declKind{declFunc, declPackage},
-			desc:  "a function, a method, or a package declaration",
+			desc:  "a function, a method, or a package",
 		}, true
 	default:
 		return placement{}, false
@@ -196,7 +196,7 @@ func applyDirective(
 	if !slices.Contains(place.kinds, kind) {
 		pass.Reportf(
 			comment.Pos(),
-			"%s%s must be on %s",
+			"%s%s must be in the doc comment of %s",
 			directivePrefix, name, place.desc,
 		)
 

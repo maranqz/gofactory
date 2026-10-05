@@ -28,14 +28,15 @@ See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 
 ### Directives
 
-A `//gofactory:` comment, written directly above a declaration with no space after the slashes
-(like `//go:build` or `//nolint:`), marks that declaration for the linter. It takes effect in
-every package and module that imports the declaration, not just the one that writes it: gofactory
-exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
+A `//gofactory:` comment, written in a declaration's doc comment (the comment group directly above
+it) with no space after the slashes (like `//go:build`), marks that declaration for the linter.
+It takes effect in every package and module that imports the declaration, not just the one that
+writes it: gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
 so an importing package's analysis sees them even though it never parses the file that carries the
 comment.
 
-- `//gofactory:ignore`, written directly above a type declaration, takes that type out of
+- `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
+  not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
   protection: nothing in any package needs a factory to obtain a value of it, on any bypass route.
   It is the directive form of `--ignoreTypes`, [tests](testdata/module/directive).
 
@@ -46,9 +47,9 @@ comment.
   }
   ```
 
-An unknown directive name, or a known one on the wrong kind of declaration (for example
-`//gofactory:ignore` on a function), is reported as a diagnostic at the comment, so a typo does not
-silently disable protection.
+An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
+function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
+disable protection.
 
 ### golangci-lint module plugin
 
