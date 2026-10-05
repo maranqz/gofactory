@@ -8,8 +8,7 @@ import (
 )
 
 // Sibling is a go.work sibling module outside the current module path
-// ("factory"), so its types are silent by default; a fence can protect
-// them later.
+// ("factory"), so its types are silent by default unless a fence names them.
 func Sibling() {
 	_ = sibling.Struct{}
 	_ = &sibling.Struct{}
@@ -25,10 +24,9 @@ func NestedModule() {
 	_ = nestedmodule.NewStruct()
 }
 
-// PrefixSibling's import path, "factoryext", shares its first seven
-// characters with the current module path ("factory") but is not "factory"
-// followed by "/", so it is a go.work sibling like Sibling above, not a
-// nested module, and stays silent.
+// "factoryext" is a go.work sibling module with its own go.mod, like Sibling
+// above. Its path starts with the current module path ("factory") but not
+// with "factory/", so it is not nested under it and stays silent.
 func PrefixSibling() {
 	_ = factoryext.Struct{}
 }

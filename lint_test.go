@@ -353,8 +353,8 @@ func assertModules(
 }
 
 // moduleRoot is the module-mode testdata root: module "factory" (go 1.26)
-// with a go.work that also uses the sibling module "sibling" and the nested
-// module "factory/nestedmodule".
+// with a go.work that also uses the sibling modules "sibling" and
+// "factoryext" and the nested module "factory/nestedmodule".
 func moduleRoot() string {
 	return filepath.Join(analysistest.TestData(), "module")
 }

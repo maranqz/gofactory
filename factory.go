@@ -57,8 +57,6 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			modulePath = pass.Module.Path
 		}
 
-		// modulePath is empty for GOPATH or Bazel nogo; currentModule
-		// falls back to its pre-module-scope behaviour in that case.
 		var strategy blockedStrategy = newCurrentModule(modulePath)
 
 		pkgGlobs := cfg.pkgGlobs.Value()
