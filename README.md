@@ -41,6 +41,26 @@ By default, types from the current module must come from their factories (see [P
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 
+### Message format
+
+Every diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix is a public
+contract that does not change. A golangci-lint `linters.exclusions.rules[].text` or
+`severity.rules[].text` regex that matches the prefix without anchoring the end of the message (for
+example `^Use factory for`) keeps matching; one anchored to the end of the old, suffix-less message
+(`^Use factory for pkg\.T$`) stops matching once a factory suffix is appended.
+
+When `T` has a factory the reported site can call, the message gets a suffix naming up to three of
+them, `New…` first, in a deterministic order: `Use factory for order.Order (order.NewOrder)`. A type
+with no accessible factory keeps the bare prefix.
+
+A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
+exported method of another type than `T`, that returns `T` or `*T` among its results, takes no `T` or
+`*T` parameter, and is named `New…`. Generic instantiations count too, e.g. `NewBox[T]() Box[T]`.
+Methods of `T` itself are never factories, so withers and clones are not suggested, and a method
+declared on an interface type is never recognised either. A factory function is named `pkg.NewT` in
+the suffix; a factory method of another type `U` is named `pkg.U.NewT`, with a generic `U` rendered
+without its type arguments, [tests](testdata/module/factories).
+
 ### golangci-lint module plugin
 
 gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),

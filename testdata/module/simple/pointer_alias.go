@@ -6,19 +6,19 @@ import "factory/simple/nested"
 type StructPtr = *nested.Struct
 
 func PointerAlias() {
-	_ = []StructPtr{{}} // want `Use factory for nested.Struct`
+	_ = []StructPtr{{}} // want `Use factory for nested.Struct \(nested.NewStruct\)`
 
 	l := struct{}{}
 
-	_ = StructPtr(&l) // want `Use factory for nested.Struct`
+	_ = StructPtr(&l) // want `Use factory for nested.Struct \(nested.NewStruct\)`
 }
 
 // A locally defined pointer type still builds the nested.Struct behind it.
 type DefinedStructPtr *nested.Struct
 
 func DefinedPointer() {
-	_ = []DefinedStructPtr{{}}               // want `Use factory for nested.Struct`
-	_ = map[string]DefinedStructPtr{"a": {}} // want `Use factory for nested.Struct`
+	_ = []DefinedStructPtr{{}}               // want `Use factory for nested.Struct \(nested.NewStruct\)`
+	_ = map[string]DefinedStructPtr{"a": {}} // want `Use factory for nested.Struct \(nested.NewStruct\)`
 }
 
 // Converting to a defined pointer type only retypes an existing pointer, so

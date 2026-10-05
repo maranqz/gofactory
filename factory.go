@@ -72,7 +72,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			)
 		}
 
-		v := &detector{pass: pass, strategy: strategy}
+		v := newDetector(pass, strategy)
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{

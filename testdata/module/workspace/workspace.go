@@ -19,8 +19,8 @@ func Sibling() {
 // module path plus "/", so it counts as the current module despite being
 // its own go.mod, and stays protected.
 func NestedModule() {
-	_ = nestedmodule.Struct{}  // want `Use factory for nestedmodule.Struct`
-	_ = &nestedmodule.Struct{} // want `Use factory for nestedmodule.Struct`
+	_ = nestedmodule.Struct{}  // want `Use factory for nestedmodule.Struct \(nestedmodule.NewStruct\)`
+	_ = &nestedmodule.Struct{} // want `Use factory for nestedmodule.Struct \(nestedmodule.NewStruct\)`
 	_ = nestedmodule.NewStruct()
 }
 
@@ -35,5 +35,5 @@ func PrefixSibling() {
 // exactly — the other half of the membership rule besides the "+ /" prefix
 // NestedModule relies on — so it counts as the current module too.
 func ModuleRoot() {
-	_ = factory.Struct{} // want `Use factory for factory.Struct`
+	_ = factory.Struct{} // want `Use factory for factory.Struct \(factory.NewStruct\)`
 }

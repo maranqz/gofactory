@@ -14,8 +14,8 @@ func Local() {
 }
 
 func Nested() {
-	_ = nested.Struct{}  // want `Use factory for nested.Struct`
-	_ = &nested.Struct{} // want `Use factory for nested.Struct`
+	_ = nested.Struct{}  // want `Use factory for nested.Struct \(nested.NewStruct\)`
+	_ = &nested.Struct{} // want `Use factory for nested.Struct \(nested.NewStruct\)`
 
 	_ = nested.NewStruct()
 }
