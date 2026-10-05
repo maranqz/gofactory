@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/types"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -11,8 +12,8 @@ var defaultFactoryPattern = regexp.MustCompile(`^New`)
 
 const maxSuggestedFactories = 3
 
-func factorySuffix(site *types.Package, target *types.TypeName) string {
-	factories := accessibleFactories(site, recognisedFactories(target))
+func factorySuffix(site *types.Package, recognised []*types.Func) string {
+	factories := accessibleFactories(site, recognised)
 	if len(factories) == 0 {
 		return ""
 	}
@@ -31,74 +32,97 @@ func factorySuffix(site *types.Package, target *types.TypeName) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
-func recognisedFactories(target *types.TypeName) []*types.Func {
-	pkg := target.Pkg()
-	if pkg == nil {
-		return nil
-	}
+type factoryIndex map[*types.TypeName][]*types.Func
 
-	var factories []*types.Func
+func indexFactories(pkg *types.Package) factoryIndex {
+	index := factoryIndex{}
 
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
 		switch obj := scope.Lookup(name).(type) {
 		case *types.Func:
-			if isFactory(target, obj) {
-				factories = append(factories, obj)
-			}
+			index.add(obj, nil)
 		case *types.TypeName:
-			factories = append(factories, methodFactories(target, obj)...)
+			index.addMethods(obj)
 		}
 	}
 
-	return factories
+	return index
 }
 
-// isFactory ignores the receiver, so target's own methods (withers,
-// clones) are dropped here: they are never its factories. Aliases are
-// skipped too: under GODEBUG=gotypesalias=0 an alias's Type() is the
-// aliased *types.Named itself, so an alias of target would hand back
+// Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
+// the aliased *types.Named itself, so an alias of target would hand back
 // target's own methods, and an alias of another type would list its
 // factories twice.
-func methodFactories(target, candidate *types.TypeName) []*types.Func {
-	if candidate == target || candidate.IsAlias() {
-		return nil
+func (index factoryIndex) addMethods(receiver *types.TypeName) {
+	if receiver.IsAlias() {
+		return
 	}
 
-	named, ok := candidate.Type().(*types.Named)
+	named, ok := receiver.Type().(*types.Named)
 	if !ok {
-		return nil
+		return
 	}
-
-	var factories []*types.Func
 
 	for method := range named.Methods() {
-		if isFactory(target, method) {
-			factories = append(factories, method)
-		}
+		index.add(method, receiver)
 	}
-
-	return factories
 }
 
-func isFactory(target *types.TypeName, fn *types.Func) bool {
-	if !fn.Exported() || !defaultFactoryPattern.MatchString(fn.Name()) {
-		return false
+// A method is never a factory of its own receiver type (withers, clones).
+func (index factoryIndex) add(
+	candidate *types.Func, receiver *types.TypeName,
+) {
+	if !candidate.Exported() ||
+		!defaultFactoryPattern.MatchString(candidate.Name()) {
+		return
 	}
 
-	sig, ok := fn.Type().(*types.Signature)
-	if !ok {
-		return false
-	}
+	sig := candidate.Signature()
 
-	for param := range sig.Params().Variables() {
-		if isTargetType(param.Type(), target) {
-			return false
+	for _, target := range resultTargets(sig) {
+		if target != receiver && !takesTarget(sig, target) {
+			index[target] = append(index[target], candidate)
+		}
+	}
+}
+
+func resultTargets(sig *types.Signature) []*types.TypeName {
+	var targets []*types.TypeName
+
+	for result := range sig.Results().Variables() {
+		for _, target := range targetsOf(result.Type()) {
+			if !slices.Contains(targets, target) {
+				targets = append(targets, target)
+			}
 		}
 	}
 
-	for result := range sig.Results().Variables() {
-		if isTargetType(result.Type(), target) {
+	return targets
+}
+
+// A defined pointer type (type P *T) counts as *T here, unlike in pointee.
+// candidate's own named type counts too, because a target may itself be a
+// defined pointer type (type BoxPtr *Box).
+func targetsOf(candidate types.Type) []*types.TypeName {
+	var targets []*types.TypeName
+
+	if named, ok := types.Unalias(candidate).(*types.Named); ok {
+		targets = append(targets, named.Obj())
+	}
+
+	if ptr, ok := types.Unalias(candidate).Underlying().(*types.Pointer); ok {
+		if named, ok := types.Unalias(ptr.Elem()).(*types.Named); ok {
+			targets = append(targets, named.Obj())
+		}
+	}
+
+	return targets
+}
+
+func takesTarget(sig *types.Signature, target *types.TypeName) bool {
+	for param := range sig.Params().Variables() {
+		if slices.Contains(targetsOf(param.Type()), target) {
 			return true
 		}
 	}
@@ -106,27 +130,9 @@ func isFactory(target *types.TypeName, fn *types.Func) bool {
 	return false
 }
 
-// A defined pointer type (type P *T) counts as *T here, unlike in pointee.
-// target is matched before unwrapping, because it may itself be a defined
-// pointer type (type BoxPtr *Box).
-func isTargetType(candidate types.Type, target *types.TypeName) bool {
-	if isTargetNamed(candidate, target) {
-		return true
-	}
-
-	ptr, ok := types.Unalias(candidate).Underlying().(*types.Pointer)
-
-	return ok && isTargetNamed(ptr.Elem(), target)
-}
-
-func isTargetNamed(t types.Type, target *types.TypeName) bool {
-	named, ok := types.Unalias(t).(*types.Named)
-
-	return ok && named.Obj() == target
-}
-
 // Outside its package, a method of an unexported type renders as
-// pkg.builder.NewX, which doesn't compile.
+// pkg.builder.NewX, which doesn't compile. The result is a fresh slice:
+// factorySuffix sorts it, and factories belongs to the cached index.
 func accessibleFactories(
 	site *types.Package, factories []*types.Func,
 ) []*types.Func {
@@ -153,8 +159,8 @@ func receiverExported(fn *types.Func) bool {
 // Go rejects a defined pointer type as a receiver, so pointee's *T unwrap
 // is enough.
 func receiverNamed(fn *types.Func) *types.Named {
-	sig, ok := fn.Type().(*types.Signature)
-	if !ok || sig.Recv() == nil {
+	sig := fn.Signature()
+	if sig.Recv() == nil {
 		return nil
 	}
 
