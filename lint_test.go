@@ -120,9 +120,6 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
-// forEachEntryPoint runs check as a "flags", a "plugin" and a "unitchecker"
-// parallel subtest, each with an analyzer built from settings through that
-// entry point.
 func forEachEntryPoint(
 	t *testing.T,
 	settings caseSettings,

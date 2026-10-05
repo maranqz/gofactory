@@ -20,7 +20,6 @@ func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
 	return false
 }
 
-// anotherPkg protects every package other than the current one.
 type anotherPkg struct{}
 
 func newAnotherPkg() anotherPkg {
