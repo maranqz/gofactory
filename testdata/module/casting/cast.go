@@ -21,7 +21,7 @@ func ToNestedStrut() {
 		Field: 1,
 	}
 
-	_ = nested.Struct(l) // want `Use factory for nested.Struct`
+	_ = nested.Struct(l) // want `Use factory for nested.Struct \(nested.NewStruct\)`
 }
 
 func ToLocal() {
