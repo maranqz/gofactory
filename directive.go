@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/token"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -28,31 +29,30 @@ const (
 	directiveTrusted = "trusted"
 )
 
-// directiveAllowedIn reports whether name is a known directive valid in
-// kind. The second result is false for an unknown name, regardless of kind.
-func directiveAllowedIn(name string, kind declKind) (bool, bool) {
-	switch name {
-	case directiveIgnore:
-		return kind == declType, true
-	case directiveFactory:
-		return kind == declFunc, true
-	case directiveTrusted:
-		return kind == declFunc || kind == declPackage, true
-	default:
-		return false, false
-	}
+type placement struct {
+	kinds []declKind
+	desc  string
 }
 
-func placementDesc(name string) string {
+func placementOf(name string) (placement, bool) {
 	switch name {
 	case directiveIgnore:
-		return "a type declaration"
+		return placement{
+			kinds: []declKind{declType},
+			desc:  "a type declaration",
+		}, true
 	case directiveFactory:
-		return "a function or method declaration"
+		return placement{
+			kinds: []declKind{declFunc},
+			desc:  "a function or method declaration",
+		}, true
 	case directiveTrusted:
-		return "a function, a method, or a package declaration"
+		return placement{
+			kinds: []declKind{declFunc, declPackage},
+			desc:  "a function, a method, or a package declaration",
+		}, true
 	default:
-		return ""
+		return placement{}, false
 	}
 }
 
@@ -167,18 +167,18 @@ func applyDirective(
 	kind declKind,
 	spec ast.Spec,
 ) {
-	allowed, known := directiveAllowedIn(name, kind)
+	place, known := placementOf(name)
 	if !known {
 		pass.Reportf(comment.Pos(), "unknown directive %q", directivePrefix+name)
 
 		return
 	}
 
-	if !allowed {
+	if !slices.Contains(place.kinds, kind) {
 		pass.Reportf(
 			comment.Pos(),
 			"%s%s must be on %s",
-			directivePrefix, name, placementDesc(name),
+			directivePrefix, name, place.desc,
 		)
 
 		return
