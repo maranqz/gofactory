@@ -104,7 +104,7 @@ func VarWithInitializerIsSilent() int {
 }
 
 // SelfMethodCallOnAssignmentIsReported: the right-hand side's method call
-// runs on the zero-valued x before the assignment writes a new value into
+// runs on the zero-valued o before the assignment writes a new value into
 // it, so the first interaction is that call, not the assignment.
 func SelfMethodCallOnAssignmentIsReported() nested.Struct {
 	var o nested.Struct
@@ -180,7 +180,7 @@ func RangeChannelAssignIsSilent(ch chan nested.Struct) nested.Struct {
 }
 
 // RangeAssignOnSelfMethodCallIsReported: the range expression's method call
-// runs on the zero-valued x before the loop's `=` ever assigns into it, so
+// runs on the zero-valued o before the loop's `=` ever assigns into it, so
 // the first interaction is that call, not the assignment.
 func RangeAssignOnSelfMethodCallIsReported() nested.Struct {
 	var x nested.Struct

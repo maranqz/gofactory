@@ -60,8 +60,8 @@ func Fill(s *Struct) {
 
 var packageLevelZero Struct
 
-// OwnPackageZero shows the same exemption for a local var: reading it is
-// the kind of interaction that would be reported outside this package.
+// OwnPackageZero is silent, like packageLevelZero, because this is Struct's
+// owner package.
 func OwnPackageZero() int {
 	var x Struct
 

@@ -125,10 +125,9 @@ type interaction struct {
 	safe bool
 }
 
-// firstInteractionWalk records each tracked object's first interaction, in
-// evaluation order rather than source order: an assignment's right-hand side
-// before its targets, a range expression before its key and value, and a for
-// loop's body before its post statement.
+// record keeps the first interaction it sees, so visit restores evaluation
+// order where it differs from source order; a function literal's body counts
+// where it is written.
 type firstInteractionWalk struct {
 	uses    map[*ast.Ident]types.Object
 	tracked map[types.Object]zeroVar
