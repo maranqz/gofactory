@@ -49,4 +49,5 @@ func CappedFactories() {
 // for BoxPtr, not just for the Box it points to.
 func NamedPointerFactory() {
 	_ = new(nested.BoxPtr) // want `Use factory for nested.BoxPtr \(nested.NewBoxPtr\)$`
+	_ = nested.Box{}       // want `Use factory for nested.Box \(nested.NewBoxPtr\)$`
 }
