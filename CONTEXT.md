@@ -53,6 +53,11 @@ _Avoid_: zero-value creation
 **First interaction**:
 The first mention of a zero-valued variable in its function; it decides whether that zero value counts as a factory bypass.
 
+**Field path**:
+The chain of by-value struct field names, including embedding, from a literal or a zero-valued variable down to an unset field of a protected type; it appears in the message as `V.W.S`.
+
+_Avoid_: field chain, property path
+
 **Reconstitution**:
 Rebuilding an existing object from storage, as a DDD repository does. For gofactory it is a factory bypass unless it goes through a factory or happens in trusted code.
 
