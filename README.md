@@ -47,6 +47,29 @@ the generic `Pair` with any type arguments. Type arguments in a glob are not sup
 instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
 Repeat the flag to give several globs.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
+- `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
+conversion or `new`, [tests](testdata/module/zeroValues).
+  - A package-level `var x T` is always reported.
+  - A local `var x T` and a named result are decided by their first interaction anywhere in the function: a
+    whole-value assignment (`x = …`, `x, err = …`) or `&x` passed to a call is silent; anything else, such as a
+    read, a field access, a method call or `return x`, is reported. A naked `return` counts as an interaction with
+    every named result. The function is read top to bottom, except that an assignment's right-hand side and a
+    range expression count before the assignment itself (so `x = x.Paid()` and `for _, x = range x.Items()` are
+    reported), and a `for` loop's body counts before its post statement. A function literal counts where it is
+    written, even under `defer`.
+  - Pointers, slices, maps and chans are not followed, and `make([]T, n)` and arrays are not reported yet, pending
+    fill analysis: `var a [N]T` and `make([]T, n)` stay silent. A defined type such as
+    `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
+  - Goes through the same owner-package and fences policy as every other route.
+- `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
+e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
+- `--useDefaultFactoryPattern` – recognise the default `^New` pattern, `true` by default; set to
+`false` to drop it, following the append-plus-bool-to-drop-builtins convention also used by errcheck,
+asasalint and canonicalheader. With `--useDefaultFactoryPattern=false` and no `--factoryPatterns` at
+all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPattern).
+- `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
+team can adopt the linter gradually, starting from the types that already have one,
+[tests](testdata/module/onlyWithFactory).
 
 ### Directives
 
@@ -88,7 +111,9 @@ example `^Use factory for`) keeps matching; one anchored to the end of the old, 
 
 When `T` has a factory the reported site can call, the message gets a suffix naming up to three of
 them, `New…` first, in a deterministic order: `Use factory for order.Order (order.NewOrder)`. A type
-with no accessible factory keeps the bare prefix.
+with no accessible factory keeps the bare prefix. A zero value reported under `--zeroValues` adds
+`: zero value` right after the prefix, before any factory list:
+`Use factory for order.Order: zero value (order.NewOrder)`.
 
 A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
 exported method of another type than `T`, that returns `T` or `*T` among its results, takes no `T` or
@@ -97,6 +122,11 @@ Methods of `T` itself are never factories, so withers and clones are not suggest
 declared on an interface type is never recognised either. A factory function is named `pkg.NewT` in
 the suffix; a factory method of another type `U` is named `pkg.U.NewT`, with a generic `U` rendered
 without its type arguments, [tests](testdata/module/factories).
+
+`--factoryPatterns` and `--useDefaultFactoryPattern` widen or replace which names count: a candidate
+is recognised as soon as its name matches any configured pattern, default `^New` included unless
+dropped. A `New…` candidate still sorts first in the suggestion even when another pattern also
+matches it.
 
 ### golangci-lint module plugin
 
@@ -139,11 +169,20 @@ linters:
           package-globs-only: false
           ignore-types:
             - "mypkg.Point"
+          zero-values: false
+          factory-patterns:
+            - "^Make"
+          use-default-factory-pattern: true
+          only-with-factory: false
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
 - `ignore-types` – equivalent to `--ignoreTypes`.
+- `zero-values` – equivalent to `--zeroValues`.
+- `factory-patterns` – equivalent to `--factoryPatterns`.
+- `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
+- `only-with-factory` – equivalent to `--onlyWithFactory`.
 
 ## Example
 
@@ -256,12 +295,12 @@ actual output. Every case added there must carry such a `// want` comment.
 
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
-3. Named return. If you want to block that case, you can use [nonamedreturns](https://github.com/firefart/nonamedreturns) linter, [example](testdata/module/unimplemented/named_return.go).
-4. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
-5. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
-6. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
-7. var declaration, `var initilized nested.Struct` gives structure without factory, [example](testdata/module/unimplemented/var.go).
- To block that case, you can use [gopublicfield](github.com/maranqz/gopublicfield) to prevent fill of structure fields.
+3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
+4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
+5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
+6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
+   elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
+   [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
 
 ## TODO
 
@@ -273,7 +312,6 @@ actual output. Every case added there must carry such a `// want` comment.
        Other: OtherStruct{}, // want `Use factory for nested.Struct`
    }
    ```
-2. Resolve false negative issue with `var declaration`.
 
 ### Features that are difficult to implement and unplanned
 

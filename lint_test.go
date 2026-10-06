@@ -1,8 +1,11 @@
 package gofactory_test
 
 import (
+	"maps"
 	"net/url"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -40,15 +43,14 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 }
 
 // TestPluginRejectsBadSettings checks that the plugin fails on settings it
-// cannot apply instead of silently ignoring them: a key spelled like the
-// flag rather than in kebab-case, and a glob that does not compile.
+// cannot apply instead of silently ignoring them.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling": {"packageGlobs": []string{"factory/**"}},
-		"invalid glob":  {"package-globs": []string{"["}},
-
+		"flag spelling":             {"packageGlobs": []string{"factory/**"}},
+		"invalid glob":              {"package-globs": []string{"["}},
+		"invalid factory pattern":   {"factory-patterns": []string{"("}},
 		"invalid ignore-types glob": {"ignore-types": []string{"["}},
 	}
 	for name, rawSettings := range tests {
@@ -68,13 +70,29 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
+// TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
+// flag fails on an invalid regex, the flags-entry-point counterpart to
+// TestPluginRejectsBadSettings's "invalid factory pattern" plugin-side case.
+func TestFlagsRejectBadFactoryPattern(t *testing.T) {
+	t.Parallel()
+
+	analyzer := gofactory.NewAnalyzer()
+
+	err := analyzer.Flags.Set("factoryPatterns", "(")
+	if err == nil {
+		t.Fatal("got no error, want one")
+	}
+}
+
+const factoryPatternMake = "^Make"
+
 type linterSuiteCase struct {
 	pkgs     []string
 	settings caseSettings
 }
 
 func linterSuiteCases() map[string]linterSuiteCase {
-	return map[string]linterSuiteCase{
+	cases := map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -115,6 +133,69 @@ func linterSuiteCases() map[string]linterSuiteCase {
 				},
 			},
 		},
+
+		"zeroValues": {
+			pkgs:     []string{"zeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"zeroValuesOff": {
+			pkgs: []string{"zeroValuesOff/..."},
+		},
+		"zeroValuesFences": {
+			pkgs: []string{"zeroValuesFences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
+				zeroValues:   true,
+			},
+		},
+	}
+	maps.Copy(cases, factorySettingCases())
+
+	return cases
+}
+
+func factorySettingCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"factoryPatterns": {
+			pkgs: []string{"factoryPatterns/..."},
+			settings: caseSettings{
+				factoryPatterns: []string{factoryPatternMake},
+			},
+		},
+		"useDefaultFactoryPattern": {
+			pkgs: []string{"useDefaultFactoryPattern/..."},
+			settings: caseSettings{
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"replaceFactoryPattern": {
+			pkgs: []string{"replaceFactoryPattern/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{factoryPatternMake, "^Restore"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"newFirstWithoutDefault": {
+			pkgs: []string{"newFirstWithoutDefault/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{"Both$"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"onlyWithFactory": {
+			pkgs: []string{"onlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory: true,
+			},
+		},
+		"onlyWithFactoryPatterns": {
+			pkgs: []string{"onlyWithFactoryPatterns/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				factoryPatterns:          []string{factoryPatternMake},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
 	}
 }
 
@@ -146,6 +227,32 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
+// TestZeroValuesInDeclarationOrder checks the order of one function's
+// zero-value diagnostics, which want comments ignore: the CLI prints them
+// in the order they are reported.
+func TestZeroValuesInDeclarationOrder(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(moduleRoot(), "zeroValuesOrder")
+
+	forEachEntryPoint(t, caseSettings{zeroValues: true},
+		func(t *testing.T, analyzer *analysis.Analyzer) {
+			var lines []int
+
+			for _, res := range analysistest.Run(t, moduleRoot(), analyzer, dir) {
+				for _, diag := range res.Action.Diagnostics {
+					pos := res.Action.Package.Fset.Position(diag.Pos)
+					lines = append(lines, pos.Line)
+				}
+			}
+
+			// first, second and third are read on lines 12, 11 and 10.
+			if want := []int{12, 11, 10}; !slices.Equal(lines, want) {
+				t.Errorf("diagnostics on lines %v, want %v", lines, want)
+			}
+		})
+}
+
 func forEachEntryPoint(
 	t *testing.T,
 	settings caseSettings,
@@ -169,10 +276,17 @@ func forEachEntryPoint(
 
 // caseSettings is one case's configuration, applied through either entry
 // point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+// useDefaultFactoryPattern is a pointer so a case can leave it unset
+// (the true default on both entry points) rather than force false.
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
 	ignoreTypes      []string
+	zeroValues       bool
+
+	factoryPatterns          []string
+	useDefaultFactoryPattern *bool
+	onlyWithFactory          bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -184,27 +298,43 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	analyzer := gofactory.NewAnalyzer()
 
 	for _, g := range s.packageGlobs {
-		err := analyzer.Flags.Set("packageGlobs", g)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobs", g)
 	}
 
 	if s.packageGlobsOnly {
-		err := analyzer.Flags.Set("packageGlobsOnly", "true")
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobsOnly", "true")
+	}
+
+	for _, p := range s.factoryPatterns {
+		setFlag(t, analyzer, "factoryPatterns", p)
+	}
+
+	if s.useDefaultFactoryPattern != nil {
+		setFlag(t, analyzer, "useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern))
+	}
+
+	if s.onlyWithFactory {
+		setFlag(t, analyzer, "onlyWithFactory", "true")
+	}
+
+	if s.zeroValues {
+		setFlag(t, analyzer, "zeroValues", "true")
 	}
 
 	for _, g := range s.ignoreTypes {
-		err := analyzer.Flags.Set("ignoreTypes", g)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "ignoreTypes", g)
 	}
 
 	return analyzer
+}
+
+func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
+	t.Helper()
+
+	err := analyzer.Flags.Set(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // unitcheckerAnalyzer is flagsAnalyzer handed Pass.Module the way go vet's
@@ -251,6 +381,12 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
 		"ignore-types":       s.ignoreTypes,
+		"zero-values":        s.zeroValues,
+		"factory-patterns":   s.factoryPatterns,
+		"only-with-factory":  s.onlyWithFactory,
+	}
+	if s.useDefaultFactoryPattern != nil {
+		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
