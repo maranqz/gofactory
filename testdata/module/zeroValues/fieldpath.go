@@ -153,3 +153,18 @@ func AddressOfWholeVarPassedToCallIsSilent() Wrapper {
 
 	return w
 }
+
+type Blank struct {
+	_ nested.Struct
+	X int
+}
+
+// BlankFieldIsSilent: Go rejects _ as a literal key and as a selector, so
+// a blank field of a protected type is never reported.
+func BlankFieldIsSilent() int {
+	var bl Blank
+
+	_ = Blank{X: 1}
+
+	return bl.X
+}

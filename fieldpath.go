@@ -44,6 +44,12 @@ func (d *detector) fieldPathsVisited(
 
 	if strukt, ok := typ.Underlying().(*types.Struct); ok {
 		for field := range strukt.Fields() {
+			// No key or selector can name a blank field, so it can't be set
+			// apart from a fully positional literal, nor leak as a value.
+			if field.Name() == "_" {
+				continue
+			}
+
 			for _, sub := range d.fieldPathsVisited(field.Type(), visited) {
 				paths = append(paths, fieldPath{
 					path:  append([]string{field.Name()}, sub.path...),
