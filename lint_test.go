@@ -1,8 +1,11 @@
 package gofactory_test
 
 import (
+	"fmt"
+	"maps"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -15,6 +18,11 @@ import (
 // register.Plugin, which golangci-lint would use as the plugin key in its
 // own configuration.
 const pluginName = "gofactory"
+
+// siblingModulePath is the go.work sibling test module: its directory
+// name under moduleRoot, its own module path and import path, and an
+// exact -packageGlobs fence over it are all the same string.
+const siblingModulePath = "sibling"
 
 // TestAnalyzerURL checks that both entry points produce an Analyzer.URL
 // that parses as an absolute URL: golangci-lint fails to load an analyzer
@@ -39,15 +47,16 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 	}
 }
 
-// TestPluginRejectsBadSettings checks that the plugin fails on settings it
-// cannot apply instead of silently ignoring them: a key spelled like the
-// flag rather than in kebab-case, and a glob that does not compile.
+// TestPluginRejectsBadSettings checks that the plugin fails on a settings
+// key spelled like the flag rather than in kebab-case, instead of silently
+// ignoring it. An invalid glob is a configuration error too, but only once
+// Pass.Analyze runs (see run in factory.go): TestConfigurationErrors covers
+// it through both entry points.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
 		"flag spelling": {"packageGlobs": []string{"factory/**"}},
-		"invalid glob":  {"package-globs": []string{"["}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -66,20 +75,26 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// TestLinterSuite runs every case through every entry point that populates
-// the shared config: NewAnalyzer configured via Flags.Set, the way a
-// command-line user or go vet driver would, and the golangci-lint plugin
-// constructor configured via kebab-case settings. The flags analyzer also
-// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
-func TestLinterSuite(t *testing.T) {
-	t.Parallel()
+// linterSuiteCase is one TestLinterSuite case: the testdata packages to
+// analyse and the settings to analyse them with.
+type linterSuiteCase struct {
+	pkgs     []string
+	settings caseSettings
+}
 
-	root := moduleRoot()
+// linterSuiteCases is TestLinterSuite's table, kept in its own functions,
+// split by topic, so the test function itself stays short.
+func linterSuiteCases() map[string]linterSuiteCase {
+	cases := baseLinterSuiteCases()
 
-	tests := map[string]struct {
-		pkgs     []string
-		settings caseSettings
-	}{
+	maps.Copy(cases, fenceLinterSuiteCases())
+
+	return cases
+}
+
+// baseLinterSuiteCases covers every detector outside the fence rules.
+func baseLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -103,7 +118,67 @@ func TestLinterSuite(t *testing.T) {
 			},
 		},
 	}
-	for name, tt := range tests {
+}
+
+// fenceLinterSuiteCases covers the intersection rule and the gitignore-like
+// glob syntax (#50).
+func fenceLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		// twoFences is the probe case for the intersection rule: two disjoint fences used to exempt each other's packages from every check.
+		"twoFences": {
+			pkgs: []string{"twofences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/twofences/a/**",
+					"factory/twofences/b/**",
+				},
+			},
+		},
+		// nestedFence covers both directions of a narrower fence nested inside a wider one.
+		"nestedFence": {
+			pkgs: []string{"nestedfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/nestedfence/*/a/**",
+					"factory/nestedfence/*/a/domain/**",
+				},
+			},
+		},
+		// globSyntax covers the gitignore-like glob rules: compiled with '/' as the separator, so '*' does not cross a package boundary.
+		"globSyntax": {
+			pkgs: []string{"globsyntax/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/globsyntax/*"},
+			},
+		},
+		// stdlibFence covers a fence naming a stdlib package by its exact import path.
+		"stdlibFence": {
+			pkgs: []string{"stdlibfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"strings"},
+			},
+		},
+		// siblingFence is the README's go.work sibling recipe: an exact fence over a sibling module's path.
+		"siblingFence": {
+			pkgs: []string{"siblingfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{siblingModulePath},
+			},
+		},
+	}
+}
+
+// TestLinterSuite runs every case through every entry point that populates
+// the shared config: NewAnalyzer configured via Flags.Set, the way a
+// command-line user or go vet driver would, and the golangci-lint plugin
+// constructor configured via kebab-case settings. The flags analyzer also
+// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
+func TestLinterSuite(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot()
+
+	for name, tt := range linterSuiteCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -271,7 +346,7 @@ func TestTestdataRoots(t *testing.T) {
 			root: moduleRoot(),
 			pkgs: []string{
 				filepath.Join(moduleRoot(), "workspace"),
-				filepath.Join(moduleRoot(), "sibling"),
+				filepath.Join(moduleRoot(), siblingModulePath),
 				filepath.Join(moduleRoot(), "nestedmodule"),
 			},
 			modules: map[string]analysis.Module{
@@ -280,8 +355,8 @@ func TestTestdataRoots(t *testing.T) {
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
-				"sibling": {
-					Path:      "sibling",
+				siblingModulePath: {
+					Path:      siblingModulePath,
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
@@ -365,4 +440,62 @@ func moduleRoot() string {
 // gopathRoot is the GOPATH-style testdata root, for runs without a module.
 func gopathRoot() string {
 	return filepath.Join(analysistest.TestData(), "gopath")
+}
+
+// recordingTesting is analysistest.Testing's only method, Errorf,
+// implemented to record messages instead of failing the test: run returns
+// a configuration error from inside Pass.Analyze, so analysistest.Run
+// reports it through exactly this method, and a recording double is how
+// TestConfigurationErrors asserts the message without the recorded
+// failure also failing the outer test.
+type recordingTesting struct {
+	messages []string
+}
+
+func (r *recordingTesting) Errorf(format string, args ...any) {
+	r.messages = append(r.messages, fmt.Sprintf(format, args...))
+}
+
+// TestConfigurationErrors checks that -packageGlobsOnly without any
+// -packageGlobs pattern, and an invalid glob, are configuration errors
+// surfaced through both entry points. Both become an error returned from
+// run (factory.go), so analysistest.Run reports them the same way it
+// reports a real analysis failure; a recording Testing captures that
+// report instead of failing the test.
+func TestConfigurationErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		settings caseSettings
+		want     string
+	}{
+		"packageGlobsOnly without globs": {
+			settings: caseSettings{packageGlobsOnly: true},
+			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
+		},
+		"invalid glob": {
+			settings: caseSettings{packageGlobs: []string{"["}},
+			want:     "unable to compile packageGlobs pattern",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			forEachEntryPoint(t, tt.settings,
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					rec := &recordingTesting{}
+					analysistest.Run(rec, moduleRoot(), analyzer, filepath.Join(moduleRoot(), "simple"))
+
+					if len(rec.messages) == 0 {
+						t.Fatalf("got no configuration error, want one containing %q", tt.want)
+					}
+
+					got := strings.Join(rec.messages, "\n")
+					if !strings.Contains(got, tt.want) {
+						t.Fatalf("got errors %q, want one containing %q", got, tt.want)
+					}
+				})
+		})
+	}
 }
