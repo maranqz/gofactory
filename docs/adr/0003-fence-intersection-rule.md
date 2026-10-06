@@ -5,25 +5,26 @@ exempt from every check, for every type, anywhere. With one glob this reads as "
 bypass any factory," which is what it was for. With two or more globs, it reads as "being inside
 *some* bounded context exempts you from *every* bounded context's protection" — the globs disable
 each other, and the more fences a team adds, the less any of them actually protects. The globs
-were also plain string globs, not gitignore-like: an exact path never matched (you always needed
-a trailing `/**`), and `*` crossed `/`.
+were also plain string globs, not gitignore-like: an exact path like `pkg` never matched (`pkg/`
+matched only `pkg`, and `pkg/**` matched `pkg` and its subpackages), and `*` crossed `/`.
 
 We decided each `-packageGlobs` pattern is its own **fence**, and a type whose package lies in
 one or more fences may be bypassed only by code inside *all* of those fences. A type in no fence
-is untouched by fences entirely; module scope alone decides whether it's protected. Nesting two
-fences (`a/**` and `a/domain/**`) then guards the inner one more tightly without extra syntax:
-`a/domain`'s type lies in both, so only code also under `a/domain/**` may bypass it, while
-`a/infra` (under `a/**` only) cannot. We also moved to gitignore-like compilation — `/` as the
-separator, matched against both the path and the path plus `/` — so an exact path matches on its
-own and `*` no longer crosses a package boundary.
+is untouched by fences entirely; module scope alone decides whether it's protected, except under
+`-packageGlobsOnly`, where it is not protected at all. Nesting two fences (`a/**` and
+`a/domain/**`) then guards the inner one more tightly without extra syntax: `a/domain`'s type lies
+in both, so only code also under `a/domain/**` may bypass it, while `a/infra` (under `a/**` only)
+cannot. We also moved to gitignore-like compilation — `/` as the separator, matched against both
+the path and the path plus `/` — so an exact path matches on its own and `*` no longer crosses a
+package boundary.
 
 This is a breaking change for anyone passing one or more `-packageGlobs` patterns today, not only
-users of several patterns: code inside a fence can no longer bypass the factory of a type outside
-every fence that type's package lies in, so even a single pattern that used to mean "this subtree
-may bypass any factory" now means "this subtree may bypass only its own fence's factories." The
-migration guide in the README covers putting the bypassing and the bypassed packages in one fence.
-It ships as part of v1.1.0 alongside the other breaking changes in #43, not as a separate major
-version (a separate decision, #43's "breaking behaviour shipped as v1.1.0, not v2" candidate).
+users of several patterns: a fence no longer exempts its code from checks on types outside it, so
+even a single pattern that used to mean "this subtree may bypass any factory" now means "this
+subtree may bypass only its own fence's factories." The migration guide in the README covers
+putting the bypassing and the bypassed packages in one fence. It ships as part of v1.1.0 alongside
+the other breaking changes in #43, not as a separate major version (a separate decision, #43's
+"breaking behaviour shipped as v1.1.0, not v2" candidate).
 
 ## Considered options
 

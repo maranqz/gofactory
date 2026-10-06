@@ -58,17 +58,20 @@ but not `a/b/c`; `a/**` matches both. The path-plus-`/` match also means `a/*` a
 Before fences, a package matching **any** `--packageGlobs` pattern was exempt from every check,
 for every type, anywhere — this held even for a single pattern: code in that one subtree could
 bypass any factory, not just the factories of types that are themselves in a fence. An exact path
-never matched (you had to write `pkg/**` for a single package), and `*` crossed `/`.
+like `pkg` never matched, `pkg/` matched only `pkg`, `pkg/**` matched `pkg` and its subpackages,
+and `*` crossed `/`.
 
-Under the intersection rule, code inside a fence may no longer bypass the factory of a type
-outside every fence that type's package lies in, however many `--packageGlobs` patterns you pass.
-The migration is to put the bypassing and the bypassed packages in one fence, e.g.
+Under the intersection rule, the factory of a type in fences may be bypassed only by code inside
+all of them, and a type in no fence is checked as if `--packageGlobs` were never given — or, under
+`--packageGlobsOnly`, not protected at all. So a fence no longer exempts its code from checks on
+types outside it, however many `--packageGlobs` patterns you pass. The migration is to put the
+bypassing and the bypassed packages in one fence, e.g.
 `--packageGlobs='{app/infra/**,app/domain/**}'` in place of separate `app/infra/**` and
 `app/domain/**` patterns (gobwas/glob brace syntax), so that code in either package still lies
 inside the same fence as the other's types. `-trusted`, planned in #43, will be the direct
 replacement for "this code may bypass anything, anywhere." Also replace any `*` you relied on
-crossing `/` with `**`. An exact path that used to be written `pkg/**` still works and now also
-matches as `pkg` on its own.
+crossing `/` with `**`. `pkg/` and `pkg/**` still match the same packages as before, and `pkg`
+alone now matches exactly `pkg`.
 
 ### Recipe: protecting `go.work` sibling modules
 
