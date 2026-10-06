@@ -1,6 +1,9 @@
 package gofactory
 
-import "go/types"
+import (
+	"go/types"
+	"strings"
+)
 
 // fieldPath is one path from a type down to a field reached only through
 // by-value struct fields and embedding, ending at a protected type.
@@ -8,6 +11,10 @@ import "go/types"
 type fieldPath struct {
 	path  []string
 	named *types.Named
+}
+
+func (p fieldPath) String() string {
+	return strings.Join(p.path, ".")
 }
 
 // The result includes t itself, with an empty path, when t is protected.

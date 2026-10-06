@@ -25,13 +25,6 @@ func (d *detector) checkLiteral(lit *ast.CompositeLit) {
 	d.checkZeroValueFields(lit, litType)
 }
 
-// checkZeroValueFields reports, under -zeroValues, a protected type left
-// zero by a field the literal does not set. A fully positional literal
-// sets every field, so it reports nothing; an empty or partially keyed
-// literal leaves every field it does not name, and each gets the same
-// field-path treatment as a zero-valued var (fieldPaths). The literal's
-// own type is excluded here: an empty literal of a protected type is
-// already reported, unconditionally, by the call above.
 func (d *detector) checkZeroValueFields(
 	lit *ast.CompositeLit, litType types.Type,
 ) {
@@ -42,11 +35,12 @@ func (d *detector) checkZeroValueFields(
 	keyed := keyedFieldNames(lit)
 
 	for _, entry := range d.fieldPaths(litType) {
+		// The literal route already reports the literal's own type.
 		if len(entry.path) == 0 || keyed[entry.path[0]] {
 			continue
 		}
 
-		d.reportProtectedSuffix(lit, entry.named, zeroValueFieldSuffix(entry.path))
+		d.reportFieldPath(lit, entry)
 	}
 }
 

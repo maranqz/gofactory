@@ -7,20 +7,19 @@ import (
 	"go/types"
 	"maps"
 	"slices"
-	"strings"
 )
 
 const zeroValueSuffix = ": zero value"
 
-// zeroValueFieldSuffix is zeroValueSuffix, extended with the field path to
-// a protected type left zero at any depth through by-value struct fields
-// and embedding; an empty path means the type itself is the one left zero.
-func zeroValueFieldSuffix(path []string) string {
-	if len(path) == 0 {
-		return zeroValueSuffix
+// reportFieldPath reports p, suffixing the message with its path when p was
+// reached through a struct field rather than being the checked type itself.
+func (d *detector) reportFieldPath(node ast.Node, path fieldPath) {
+	suffix := zeroValueSuffix
+	if len(path.path) > 0 {
+		suffix += " in " + path.String()
 	}
 
-	return zeroValueSuffix + " in " + strings.Join(path, ".")
+	d.reportProtectedSuffix(node, path.named, suffix)
 }
 
 // A package-level var has no function to decide a first interaction in, so
@@ -38,7 +37,7 @@ func (d *detector) checkPackageVars(file *ast.File) {
 
 		for _, name := range zeroValueSpecNames(genDecl) {
 			for _, entry := range d.fieldPaths(d.pass.TypesInfo.TypeOf(name)) {
-				d.reportProtectedSuffix(name, entry.named, zeroValueFieldSuffix(entry.path))
+				d.reportFieldPath(name, entry)
 			}
 		}
 	}
@@ -71,9 +70,9 @@ func (d *detector) checkFuncZeroValues(
 	// zero, so results of one type and path would otherwise get identical
 	// diagnostics.
 	type report struct {
-		node  ast.Node
-		named *types.TypeName
-		path  string
+		node ast.Node
+		obj  *types.TypeName
+		path string
 	}
 
 	reported := map[report]bool{}
@@ -86,16 +85,14 @@ func (d *detector) checkFuncZeroValues(
 		}
 
 		for _, entry := range d.fieldPaths(obj.Type()) {
-			key := report{first.node, entry.named.Obj(), strings.Join(entry.path, ".")}
+			key := report{first.node, entry.named.Obj(), entry.String()}
 			if reported[key] {
 				continue
 			}
 
 			reported[key] = true
 
-			d.reportProtectedSuffix(
-				first.node, entry.named, zeroValueFieldSuffix(entry.path),
-			)
+			d.reportFieldPath(first.node, entry)
 		}
 	}
 }
