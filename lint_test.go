@@ -57,8 +57,8 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling":           {"packageGlobs": []string{"factory/**"}},
-		"invalid factory pattern": {"factory-patterns": []string{"("}},
+		"flag_spelling":           {"packageGlobs": []string{"factory/**"}},
+		"invalid_factory_pattern": {"factory-patterns": []string{"("}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 
 // TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
 // flag fails on an invalid regex, the flags-entry-point counterpart to
-// TestPluginRejectsBadSettings's "invalid factory pattern" plugin-side case.
+// TestPluginRejectsBadSettings's "invalid_factory_pattern" plugin-side case.
 func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	t.Parallel()
 
@@ -548,15 +548,15 @@ func TestConfigurationErrors(t *testing.T) {
 		settings caseSettings
 		want     string
 	}{
-		"packageGlobsOnly without globs": {
+		"packageGlobsOnly_without_globs": {
 			settings: caseSettings{packageGlobsOnly: true},
 			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
 		},
-		"invalid glob": {
+		"invalid_glob": {
 			settings: caseSettings{packageGlobs: []string{"["}},
 			want:     "unable to compile packageGlobs pattern",
 		},
-		"empty glob": {
+		"empty_glob": {
 			settings: caseSettings{packageGlobs: []string{"  "}},
 			want:     "packageGlobs pattern must not be empty",
 		},
