@@ -1,6 +1,7 @@
 package gofactory_test
 
 import (
+	"maps"
 	"net/url"
 	"path/filepath"
 	"strconv"
@@ -89,7 +90,7 @@ type linterSuiteCase struct {
 }
 
 func linterSuiteCases() map[string]linterSuiteCase {
-	return map[string]linterSuiteCase{
+	cases := map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -110,7 +111,14 @@ func linterSuiteCases() map[string]linterSuiteCase {
 				packageGlobsOnly: true,
 			},
 		},
+	}
+	maps.Copy(cases, factoryPatternCases())
 
+	return cases
+}
+
+func factoryPatternCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"factoryPatterns": {
 			pkgs: []string{"factoryPatterns/..."},
 			settings: caseSettings{
@@ -127,6 +135,13 @@ func linterSuiteCases() map[string]linterSuiteCase {
 			pkgs: []string{"replaceFactoryPattern/..."},
 			settings: caseSettings{
 				factoryPatterns:          []string{factoryPatternMake, "^Restore"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"newFirstWithoutDefault": {
+			pkgs: []string{"newFirstWithoutDefault/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{"Both$"},
 				useDefaultFactoryPattern: new(false),
 			},
 		},
