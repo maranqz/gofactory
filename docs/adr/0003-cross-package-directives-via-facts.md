@@ -13,4 +13,4 @@ or asking users to repeat `--ignoreTypes` per module.
 The trade-off: declaring `FactTypes` makes `go vet` and golangci-lint analyse the current package's
 full transitive dependency graph, not just its own files, which is slower on a large monorepo. We
 chose correctness-by-default over that cost; `-crossPackageDirectives=false` to opt back out of the
-transitive analysis is deferred to a later ticket (spec item 35).
+transitive analysis is deferred to a later ticket (#43, user story 35).
