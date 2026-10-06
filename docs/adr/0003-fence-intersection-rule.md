@@ -30,9 +30,12 @@ the other breaking changes in #43, not as a separate major version (a separate d
 
 - **Keep "any glob, exempt from everything."** Rejected: this is the bug the ticket exists to fix
   — fences actively undermine each other instead of composing.
-- **Union instead of intersection: a type is exempt if either its own fence or the bypassing
-  code's fence allows it.** Rejected: this still lets an unrelated fence's membership leak
-  protection from a type it doesn't name, just with one fewer step than the original bug.
+- **Inside *any* of the type's fences, not all of them.** Rejected: this only ever consults the
+  type's own fences, so an unrelated fence can't leak protection from a type it doesn't name — but
+  nesting stops tightening. With `a/**` and `a/domain/**`, `a/infra` sits inside one of
+  `a/domain`'s fences (`a/**`), so it could bypass `a/domain`'s factory freely, the opposite of
+  what nested fences are for.
 - **Intersection rule, gitignore-like globs.** Chosen, for the reasons above: fences compose
-  without weakening each other, nesting falls out of the rule for free, and the glob syntax
-  matches what most users already expect from `.gitignore`.
+  without weakening each other, nesting falls out of the rule for free, and the glob syntax is
+  gitignore-like — though a path-plus-`/` match also makes `a/*` and `a/**` match `a` itself,
+  unlike a real `.gitignore` pattern (see [Glob syntax](../../README.md#glob-syntax)).
