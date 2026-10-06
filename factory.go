@@ -53,7 +53,7 @@ func NewAnalyzer() *analysis.Analyzer {
 // flags to cfg afterwards.
 //
 // Declaring FactTypes makes drivers analyse every dependency; see
-// docs/adr/0001-cross-package-directives-via-facts.md.
+// docs/adr/0002-cross-package-directives-via-facts.md.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:      name,
