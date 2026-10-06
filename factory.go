@@ -27,7 +27,7 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
-	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
+	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
