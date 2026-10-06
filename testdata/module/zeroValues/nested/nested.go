@@ -17,6 +17,9 @@ type Count int
 // `var a [N]T` silent for an unnamed array type.
 type Grid [3]Struct
 
+// Tags is a defined slice type, protected like Grid.
+type Tags []Struct
+
 func (Struct) Method() {}
 
 // SetField takes a pointer receiver: calling it on x takes &x implicitly,

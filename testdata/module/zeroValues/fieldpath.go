@@ -17,8 +17,8 @@ type Outer struct {
 	V Middle
 }
 
-// globalOuter: a package-level var is always a candidate (checkPackageVars),
-// so its nested field path is reported the same as a local var's.
+// globalOuter: a package-level var is always a candidate, so its nested
+// field path is reported the same as a local var's.
 var globalOuter Outer // want `Use factory for nested.Struct: zero value in V.W.S`
 
 // EmptyOuterLiteralIsReportedWithFullPath: Outer{} leaves V unset, and so
@@ -83,4 +83,16 @@ type NotFollowed struct {
 // nothing.
 func FieldsBehindNotFollowedKindsAreSilent() NotFollowed {
 	return NotFollowed{}
+}
+
+type NamedContainers struct {
+	G nested.Grid
+	T nested.Tags
+}
+
+// NamedContainerFieldsAreReportedAtTheirOwnPath: a field whose own type is
+// a protected named container is reported at its own path, same as any
+// other field; the container's elements are not themselves followed.
+func NamedContainerFieldsAreReportedAtTheirOwnPath() NamedContainers {
+	return NamedContainers{} // want `Use factory for nested.Grid: zero value in G` `Use factory for nested.Tags: zero value in T`
 }
