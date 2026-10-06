@@ -12,7 +12,7 @@ func New() Struct {
 	return Struct{}
 }
 
-func CreateInfra() {
+func BypassInfra() {
 	_ = infra.Struct{}
 	_ = &infra.Struct{}
 }

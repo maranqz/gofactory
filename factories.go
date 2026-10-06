@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// sortFactories ranks names matching it first, even when
+// -useDefaultFactoryPattern=false drops it from recognition.
 var defaultFactoryPattern = regexp.MustCompile(`^New`)
 
 const maxSuggestedFactories = 3
@@ -34,16 +36,18 @@ func factorySuffix(site *types.Package, recognised []*types.Func) string {
 
 type factoryIndex map[*types.TypeName][]*types.Func
 
-func indexFactories(pkg *types.Package) factoryIndex {
+func indexFactories(
+	pkg *types.Package, patterns []*regexp.Regexp,
+) factoryIndex {
 	index := factoryIndex{}
 
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
 		switch obj := scope.Lookup(name).(type) {
 		case *types.Func:
-			index.add(obj, nil)
+			index.add(patterns, obj, nil)
 		case *types.TypeName:
-			index.addMethods(obj)
+			index.addMethods(patterns, obj)
 		}
 	}
 
@@ -54,7 +58,9 @@ func indexFactories(pkg *types.Package) factoryIndex {
 // the aliased *types.Named itself, so an alias of target would hand back
 // target's own methods, and an alias of another type would list its
 // factories twice.
-func (index factoryIndex) addMethods(receiver *types.TypeName) {
+func (index factoryIndex) addMethods(
+	patterns []*regexp.Regexp, receiver *types.TypeName,
+) {
 	if receiver.IsAlias() {
 		return
 	}
@@ -65,16 +71,15 @@ func (index factoryIndex) addMethods(receiver *types.TypeName) {
 	}
 
 	for method := range named.Methods() {
-		index.add(method, receiver)
+		index.add(patterns, method, receiver)
 	}
 }
 
 // A method is never a factory of its own receiver type (withers, clones).
 func (index factoryIndex) add(
-	candidate *types.Func, receiver *types.TypeName,
+	patterns []*regexp.Regexp, candidate *types.Func, receiver *types.TypeName,
 ) {
-	if !candidate.Exported() ||
-		!defaultFactoryPattern.MatchString(candidate.Name()) {
+	if !candidate.Exported() || !matchesAny(patterns, candidate.Name()) {
 		return
 	}
 
@@ -85,6 +90,16 @@ func (index factoryIndex) add(
 			index[target] = append(index[target], candidate)
 		}
 	}
+}
+
+func matchesAny(patterns []*regexp.Regexp, name string) bool {
+	for _, pattern := range patterns {
+		if pattern.MatchString(name) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func resultTargets(sig *types.Signature) []*types.TypeName {

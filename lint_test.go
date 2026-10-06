@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -19,9 +20,9 @@ import (
 // own configuration.
 const pluginName = "gofactory"
 
-// siblingModulePath is the go.work sibling test module: its directory
-// name under moduleRoot, its own module path and import path, and an
-// exact -packageGlobs fence over it are all the same string.
+// siblingModulePath is the go.work sibling test module: its directory name
+// under moduleRoot, its own module path and import path are all this
+// string; siblingModulePath+"/**" fences it and its subpackages.
 const siblingModulePath = "sibling"
 
 // TestAnalyzerURL checks that both entry points produce an Analyzer.URL
@@ -48,15 +49,16 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 }
 
 // TestPluginRejectsBadSettings checks that the plugin fails on a settings
-// key spelled like the flag rather than in kebab-case, instead of silently
-// ignoring it. An invalid glob is a configuration error too, but only once
-// Pass.Analyze runs (see run in factory.go): TestConfigurationErrors covers
-// it through both entry points.
+// key spelled like the flag rather than in kebab-case, and on an invalid
+// factory-name regex, instead of silently ignoring them. An invalid glob is
+// a configuration error too, but only once run executes (see run in
+// factory.go): TestConfigurationErrors covers it through both entry points.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling": {"packageGlobs": []string{"factory/**"}},
+		"flag spelling":           {"packageGlobs": []string{"factory/**"}},
+		"invalid factory pattern": {"factory-patterns": []string{"("}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -75,24 +77,38 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// linterSuiteCase is one TestLinterSuite case: the testdata packages to
-// analyse and the settings to analyse them with.
+// TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
+// flag fails on an invalid regex, the flags-entry-point counterpart to
+// TestPluginRejectsBadSettings's "invalid factory pattern" plugin-side case.
+func TestFlagsRejectBadFactoryPattern(t *testing.T) {
+	t.Parallel()
+
+	analyzer := gofactory.NewAnalyzer()
+
+	err := analyzer.Flags.Set("factoryPatterns", "(")
+	if err == nil {
+		t.Fatal("got no error, want one")
+	}
+}
+
+const factoryPatternMake = "^Make"
+
 type linterSuiteCase struct {
 	pkgs     []string
 	settings caseSettings
 }
 
-// linterSuiteCases is TestLinterSuite's table, kept in its own functions,
-// split by topic, so the test function itself stays short.
 func linterSuiteCases() map[string]linterSuiteCase {
 	cases := baseLinterSuiteCases()
 
 	maps.Copy(cases, fenceLinterSuiteCases())
+	maps.Copy(cases, factorySettingCases())
 
 	return cases
 }
 
-// baseLinterSuiteCases covers every detector outside the fence rules.
+// baseLinterSuiteCases covers every detector outside fences and
+// factory-pattern settings.
 func baseLinterSuiteCases() map[string]linterSuiteCase {
 	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
@@ -103,7 +119,11 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
+	}
+}
 
+func fenceLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
 			settings: caseSettings{
@@ -117,14 +137,6 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 				packageGlobsOnly: true,
 			},
 		},
-	}
-}
-
-// fenceLinterSuiteCases covers the intersection rule and the gitignore-like
-// glob syntax (#50).
-func fenceLinterSuiteCases() map[string]linterSuiteCase {
-	return map[string]linterSuiteCase{
-		// twoFences is the probe case for the intersection rule: two disjoint fences used to exempt each other's packages from every check.
 		"twoFences": {
 			pkgs: []string{"twofences/..."},
 			settings: caseSettings{
@@ -134,7 +146,6 @@ func fenceLinterSuiteCases() map[string]linterSuiteCase {
 				},
 			},
 		},
-		// nestedFence covers both directions of a narrower fence nested inside a wider one.
 		"nestedFence": {
 			pkgs: []string{"nestedfence/..."},
 			settings: caseSettings{
@@ -144,25 +155,68 @@ func fenceLinterSuiteCases() map[string]linterSuiteCase {
 				},
 			},
 		},
-		// globSyntax covers the gitignore-like glob rules: compiled with '/' as the separator, so '*' does not cross a package boundary.
 		"globSyntax": {
 			pkgs: []string{"globsyntax/..."},
 			settings: caseSettings{
 				packageGlobs: []string{"factory/globsyntax/*"},
 			},
 		},
-		// stdlibFence covers a fence naming a stdlib package by its exact import path.
 		"stdlibFence": {
 			pkgs: []string{"stdlibfence/..."},
 			settings: caseSettings{
 				packageGlobs: []string{"strings"},
 			},
 		},
-		// siblingFence is the README's go.work sibling recipe: an exact fence over a sibling module's path.
+		// siblingFence is the README's go.work sibling recipe: a fence over the sibling module's path, covering its subpackages too.
 		"siblingFence": {
 			pkgs: []string{"siblingfence/..."},
 			settings: caseSettings{
-				packageGlobs: []string{siblingModulePath},
+				packageGlobs: []string{siblingModulePath + "/**"},
+			},
+		},
+	}
+}
+
+func factorySettingCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"factoryPatterns": {
+			pkgs: []string{"factoryPatterns/..."},
+			settings: caseSettings{
+				factoryPatterns: []string{factoryPatternMake},
+			},
+		},
+		"useDefaultFactoryPattern": {
+			pkgs: []string{"useDefaultFactoryPattern/..."},
+			settings: caseSettings{
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"replaceFactoryPattern": {
+			pkgs: []string{"replaceFactoryPattern/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{factoryPatternMake, "^Restore"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"newFirstWithoutDefault": {
+			pkgs: []string{"newFirstWithoutDefault/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{"Both$"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"onlyWithFactory": {
+			pkgs: []string{"onlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory: true,
+			},
+		},
+		"onlyWithFactoryPatterns": {
+			pkgs: []string{"onlyWithFactoryPatterns/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				factoryPatterns:          []string{factoryPatternMake},
+				useDefaultFactoryPattern: new(false),
 			},
 		},
 	}
@@ -219,9 +273,15 @@ func forEachEntryPoint(
 
 // caseSettings is one case's configuration, applied through either entry
 // point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+// useDefaultFactoryPattern is a pointer so a case can leave it unset
+// (the true default on both entry points) rather than force false.
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+
+	factoryPatterns          []string
+	useDefaultFactoryPattern *bool
+	onlyWithFactory          bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -233,20 +293,35 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	analyzer := gofactory.NewAnalyzer()
 
 	for _, g := range s.packageGlobs {
-		err := analyzer.Flags.Set("packageGlobs", g)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobs", g)
 	}
 
 	if s.packageGlobsOnly {
-		err := analyzer.Flags.Set("packageGlobsOnly", "true")
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobsOnly", "true")
+	}
+
+	for _, p := range s.factoryPatterns {
+		setFlag(t, analyzer, "factoryPatterns", p)
+	}
+
+	if s.useDefaultFactoryPattern != nil {
+		setFlag(t, analyzer, "useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern))
+	}
+
+	if s.onlyWithFactory {
+		setFlag(t, analyzer, "onlyWithFactory", "true")
 	}
 
 	return analyzer
+}
+
+func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
+	t.Helper()
+
+	err := analyzer.Flags.Set(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // unitcheckerAnalyzer is flagsAnalyzer handed Pass.Module the way go vet's
@@ -292,6 +367,11 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"factory-patterns":   s.factoryPatterns,
+		"only-with-factory":  s.onlyWithFactory,
+	}
+	if s.useDefaultFactoryPattern != nil {
+		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
@@ -443,11 +523,10 @@ func gopathRoot() string {
 }
 
 // recordingTesting is analysistest.Testing's only method, Errorf,
-// implemented to record messages instead of failing the test: run returns
-// a configuration error from inside Pass.Analyze, so analysistest.Run
-// reports it through exactly this method, and a recording double is how
-// TestConfigurationErrors asserts the message without the recorded
-// failure also failing the outer test.
+// implemented to record messages instead of failing the test: analysistest.Run
+// reports a configuration error returned from run through exactly this
+// method, so a recording double lets TestConfigurationErrors assert the
+// message without the recorded failure also failing the outer test.
 type recordingTesting struct {
 	messages []string
 }
@@ -476,6 +555,10 @@ func TestConfigurationErrors(t *testing.T) {
 		"invalid glob": {
 			settings: caseSettings{packageGlobs: []string{"["}},
 			want:     "unable to compile packageGlobs pattern",
+		},
+		"empty glob": {
+			settings: caseSettings{packageGlobs: []string{"  "}},
+			want:     "packageGlobs pattern must not be empty",
 		},
 	}
 	for name, tt := range tests {

@@ -32,8 +32,8 @@ Each `--packageGlobs` pattern is its own **fence**: the set of packages matching
 type's package lies in one or more fences, only code inside **all** of those fences may bypass
 that type's factory — several fences no longer disable each other, [tests](testdata/module/twofences).
 A type in no fence gains nothing from fences; module scope alone decides whether it's protected,
-the same as if `--packageGlobs` were never given. See [the ADR](docs/adr/0003-fence-intersection-rule.md)
-for why.
+the same as if `--packageGlobs` were never given — except under `--packageGlobsOnly`, where such a
+type is not protected at all. See [the ADR](docs/adr/0003-fence-intersection-rule.md) for why.
 
 Nesting two fences guards the inner one more tightly. With `--packageGlobs='a/**'
 --packageGlobs='a/domain/**'`, `a/domain`'s type lies in both fences, so only code that is itself
@@ -50,31 +50,42 @@ unprotected, [tests](testdata/module/stdlibfence).
 A `--packageGlobs` pattern is gitignore-like: it is compiled with `/` as the path separator and
 matched against both the package path and the path plus `/`. An exact package path therefore
 matches on its own, with no wildcard needed, and `*` does not cross a `/`, so `a/*` matches `a/b`
-but not `a/b/c`; `a/**` matches both, [tests](testdata/module/globsyntax).
+but not `a/b/c`; `a/**` matches both. The path-plus-`/` match also means `a/*` and `a/**` match
+`a` itself, not just what's inside it, unlike a `.gitignore` pattern, [tests](testdata/module/globsyntax).
 
 ### Migrating from pre-fence globs
 
 Before fences, a package matching **any** `--packageGlobs` pattern was exempt from every check,
-so several patterns disabled each other's protection, an exact path never matched (you had to
-write `pkg/**` for a single package), and `*` crossed `/`. If you relied on the old "matches any
-glob, exempt from everything" behaviour across multiple patterns, merge them into one pattern
-that covers every package that used to exempt each other, e.g. `{a/**,b/**}` as `a/**` and
-`b/**` combined into a glob covering both (gobwas/glob brace syntax), or keep them as one fence
-per bounded context if cross-context bypasses were never intended. An exact path that used to be
-written `pkg/**` still works and now also matches as `pkg` on its own.
+for every type, anywhere — this held even for a single pattern: code in that one subtree could
+bypass any factory, not just the factories of types that are themselves in a fence. An exact path
+never matched (you had to write `pkg/**` for a single package), and `*` crossed `/`.
+
+Under the intersection rule, code inside a fence may no longer bypass the factory of a type
+outside every fence that type's package lies in, however many `--packageGlobs` patterns you pass.
+The migration is to put the bypassing and the bypassed packages in one fence, e.g.
+`--packageGlobs='{app/infra/**,app/domain/**}'` in place of separate `app/infra/**` and
+`app/domain/**` patterns (gobwas/glob brace syntax), so that code in either package still lies
+inside the same fence as the other's types. `-trusted`, planned in #43, will be the direct
+replacement for "this code may bypass anything, anywhere." Also replace any `*` you relied on
+crossing `/` with `**`. An exact path that used to be written `pkg/**` still works and now also
+matches as `pkg` on its own.
 
 ### Recipe: protecting `go.work` sibling modules
 
-A `go.work` sibling module's types are outside your current module, so they're silent by
-default. Name the sibling module's path as an exact fence to protect it the same way your own
-module already is:
+A `go.work` sibling module's types are outside the current module, so they're silent by default.
+Fence the sibling module's path with a trailing `/**` to protect every one of its packages, not
+just its root package:
 
 ```
---packageGlobs='example.com/sibling'
+--packageGlobs='example.com/sibling/**'
 ```
 
-Code inside your own module is not in that fence, so it is blocked from bypassing the sibling's
-factories; code inside the sibling module itself still may, [tests](testdata/module/siblingfence).
+This also matches the sibling module's root package itself, since a pattern is matched against
+both the path and the path plus `/` (see [Glob syntax](#glob-syntax) above). Code inside the
+current module is not in that fence, so it is blocked from bypassing any of the sibling's
+factories; code inside the sibling module itself still may bypass any of them, which is looser
+than module scope's per-package strictness — don't reuse this setting when linting the sibling
+module itself, [tests](testdata/module/siblingfence).
 
 ## Usage
 
@@ -89,6 +100,15 @@ factories; code inside the sibling module itself still may, [tests](testdata/mod
 - `--packageGlobsOnly` – protect exactly the fence packages named by `--packageGlobs`, instead of
 every current-module type, [tests](testdata/module/packageGlobsOnly). A configuration error
 without at least one `--packageGlobs` pattern.
+- `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
+e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
+- `--useDefaultFactoryPattern` – recognise the default `^New` pattern, `true` by default; set to
+`false` to drop it, following the append-plus-bool-to-drop-builtins convention also used by errcheck,
+asasalint and canonicalheader. With `--useDefaultFactoryPattern=false` and no `--factoryPatterns` at
+all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPattern).
+- `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
+team can adopt the linter gradually, starting from the types that already have one,
+[tests](testdata/module/onlyWithFactory).
 
 ### Message format
 
@@ -109,6 +129,11 @@ Methods of `T` itself are never factories, so withers and clones are not suggest
 declared on an interface type is never recognised either. A factory function is named `pkg.NewT` in
 the suffix; a factory method of another type `U` is named `pkg.U.NewT`, with a generic `U` rendered
 without its type arguments, [tests](testdata/module/factories).
+
+`--factoryPatterns` and `--useDefaultFactoryPattern` widen or replace which names count: a candidate
+is recognised as soon as its name matches any configured pattern, default `^New` included unless
+dropped. A `New…` candidate still sorts first in the suggestion even when another pattern also
+matches it.
 
 ### golangci-lint module plugin
 
@@ -146,10 +171,17 @@ linters:
           package-globs:
             - "mypkg/internal/**"
           package-globs-only: false
+          factory-patterns:
+            - "^Make"
+          use-default-factory-pattern: true
+          only-with-factory: false
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
+- `factory-patterns` – equivalent to `--factoryPatterns`.
+- `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
+- `only-with-factory` – equivalent to `--onlyWithFactory`.
 
 ## Example
 

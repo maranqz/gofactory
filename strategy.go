@@ -1,11 +1,17 @@
 package gofactory
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
 
 	"github.com/gobwas/glob"
 )
+
+// errEmptyPackageGlobPattern is the configuration error for a -packageGlobs
+// pattern that is empty after TrimSpace: it can never match a package, so
+// it would silently protect nothing instead of forming a fence.
+var errEmptyPackageGlobPattern = errors.New("packageGlobs pattern must not be empty")
 
 type blockedStrategy interface {
 	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
@@ -37,12 +43,18 @@ func (anotherPkg) IsBlocked(
 // fence is one -packageGlobs pattern: the set of packages matching its
 // glob. It is compiled with '/' as the separator, so a '*' does not cross
 // a package boundary, and is tested against both the package path and the
-// path plus "/", so a pattern with no wildcard matches that exact path.
+// path plus "/": the bare-path match is what lets a pattern with no
+// wildcard match that exact path, and the path-plus-"/" match is what lets
+// `a/**` and `a/*` also match `a` itself.
 type fence struct {
 	glob glob.Glob
 }
 
 func newFence(pattern string) (fence, error) {
+	if pattern == "" {
+		return fence{}, errEmptyPackageGlobPattern
+	}
+
 	compiled, err := glob.Compile(pattern, '/')
 	if err != nil {
 		return fence{}, fmt.Errorf("unable to compile packageGlobs pattern %q: %w", pattern, err)
@@ -51,8 +63,6 @@ func newFence(pattern string) (fence, error) {
 	return fence{glob: compiled}, nil
 }
 
-// newFences compiles every -packageGlobs pattern into a fence, in order,
-// stopping at the first invalid pattern.
 func newFences(patterns []string) ([]fence, error) {
 	fences := make([]fence, 0, len(patterns))
 
@@ -74,8 +84,8 @@ func (f fence) contains(pkgPath string) bool {
 
 // fencedPkgs applies the intersection rule: a type whose package lies in
 // one or more fences may be bypassed only by code inside every one of
-// those fences, so several fences no longer disable each other. A type in
-// no fence gains nothing from fences and falls back to defaultStrategy.
+// those fences. A type in no fence gains nothing from fences and falls
+// back to defaultStrategy.
 type fencedPkgs struct {
 	fences          []fence
 	defaultStrategy blockedStrategy
@@ -99,14 +109,14 @@ func (s fencedPkgs) IsBlocked(
 
 	inAnyFence := false
 
-	for _, fence := range s.fences {
-		if !fence.contains(identPkgPath) {
+	for _, candidate := range s.fences {
+		if !candidate.contains(identPkgPath) {
 			continue
 		}
 
 		inAnyFence = true
 
-		if !fence.contains(currentPkg.Path()) {
+		if !candidate.contains(currentPkg.Path()) {
 			return true
 		}
 	}

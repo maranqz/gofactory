@@ -12,7 +12,7 @@ func New() Struct {
 	return Struct{}
 }
 
-func CreateDomain() {
+func BypassDomain() {
 	_ = domain.Struct{}  // want `Use factory for domain.Struct \(domain.New\)`
 	_ = &domain.Struct{} // want `Use factory for domain.Struct \(domain.New\)`
 }

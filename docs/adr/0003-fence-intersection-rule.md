@@ -17,12 +17,13 @@ fences (`a/**` and `a/domain/**`) then guards the inner one more tightly without
 separator, matched against both the path and the path plus `/` — so an exact path matches on its
 own and `*` no longer crosses a package boundary.
 
-This is a breaking change for anyone passing more than one `-packageGlobs` pattern today: patterns
-that used to exempt each other's packages now don't, unless the code doing the bypassing is itself
-inside every fence the bypassed type's package falls into. The migration guide in the README
-covers combining old patterns that relied on mutual exemption into one fence. It ships as part of
-v1.1.0 alongside the other breaking changes in #43, not as a separate major version (a separate
-decision, #43's "breaking behaviour shipped as v1.1.0, not v2" candidate).
+This is a breaking change for anyone passing one or more `-packageGlobs` patterns today, not only
+users of several patterns: code inside a fence can no longer bypass the factory of a type outside
+every fence that type's package lies in, so even a single pattern that used to mean "this subtree
+may bypass any factory" now means "this subtree may bypass only its own fence's factories." The
+migration guide in the README covers putting the bypassing and the bypassed packages in one fence.
+It ships as part of v1.1.0 alongside the other breaking changes in #43, not as a separate major
+version (a separate decision, #43's "breaking behaviour shipped as v1.1.0, not v2" candidate).
 
 ## Considered options
 
