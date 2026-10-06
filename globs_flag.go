@@ -1,35 +1,35 @@
 package gofactory
 
-import (
-	"fmt"
-	"strings"
+import "strings"
 
-	"github.com/gobwas/glob"
-)
-
+// globsFlag collects raw -packageGlobs patterns. It does not compile them:
+// a pattern is only a fence once newFences compiles it at Pass.Analyze time,
+// which is also where an invalid pattern becomes a configuration error
+// (see run in factory.go). Compiling eagerly here would catch typos sooner
+// for the flags entry point, but the plugin entry point decodes every
+// setting before an Analyzer exists to catch anything, so both would not
+// surface an invalid pattern the same way.
 type globsFlag struct {
-	globsString []string
-	globs       []glob.Glob
+	patterns []string
 }
 
 func (g *globsFlag) String() string {
-	return strings.Join(g.globsString, ", ")
+	return strings.Join(g.patterns, ", ")
 }
 
-func (g *globsFlag) Set(globString string) error {
-	globString = strings.TrimSpace(globString)
-
-	compiled, err := glob.Compile(globString)
-	if err != nil {
-		return fmt.Errorf("unable to compile globs %s: %w", globString, err)
-	}
-
-	g.globsString = append(g.globsString, globString)
-	g.globs = append(g.globs, compiled)
+func (g *globsFlag) Set(pattern string) error {
+	g.Append(pattern)
 
 	return nil
 }
 
-func (g *globsFlag) Value() []glob.Glob {
-	return g.globs
+// Append records pattern without the error return flag.Value.Set needs,
+// for the plugin entry point, which has no use for an error that can't
+// occur.
+func (g *globsFlag) Append(pattern string) {
+	g.patterns = append(g.patterns, strings.TrimSpace(pattern))
+}
+
+func (g *globsFlag) Value() []string {
+	return g.patterns
 }

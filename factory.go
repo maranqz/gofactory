@@ -2,6 +2,7 @@
 package gofactory
 
 import (
+	"errors"
 	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
@@ -21,6 +22,15 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+)
+
+// errPackageGlobsOnlyNeedsGlobs is the configuration error for
+// -packageGlobsOnly without any -packageGlobs pattern: the protected set
+// would otherwise silently be empty. Checked in run rather than where each
+// entry point applies its settings, because the flags entry point only
+// knows every -packageGlobs value has been applied once Pass.Analyze runs.
+var errPackageGlobsOnlyNeedsGlobs = errors.New(
+	"packageGlobsOnly requires at least one packageGlobs pattern",
 )
 
 // NewAnalyzer returns a new instance of the linter analyzer.
@@ -52,6 +62,17 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
+		patterns := cfg.pkgGlobs.Value()
+
+		if cfg.onlyPkgGlobs && len(patterns) == 0 {
+			return nil, errPackageGlobsOnlyNeedsGlobs
+		}
+
+		fences, err := newFences(patterns)
+		if err != nil {
+			return nil, err
+		}
+
 		var modulePath string
 		if pass.Module != nil {
 			modulePath = pass.Module.Path
@@ -59,15 +80,14 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		var strategy blockedStrategy = newCurrentModule(modulePath)
 
-		pkgGlobs := cfg.pkgGlobs.Value()
-		if len(pkgGlobs) > 0 {
+		if len(fences) > 0 {
 			defaultStrategy := strategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
-			strategy = newBlockedPkgs(
-				pkgGlobs,
+			strategy = newFencedPkgs(
+				fences,
 				defaultStrategy,
 			)
 		}
