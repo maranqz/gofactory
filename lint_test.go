@@ -256,6 +256,9 @@ const testdataGoVersion = "1.26"
 //
 // Other drivers differ: go vet's unitchecker before Go 1.27 fills only Path,
 // Version and GoVersion, and leaves Pass.Module nil without a module.
+//
+// The want comments in workspace/ and nomodule/ also pin the current-module
+// rule and the no-module fallback; no other test runs those packages.
 func TestTestdataRoots(t *testing.T) {
 	t.Parallel()
 
