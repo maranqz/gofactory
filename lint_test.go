@@ -68,20 +68,13 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// TestLinterSuite runs every case through every entry point that populates
-// the shared config: NewAnalyzer configured via Flags.Set, the way a
-// command-line user or go vet driver would, and the golangci-lint plugin
-// constructor configured via kebab-case settings. The flags analyzer also
-// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
-func TestLinterSuite(t *testing.T) {
-	t.Parallel()
+type linterSuiteCase struct {
+	pkgs     []string
+	settings caseSettings
+}
 
-	root := moduleRoot()
-
-	tests := map[string]struct {
-		pkgs     []string
-		settings caseSettings
-	}{
+func linterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -105,7 +98,12 @@ func TestLinterSuite(t *testing.T) {
 			},
 		},
 
-		"directive": {pkgs: []string{"directive/..."}},
+		"directive": {
+			pkgs: []string{"directive/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"sibling/**"},
+			},
+		},
 
 		"ignoreTypes": {
 			pkgs: []string{"ignoreTypes/main/..."},
@@ -118,7 +116,19 @@ func TestLinterSuite(t *testing.T) {
 			},
 		},
 	}
-	for name, tt := range tests {
+}
+
+// TestLinterSuite runs every case through every entry point that populates
+// the shared config: NewAnalyzer configured via Flags.Set, the way a
+// command-line user or go vet driver would, and the golangci-lint plugin
+// constructor configured via kebab-case settings. The flags analyzer also
+// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
+func TestLinterSuite(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot()
+
+	for name, tt := range linterSuiteCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
