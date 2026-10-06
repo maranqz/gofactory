@@ -68,8 +68,7 @@ func checkDirectives(pass *analysis.Pass) {
 func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
 	consumed := make(map[*ast.CommentGroup]bool)
 
-	processDoc(pass, file.Doc, declPackage, nil)
-	consumed[file.Doc] = true
+	processDoc(pass, consumed, file.Doc, declPackage, nil)
 
 	for _, decl := range file.Decls {
 		checkDeclDirectives(pass, decl, consumed)
@@ -80,12 +79,10 @@ func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
 			continue
 		}
 
-		processDoc(pass, cg, declOther, nil)
+		processDoc(pass, consumed, cg, declOther, nil)
 	}
 }
 
-// Mark every doc processed here in consumed, or the file sweep reports it
-// again as misplaced.
 func checkDeclDirectives(
 	pass *analysis.Pass,
 	decl ast.Decl,
@@ -95,8 +92,7 @@ func checkDeclDirectives(
 	case *ast.GenDecl:
 		checkGenDeclDirectives(pass, d, consumed)
 	case *ast.FuncDecl:
-		processDoc(pass, d.Doc, declFunc, nil)
-		consumed[d.Doc] = true
+		processDoc(pass, consumed, d.Doc, declFunc, nil)
 	}
 }
 
@@ -124,17 +120,16 @@ func checkGenDeclDirectives(
 		}
 
 		if len(decl.Specs) == 1 {
-			processDoc(pass, decl.Doc, kind, typeSpec)
-			consumed[decl.Doc] = true
+			processDoc(pass, consumed, decl.Doc, kind, typeSpec)
 		}
 
-		processDoc(pass, typeSpec.Doc, kind, typeSpec)
-		consumed[typeSpec.Doc] = true
+		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec)
 	}
 }
 
 func processDoc(
 	pass *analysis.Pass,
+	consumed map[*ast.CommentGroup]bool,
 	doc *ast.CommentGroup,
 	kind declKind,
 	typeSpec *ast.TypeSpec,
@@ -142,6 +137,8 @@ func processDoc(
 	if doc == nil {
 		return
 	}
+
+	consumed[doc] = true
 
 	for _, comment := range doc.List {
 		name, ok := parseDirective(comment.Text)
