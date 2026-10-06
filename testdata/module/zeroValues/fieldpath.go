@@ -105,3 +105,39 @@ type NamedContainers struct {
 func NamedContainerFieldsAreReportedAtTheirOwnPath() NamedContainers {
 	return NamedContainers{} // want `Use factory for nested.Grid: zero value in G` `Use factory for nested.Tags: zero value in T`
 }
+
+// FieldWriteOnZeroValuedPairReportsBothFields: -zeroValues judges p's first
+// interaction once for the whole variable (the previous ticket's rule), not
+// each field path on its own, so writing A still reports both A and B at
+// that write, even though the write already goes through A's factory.
+func FieldWriteOnZeroValuedPairReportsBothFields() Pair {
+	var p Pair
+
+	p.A = nested.NewStruct(1) // want `Use factory for nested.Struct: zero value in A` `Use factory for nested.Struct: zero value in B`
+	p.B = nested.NewStruct(2)
+
+	return p
+}
+
+// WholeValueAssignOnZeroValuedVarIsSilent: w's first interaction is a
+// whole-value assignment, the first-interaction rule's OK form, so no
+// field-path report fires even though w started zero-valued.
+func WholeValueAssignOnZeroValuedVarIsSilent() Wrapper {
+	var w Wrapper
+
+	w = Wrapper{S: nested.NewStruct(1)}
+
+	return w
+}
+
+func discardWrapperPtr(*Wrapper) {}
+
+// AddressOfWholeVarPassedToCallIsSilent: &w, the whole variable rather than
+// one of its fields, is the first-interaction rule's other OK form.
+func AddressOfWholeVarPassedToCallIsSilent() Wrapper {
+	var w Wrapper
+
+	discardWrapperPtr(&w)
+
+	return w
+}
