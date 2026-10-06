@@ -11,15 +11,13 @@ import (
 
 const zeroValueSuffix = ": zero value"
 
-// reportFieldPath reports p, suffixing the message with its path when p was
-// reached through a struct field rather than being the checked type itself.
-func (d *detector) reportFieldPath(node ast.Node, path fieldPath) {
+func (d *detector) reportFieldPath(node ast.Node, entry fieldPath) {
 	suffix := zeroValueSuffix
-	if len(path.path) > 0 {
-		suffix += " in " + path.String()
+	if len(entry.path) > 0 {
+		suffix += " in " + entry.String()
 	}
 
-	d.reportProtectedSuffix(node, path.named, suffix)
+	d.reportProtectedSuffix(node, entry.named, suffix)
 }
 
 // A package-level var has no function to decide a first interaction in, so

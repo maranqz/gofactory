@@ -18,9 +18,8 @@ import (
 // package: package domain holds a chain of depth nested by-value struct
 // types, and package root declares width distinct types that each hold
 // the whole chain in a Chain field, so it is shared rather than
-// duplicated. Without the per-type cache, computing the chain's field
-// paths costs O(width*depth); with it, package domain's chain is expanded
-// once and reused width times, O(width+depth).
+// duplicated. With the per-type cache, package domain's chain is expanded
+// once and reused by every root, instead of once per root.
 func BenchmarkFieldPaths(b *testing.B) {
 	const (
 		depth = 20
@@ -38,12 +37,11 @@ func BenchmarkFieldPaths(b *testing.B) {
 
 	root := filepath.Join(dir, "root")
 
-	// analysistest.Run is the correctness check, against the want comments
-	// below; it also loads the packages benchmarked by the loop, which
-	// times only checker.Analyze so that package loading isn't counted.
-	analysistest.Run(b, dir, analyzer, root)
-
-	pkgs := loadFieldPathPackage(b, dir)
+	// analysistest.Run is both the correctness check against the want
+	// comments below, and the one load of the generated package the timed
+	// loop below analyzes.
+	results := analysistest.Run(b, dir, analyzer, root)
+	pkgs := []*packages.Package{results[0].Action.Package}
 
 	b.ResetTimer()
 
@@ -55,36 +53,6 @@ func BenchmarkFieldPaths(b *testing.B) {
 	}
 }
 
-// loadFieldPathPackage loads the root package of the module at dir the way
-// analysistest.Run does for a module-mode root: GOPROXY=off keeps it from
-// reaching the network, and GOWORK=off keeps it from picking up this
-// repo's go.work.
-func loadFieldPathPackage(b *testing.B, dir string) []*packages.Package {
-	b.Helper()
-
-	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
-			packages.NeedImports | packages.NeedTypes | packages.NeedTypesSizes |
-			packages.NeedSyntax | packages.NeedTypesInfo |
-			packages.NeedDeps | packages.NeedModule,
-		Dir: dir,
-		Env: append(os.Environ(), "GO111MODULE=on", "GOPROXY=off", "GOWORK=off"),
-	}
-
-	pkgs, err := packages.Load(cfg, "./root")
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	if packages.PrintErrors(pkgs) > 0 {
-		b.Fatal("errors loading the generated package")
-	}
-
-	return pkgs
-}
-
-// generateFieldPathPackage writes a self-contained module to a temporary
-// directory and returns its root.
 func generateFieldPathPackage(b *testing.B, depth, width int) string {
 	b.Helper()
 
