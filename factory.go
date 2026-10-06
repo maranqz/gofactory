@@ -13,6 +13,7 @@ import (
 type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
+	zeroValues   bool
 
 	extraFactoryPatterns     regexpsFlag
 	useDefaultFactoryPattern bool
@@ -26,6 +27,7 @@ const (
 
 	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
 	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
@@ -41,6 +43,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
+
+	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
 	analyzer.Flags.Var(&cfg.extraFactoryPatterns, "factoryPatterns", factoryPatternsDesc)
 
@@ -90,13 +94,20 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		v := newDetector(
-			pass, strategy, cfg.recognitionPatterns(), cfg.onlyWithFactory,
+			pass, strategy, cfg.zeroValues,
+			cfg.recognitionPatterns(), cfg.onlyWithFactory,
 		)
+
+		for _, file := range pass.Files {
+			v.checkPackageVars(file)
+		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.Preorder([]ast.Node{
 			(*ast.CompositeLit)(nil),
 			(*ast.CallExpr)(nil),
+			(*ast.FuncDecl)(nil),
+			(*ast.FuncLit)(nil),
 		}, v.visit)
 
 		return nil, nil

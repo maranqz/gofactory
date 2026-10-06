@@ -9,11 +9,12 @@ import (
 )
 
 // detector resolves bypass routes through the type checker instead of
-// syntax, so a literal, conversion or new(T) of a protected type is reported
-// however it is spelled.
+// syntax, so a literal, conversion, new(T) or, with -zeroValues, a zero
+// value of a protected type is reported however it is spelled.
 type detector struct {
-	pass     *analysis.Pass
-	strategy blockedStrategy
+	pass       *analysis.Pass
+	strategy   blockedStrategy
+	zeroValues bool
 
 	factoryPatterns []*regexp.Regexp
 	onlyWithFactory bool
@@ -25,12 +26,14 @@ type detector struct {
 func newDetector(
 	pass *analysis.Pass,
 	strategy blockedStrategy,
+	zeroValues bool,
 	factoryPatterns []*regexp.Regexp,
 	onlyWithFactory bool,
 ) *detector {
 	return &detector{
 		pass:            pass,
 		strategy:        strategy,
+		zeroValues:      zeroValues,
 		factoryPatterns: factoryPatterns,
 		onlyWithFactory: onlyWithFactory,
 		factories:       map[*types.Package]factoryIndex{},
@@ -38,36 +41,48 @@ func newDetector(
 	}
 }
 
-func (d *detector) visit(n ast.Node) {
-	switch n := n.(type) {
+func (d *detector) visit(node ast.Node) {
+	switch node := node.(type) {
 	case *ast.CompositeLit:
-		d.checkLiteral(n)
+		d.checkLiteral(node)
 	case *ast.CallExpr:
-		d.checkCall(n)
+		d.checkCall(node)
+	case *ast.FuncDecl:
+		d.checkFuncZeroValues(node.Type, node.Body)
+	case *ast.FuncLit:
+		d.checkFuncZeroValues(node.Type, node.Body)
 	}
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
+	d.reportProtectedSuffix(node, t, "")
+}
+
+// Every bypass route reports through here, so the permission policy is
+// applied in one place.
+func (d *detector) reportProtectedSuffix(
+	node ast.Node, t types.Type, suffix string,
+) {
 	named, ok := protectedNamed(t)
 	if !ok || !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
 		return
 	}
 
-	d.report(node, named)
+	d.report(node, named, suffix)
 }
 
-func (d *detector) report(pos ast.Node, named *types.Named) {
+func (d *detector) report(pos ast.Node, named *types.Named, route string) {
 	obj := named.Obj()
 
-	suffix := d.factorySuffix(obj)
-	if d.onlyWithFactory && suffix == "" {
+	factory := d.factorySuffix(obj)
+	if d.onlyWithFactory && factory == "" {
 		return
 	}
 
 	d.pass.Reportf(
 		pos.Pos(),
-		"Use factory for %s.%s%s", obj.Pkg().Name(), obj.Name(),
-		suffix,
+		"Use factory for %s.%s%s%s", obj.Pkg().Name(), obj.Name(),
+		route, factory,
 	)
 }
 

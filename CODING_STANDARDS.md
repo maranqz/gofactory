@@ -13,3 +13,7 @@ This one earns its place, because no reader could see the constraint in the code
 // Pass.Module.Main cannot find the root module: go vet's unitchecker before
 // Go 1.27 leaves it unset, and a go.work build sets it on every module.
 ```
+
+## Testdata
+
+A case the linter defers to later work goes in `testdata/module/unimplemented/`, with a `// want` for the diagnostic it should get.
