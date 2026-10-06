@@ -53,6 +53,16 @@ func EmbeddedFieldLiteralIsReported() {
 	_ = struct{ nested.Struct }{} // want `Use factory for nested.Struct: zero value in Struct`
 }
 
+type UnderlyingStruct struct {
+	nested.Struct
+}
+
+// NamedEmbeddingLiteralIsReported is EmbeddedFieldLiteralIsReported's named
+// form: the embedding type itself has a name rather than being anonymous.
+func NamedEmbeddingLiteralIsReported() UnderlyingStruct {
+	return UnderlyingStruct{} // want `Use factory for nested.Struct: zero value in Struct`
+}
+
 type Pair struct {
 	A nested.Struct
 	B nested.Struct

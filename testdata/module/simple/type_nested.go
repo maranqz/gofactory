@@ -14,7 +14,7 @@ func typeNested() {
 
 	// No diagnostic here: this package does not set -zeroValues, so the
 	// embedded nested.Struct field being left at its zero value is a
-	// field-path bypass only under that setting; see
-	// zeroValues/fieldpath.go's EmbeddedFieldLiteralIsReported.
+	// zero-value bypass only under that setting; see
+	// zeroValues/fieldpath.go's NamedEmbeddingLiteralIsReported.
 	_ = UnderlyingStruct{}
 }
