@@ -2,7 +2,8 @@
 // qualified name, a generic type's name, which must cover every
 // instantiation, and a glob whose "*" must cross "." (ignoreTypes/glob/sub
 // has a dot before Struct) but not "/" (ignoreTypes/glob/sub/deep adds a
-// path segment the same glob must not reach).
+// path segment the same glob must not reach). Its test case turns
+// -zeroValues on, so the zero-value route is checked too.
 package main
 
 import (
@@ -10,6 +11,13 @@ import (
 	"factory/ignoreTypes/generic"
 	"factory/ignoreTypes/glob/sub"
 	"factory/ignoreTypes/glob/sub/deep"
+)
+
+var (
+	exactZero exact.Struct
+	globZero  sub.Struct
+
+	deepZero deep.Struct // want `Use factory for deep.Struct: zero value`
 )
 
 func main() {

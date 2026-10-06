@@ -10,6 +10,13 @@ import (
 	"sibling"
 )
 
+var (
+	nestedZero  nestedmodule.Ignored
+	siblingZero sibling.Ignored
+
+	protectedZero sibling.Struct // want `Use factory for sibling.Struct: zero value \(sibling.NewStruct\)`
+)
+
 func NestedModule() {
 	_ = nestedmodule.Ignored{}
 	_ = &nestedmodule.Ignored{}

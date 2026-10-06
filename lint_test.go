@@ -120,6 +120,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 			pkgs: []string{"directive/..."},
 			settings: caseSettings{
 				packageGlobs: []string{"sibling/**"},
+				zeroValues:   true,
 			},
 		},
 
@@ -131,6 +132,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 					"factory/ignoreTypes/generic.Pair",
 					"factory/ignoreTypes/glob/*",
 				},
+				zeroValues: true,
 			},
 		},
 
