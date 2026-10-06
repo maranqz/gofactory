@@ -24,10 +24,9 @@ By default, all structures from another package should be created by factories, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 - `--ignoreTypes` – list of qualified name globs (`import/path.Name`) for types that may be created
 without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
-`*` stays within one path segment and may cross `.`; `**` also crosses `/`. For example,
-`mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`, and `mymod/**` matches both but not `mymod.T`.
-Name the type where it is defined: an alias's name does not match, and neither does a bare package
-path; `mymod/a.*` matches every type of package `mymod/a`.
+For example, `mymod/geo.*` matches every type of package `mymod/geo`, and `mymod/a.Pair` matches
+the generic `Pair` with any type arguments. Type arguments in a glob are not supported, so a single
+instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
 Repeat the flag to give several globs.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 

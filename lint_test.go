@@ -109,6 +109,7 @@ func TestLinterSuite(t *testing.T) {
 			settings: caseSettings{
 				ignoreTypes: []string{
 					"factory/ignoreTypes/exact.Struct",
+					"factory/ignoreTypes/generic.Pair",
 					"factory/ignoreTypes/glob/*",
 				},
 			},
