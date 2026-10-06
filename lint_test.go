@@ -581,8 +581,9 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 }
 
 // TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, an invalid glob, and an empty glob are
-// configuration errors surfaced through both entry points.
+// -packageGlobs pattern, an invalid glob, an empty glob, and a glob
+// starting with '/' are configuration errors surfaced through both entry
+// points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
@@ -601,6 +602,10 @@ func TestConfigurationErrors(t *testing.T) {
 		"empty_glob": {
 			settings: caseSettings{packageGlobs: []string{"  "}},
 			want:     "packageGlobs pattern must not be empty",
+		},
+		"leading_slash_glob": {
+			settings: caseSettings{packageGlobs: []string{"/sibling/**"}},
+			want:     "packageGlobs pattern must not start with '/'",
 		},
 	}
 	for name, tt := range tests {

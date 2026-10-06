@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/types"
+	"strings"
 
 	"github.com/gobwas/glob"
 )
@@ -12,6 +13,12 @@ import (
 // pattern that is empty after TrimSpace: it can never match a package, so
 // it would silently protect nothing instead of forming a fence.
 var errEmptyPackageGlobPattern = errors.New("packageGlobs pattern must not be empty")
+
+// errLeadingSlashGlobPattern is the configuration error for a -packageGlobs
+// pattern starting with '/': gitignore gives a leading '/' a special
+// "from the root" meaning, but a Go package path never starts with '/', so
+// such a pattern would compile and silently match nothing.
+var errLeadingSlashGlobPattern = errors.New("packageGlobs pattern must not start with '/'")
 
 type blockedStrategy interface {
 	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
@@ -53,6 +60,10 @@ type fence struct {
 func newFence(pattern string) (fence, error) {
 	if pattern == "" {
 		return fence{}, errEmptyPackageGlobPattern
+	}
+
+	if strings.HasPrefix(pattern, "/") {
+		return fence{}, errLeadingSlashGlobPattern
 	}
 
 	compiled, err := glob.Compile(pattern, '/')

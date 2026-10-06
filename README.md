@@ -52,6 +52,9 @@ matched against both the package path and the path plus `/`. An exact package pa
 matches on its own, with no wildcard needed, and `*` does not cross a `/`, so `a/*` matches `a/b`
 but not `a/b/c`; `a/**` matches both. The path-plus-`/` match also means `a/*` and `a/**` match
 `a` itself, not just what's inside it, unlike a `.gitignore` pattern, [tests](testdata/module/globsyntax).
+Unlike `.gitignore`, a leading `/` has no "from the root" meaning — a Go package path never
+starts with `/` — so it is rejected as a configuration error rather than silently matching
+nothing.
 
 ### Migrating from pre-fence globs
 
