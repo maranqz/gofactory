@@ -3,6 +3,7 @@ package gofactory_test
 import (
 	"net/url"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -131,6 +132,32 @@ func TestLinterSuite(t *testing.T) {
 				})
 		})
 	}
+}
+
+// TestZeroValuesInDeclarationOrder checks the order of one function's
+// zero-value diagnostics, which want comments ignore: the CLI prints them
+// in the order they are reported.
+func TestZeroValuesInDeclarationOrder(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(moduleRoot(), "zeroValuesOrder")
+
+	forEachEntryPoint(t, caseSettings{zeroValues: true},
+		func(t *testing.T, analyzer *analysis.Analyzer) {
+			var lines []int
+
+			for _, res := range analysistest.Run(t, moduleRoot(), analyzer, dir) {
+				for _, diag := range res.Action.Diagnostics {
+					pos := res.Action.Package.Fset.Position(diag.Pos)
+					lines = append(lines, pos.Line)
+				}
+			}
+
+			// first, second and third are read on lines 12, 11 and 10.
+			if want := []int{12, 11, 10}; !slices.Equal(lines, want) {
+				t.Errorf("diagnostics on lines %v, want %v", lines, want)
+			}
+		})
 }
 
 // forEachEntryPoint runs check as a "flags" and a "plugin" parallel subtest,

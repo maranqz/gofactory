@@ -1,9 +1,12 @@
 package gofactory
 
 import (
+	"cmp"
 	"go/ast"
 	"go/token"
 	"go/types"
+	"maps"
+	"slices"
 )
 
 const zeroValueSuffix = ": zero value"
@@ -50,8 +53,9 @@ func (d *detector) checkFuncZeroValues(
 	}
 	ast.Inspect(body, walk.visit)
 
-	for obj, first := range walk.first {
-		if !first.safe {
+	byDecl := func(a, b types.Object) int { return cmp.Compare(a.Pos(), b.Pos()) }
+	for _, obj := range slices.SortedFunc(maps.Keys(walk.first), byDecl) {
+		if first := walk.first[obj]; !first.safe {
 			d.reportProtectedSuffix(first.node, obj.Type(), zeroValueSuffix)
 		}
 	}
