@@ -88,7 +88,7 @@ them, `New…` first, in a deterministic order: `Use factory for order.Order (or
 with no accessible factory keeps the bare prefix. A zero value reported under `--zeroValues` adds
 `: zero value` right after the prefix, before any factory list:
 `Use factory for order.Order: zero value (order.NewOrder)`. A zero value reported through a field
-path adds where the field is, e.g. `Use factory for order.Order: zero value in Shipment.Order`.
+path adds where the field is, e.g. `Use factory for order.Order: zero value in Shipment.Order (order.NewOrder)`.
 
 A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
 exported method of another type than `T`, that returns `T` or `*T` among its results, takes no `T` or

@@ -44,7 +44,7 @@ type Wrapper struct {
 // EmptyWrapperLiteralIsReported: one level of nesting, the base case of
 // the field-path rule.
 func EmptyWrapperLiteralIsReported() Wrapper {
-	return Wrapper{} // want `Use factory for nested.Struct: zero value in S`
+	return Wrapper{} // want `^Use factory for nested.Struct: zero value in S \(nested.NewStruct, nested.NewStructOrErr\)$`
 }
 
 // EmbeddedFieldLiteralIsReported: an embedded field's path segment is the
