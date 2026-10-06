@@ -21,11 +21,20 @@ func init() {
 // ticket adding per-glob settings groups will need to introduce a grouping
 // type, not just extend this struct.
 //
+// UseDefaultFactoryPattern is a pointer so that an absent key keeps the
+// flags entry point's true default, while an explicit false drops it;
+// register.DecodeSettings leaves it nil rather than false when the key is
+// missing from JSON.
+//
 //nolint:tagliatelle
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
 	ZeroValues       bool     `json:"zero-values"`
+
+	FactoryPatterns          []string `json:"factory-patterns"`
+	UseDefaultFactoryPattern *bool    `json:"use-default-factory-pattern"`
+	OnlyWithFactory          bool     `json:"only-with-factory"`
 }
 
 type plugin struct {
@@ -39,7 +48,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
-	cfg := &config{}
+	cfg := &config{useDefaultFactoryPattern: true}
 
 	for _, g := range decoded.PackageGlobs {
 		err = cfg.pkgGlobs.Set(g)
@@ -50,6 +59,19 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
 	cfg.zeroValues = decoded.ZeroValues
+
+	for _, p := range decoded.FactoryPatterns {
+		err = cfg.extraFactoryPatterns.Set(p)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+	}
+
+	if decoded.UseDefaultFactoryPattern != nil {
+		cfg.useDefaultFactoryPattern = *decoded.UseDefaultFactoryPattern
+	}
+
+	cfg.onlyWithFactory = decoded.OnlyWithFactory
 
 	return &plugin{analyzer: newAnalyzer(cfg)}, nil
 }

@@ -9,6 +9,24 @@ The linter checks that the Structures are created by the Factory, and not direct
 
 The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
 
+## Protection scope
+
+By default, gofactory protects only types from your **current module**: a package belongs to
+the current module if its import path equals the module path or starts with the module path
+plus `/`, so a nested module under the same path (its own `go.mod`, but still under your
+module's path) counts too. Stdlib and third-party types (`strings.Builder{}`, `sync.WaitGroup{}`,
+`http.Header{}`, `time.Duration(5)`) are silent, and so are a `go.work` sibling module's types —
+their import path is neither your module path nor under it. Bring a sibling module, or any other
+package, into scope with `--packageGlobs='example.com/sibling/**'` (an exact path does not match
+yet). Until fences land, code inside a `--packageGlobs` package may itself bypass any factory, so
+don't reuse this setting when linting the sibling module.
+
+Running without a module (GOPATH, Bazel's `nogo`, or a list of `.go` files instead of packages)
+falls back to the previous behaviour: every package other than the current one is protected.
+
+Within scope, gofactory is **strict by default**: every bypass of a protected type is reported,
+whether or not the type has a factory. See [the ADR](docs/adr/0002-strict-default-and-module-scope.md)
+for why.
 
 ## Usage
 
@@ -19,7 +37,7 @@ The checking helps to provide invariants without exclusion and helps avoid creat
 ### Options
 
 - `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
-By default, all structures from another package should be created by factories, [tests](testdata/module/packageGlobs).
+By default, types from the current module must come from their factories (see [Protection scope](#protection-scope)), [tests](testdata/module/packageGlobs).
 - `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
 [tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
 - `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
@@ -36,6 +54,15 @@ conversion or `new`, [tests](testdata/module/zeroValues).
     fill analysis: `var a [N]T` and `make([]T, n)` stay silent. A defined type such as
     `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
   - Goes through the same owner-package and fences policy as every other route.
+- `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
+e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
+- `--useDefaultFactoryPattern` – recognise the default `^New` pattern, `true` by default; set to
+`false` to drop it, following the append-plus-bool-to-drop-builtins convention also used by errcheck,
+asasalint and canonicalheader. With `--useDefaultFactoryPattern=false` and no `--factoryPatterns` at
+all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPattern).
+- `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
+team can adopt the linter gradually, starting from the types that already have one,
+[tests](testdata/module/onlyWithFactory).
 
 ### Message format
 
@@ -58,6 +85,11 @@ Methods of `T` itself are never factories, so withers and clones are not suggest
 declared on an interface type is never recognised either. A factory function is named `pkg.NewT` in
 the suffix; a factory method of another type `U` is named `pkg.U.NewT`, with a generic `U` rendered
 without its type arguments, [tests](testdata/module/factories).
+
+`--factoryPatterns` and `--useDefaultFactoryPattern` widen or replace which names count: a candidate
+is recognised as soon as its name matches any configured pattern, default `^New` included unless
+dropped. A `New…` candidate still sorts first in the suggestion even when another pattern also
+matches it.
 
 ### golangci-lint module plugin
 
@@ -96,11 +128,18 @@ linters:
             - "mypkg/internal/**"
           package-globs-only: false
           zero-values: false
+          factory-patterns:
+            - "^Make"
+          use-default-factory-pattern: true
+          only-with-factory: false
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
 - `zero-values` – equivalent to `--zeroValues`.
+- `factory-patterns` – equivalent to `--factoryPatterns`.
+- `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
+- `only-with-factory` – equivalent to `--onlyWithFactory`.
 
 ## Example
 

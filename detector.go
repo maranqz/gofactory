@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/types"
+	"regexp"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -15,19 +16,28 @@ type detector struct {
 	strategy   blockedStrategy
 	zeroValues bool
 
+	factoryPatterns []*regexp.Regexp
+	onlyWithFactory bool
+
 	factories map[*types.Package]factoryIndex
 	suffixes  map[*types.TypeName]string
 }
 
 func newDetector(
-	pass *analysis.Pass, strategy blockedStrategy, zeroValues bool,
+	pass *analysis.Pass,
+	strategy blockedStrategy,
+	zeroValues bool,
+	factoryPatterns []*regexp.Regexp,
+	onlyWithFactory bool,
 ) *detector {
 	return &detector{
-		pass:       pass,
-		strategy:   strategy,
-		zeroValues: zeroValues,
-		factories:  map[*types.Package]factoryIndex{},
-		suffixes:   map[*types.TypeName]string{},
+		pass:            pass,
+		strategy:        strategy,
+		zeroValues:      zeroValues,
+		factoryPatterns: factoryPatterns,
+		onlyWithFactory: onlyWithFactory,
+		factories:       map[*types.Package]factoryIndex{},
+		suffixes:        map[*types.TypeName]string{},
 	}
 }
 
@@ -44,9 +54,6 @@ func (d *detector) visit(node ast.Node) {
 	}
 }
 
-// reportProtected reports node when t resolves to a protected type that may
-// not be built from the current package, following the existing
-// package-scope policy (module scope is a separate ticket).
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
@@ -64,13 +71,18 @@ func (d *detector) reportProtectedSuffix(
 	d.report(node, named, suffix)
 }
 
-func (d *detector) report(pos ast.Node, named *types.Named, suffix string) {
+func (d *detector) report(pos ast.Node, named *types.Named, route string) {
 	obj := named.Obj()
+
+	factory := d.factorySuffix(obj)
+	if d.onlyWithFactory && factory == "" {
+		return
+	}
 
 	d.pass.Reportf(
 		pos.Pos(),
 		"Use factory for %s.%s%s%s", obj.Pkg().Name(), obj.Name(),
-		suffix, d.factorySuffix(obj),
+		route, factory,
 	)
 }
 
@@ -81,7 +93,7 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 
 	index, ok := d.factories[target.Pkg()]
 	if !ok {
-		index = indexFactories(target.Pkg())
+		index = indexFactories(target.Pkg(), d.factoryPatterns)
 		d.factories[target.Pkg()] = index
 	}
 
