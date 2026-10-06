@@ -7,9 +7,21 @@ import (
 	"go/types"
 	"maps"
 	"slices"
+	"strings"
 )
 
 const zeroValueSuffix = ": zero value"
+
+// zeroValueFieldSuffix is zeroValueSuffix, extended with the field path to
+// a protected type left zero at any depth through by-value struct fields
+// and embedding; an empty path means the type itself is the one left zero.
+func zeroValueFieldSuffix(path []string) string {
+	if len(path) == 0 {
+		return zeroValueSuffix
+	}
+
+	return zeroValueSuffix + " in " + strings.Join(path, ".")
+}
 
 // A package-level var has no function to decide a first interaction in, so
 // it is always a candidate.
@@ -25,7 +37,9 @@ func (d *detector) checkPackageVars(file *ast.File) {
 		}
 
 		for _, name := range zeroValueSpecNames(genDecl) {
-			d.reportProtectedSuffix(name, d.pass.TypesInfo.TypeOf(name), zeroValueSuffix)
+			for _, entry := range d.fieldPaths(d.pass.TypesInfo.TypeOf(name)) {
+				d.reportProtectedSuffix(name, entry.named, zeroValueFieldSuffix(entry.path))
+			}
 		}
 	}
 }
@@ -54,10 +68,12 @@ func (d *detector) checkFuncZeroValues(
 	ast.Inspect(body, walk.visit)
 
 	// A naked return is the first interaction of every named result still
-	// zero, so results of one type would otherwise get identical diagnostics.
+	// zero, so results of one type and path would otherwise get identical
+	// diagnostics.
 	type report struct {
-		node ast.Node
-		obj  *types.TypeName
+		node  ast.Node
+		named *types.TypeName
+		path  string
 	}
 
 	reported := map[report]bool{}
@@ -65,14 +81,22 @@ func (d *detector) checkFuncZeroValues(
 	byDecl := func(a, b types.Object) int { return cmp.Compare(a.Pos(), b.Pos()) }
 	for _, obj := range slices.SortedFunc(maps.Keys(walk.first), byDecl) {
 		first := walk.first[obj]
-
-		named, ok := protectedNamed(obj.Type())
-		if first.safe || !ok || reported[report{first.node, named.Obj()}] {
+		if first.safe {
 			continue
 		}
 
-		reported[report{first.node, named.Obj()}] = true
-		d.reportProtectedSuffix(first.node, named, zeroValueSuffix)
+		for _, entry := range d.fieldPaths(obj.Type()) {
+			key := report{first.node, entry.named.Obj(), strings.Join(entry.path, ".")}
+			if reported[key] {
+				continue
+			}
+
+			reported[key] = true
+
+			d.reportProtectedSuffix(
+				first.node, entry.named, zeroValueFieldSuffix(entry.path),
+			)
+		}
 	}
 }
 
