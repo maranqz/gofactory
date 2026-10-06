@@ -12,7 +12,9 @@ func typeNested() {
 	_ = DeclStruct{}  // DeclStruct belongs to the current package: not a bypass.
 	_ = AliasStruct{} // want `Use factory for nested.Struct \(nested.NewStruct\)`
 
-	// No diagnostic, known false negative: the embedded nested.Struct field
-	// is left at its zero value, which is a field-path bypass (its own ticket).
+	// No diagnostic here: this package does not set -zeroValues, so the
+	// embedded nested.Struct field being left at its zero value is a
+	// field-path bypass only under that setting; see
+	// zeroValues/fieldpath.go's EmbeddedFieldLiteralIsReported.
 	_ = UnderlyingStruct{}
 }
