@@ -28,6 +28,14 @@ func OneAssignedOneZeroIsReported() (hack nested.Struct, other int) {
 	return // want `Use factory for nested.Struct: zero value`
 }
 
+func TwoZeroResultsOfOneTypeAreReportedOnce() (hack, other nested.Struct) {
+	return // want `Use factory for nested.Struct: zero value`
+}
+
+func TwoZeroResultsOfTwoTypesAreBothReported() (hack nested.Struct, count nested.Count) {
+	return // want `Use factory for nested.Struct: zero value` `Use factory for nested.Count: zero value`
+}
+
 func ExplicitReturnOfZeroIsReported() (hack nested.Struct) {
 	return hack // want `Use factory for nested.Struct: zero value`
 }

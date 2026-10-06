@@ -53,11 +53,26 @@ func (d *detector) checkFuncZeroValues(
 	}
 	ast.Inspect(body, walk.visit)
 
+	// A naked return is the first interaction of every named result still
+	// zero, so results of one type would otherwise get identical diagnostics.
+	type report struct {
+		node ast.Node
+		obj  *types.TypeName
+	}
+
+	reported := map[report]bool{}
+
 	byDecl := func(a, b types.Object) int { return cmp.Compare(a.Pos(), b.Pos()) }
 	for _, obj := range slices.SortedFunc(maps.Keys(walk.first), byDecl) {
-		if first := walk.first[obj]; !first.safe {
-			d.reportProtectedSuffix(first.node, obj.Type(), zeroValueSuffix)
+		first := walk.first[obj]
+
+		named, ok := protectedNamed(obj.Type())
+		if first.safe || !ok || reported[report{first.node, named.Obj()}] {
+			continue
 		}
+
+		reported[report{first.node, named.Obj()}] = true
+		d.reportProtectedSuffix(first.node, named, zeroValueSuffix)
 	}
 }
 
