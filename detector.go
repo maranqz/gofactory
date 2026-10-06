@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/types"
+	"regexp"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -14,16 +15,26 @@ type detector struct {
 	pass     *analysis.Pass
 	strategy blockedStrategy
 
+	factoryPatterns []*regexp.Regexp
+	onlyWithFactory bool
+
 	factories map[*types.Package]factoryIndex
 	suffixes  map[*types.TypeName]string
 }
 
-func newDetector(pass *analysis.Pass, strategy blockedStrategy) *detector {
+func newDetector(
+	pass *analysis.Pass,
+	strategy blockedStrategy,
+	factoryPatterns []*regexp.Regexp,
+	onlyWithFactory bool,
+) *detector {
 	return &detector{
-		pass:      pass,
-		strategy:  strategy,
-		factories: map[*types.Package]factoryIndex{},
-		suffixes:  map[*types.TypeName]string{},
+		pass:            pass,
+		strategy:        strategy,
+		factoryPatterns: factoryPatterns,
+		onlyWithFactory: onlyWithFactory,
+		factories:       map[*types.Package]factoryIndex{},
+		suffixes:        map[*types.TypeName]string{},
 	}
 }
 
@@ -48,10 +59,15 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 func (d *detector) report(pos ast.Node, named *types.Named) {
 	obj := named.Obj()
 
+	suffix := d.factorySuffix(obj)
+	if d.onlyWithFactory && suffix == "" {
+		return
+	}
+
 	d.pass.Reportf(
 		pos.Pos(),
 		"Use factory for %s.%s%s", obj.Pkg().Name(), obj.Name(),
-		d.factorySuffix(obj),
+		suffix,
 	)
 }
 
@@ -62,7 +78,7 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 
 	index, ok := d.factories[target.Pkg()]
 	if !ok {
-		index = indexFactories(target.Pkg())
+		index = indexFactories(target.Pkg(), d.factoryPatterns)
 		d.factories[target.Pkg()] = index
 	}
 
