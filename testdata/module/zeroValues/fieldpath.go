@@ -119,6 +119,18 @@ func FieldWriteOnZeroValuedPairReportsBothFields() Pair {
 	return p
 }
 
+// FieldAddressPassedToCallOnZeroValuedPairReportsBothFields is
+// FieldWriteOnZeroValuedPairReportsBothFields with &p.A passed to a call:
+// only &p, the whole variable, is the silent form.
+func FieldAddressPassedToCallOnZeroValuedPairReportsBothFields() Pair {
+	var p Pair
+
+	nested.Fill(&p.A) // want `Use factory for nested.Struct: zero value in A` `Use factory for nested.Struct: zero value in B`
+	p.B = nested.NewStruct(2)
+
+	return p
+}
+
 // WholeValueAssignOnZeroValuedVarIsSilent: w's first interaction is a
 // whole-value assignment, the first-interaction rule's OK form, so no
 // field-path report fires even though w started zero-valued.
