@@ -53,7 +53,7 @@ func NewAnalyzer() *analysis.Analyzer {
 // flags to cfg afterwards.
 //
 // Declaring FactTypes makes drivers analyse every dependency; see
-// docs/adr/0002-cross-package-directives-via-facts.md.
+// docs/adr/0003-cross-package-directives-via-facts.md.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:      name,
@@ -69,7 +69,12 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
 		checkDirectives(pass)
 
-		var strategy blockedStrategy = newAnotherPkg()
+		var modulePath string
+		if pass.Module != nil {
+			modulePath = pass.Module.Path
+		}
+
+		var strategy blockedStrategy = newCurrentModule(modulePath)
 
 		pkgGlobs := cfg.pkgGlobs.Value()
 		if len(pkgGlobs) > 0 {
