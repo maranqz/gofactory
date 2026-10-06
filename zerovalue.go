@@ -124,9 +124,11 @@ type interaction struct {
 	safe bool
 }
 
-// record keeps the first interaction it sees, so visit restores evaluation
-// order where it differs from source order; a function literal's body counts
-// where it is written.
+// record keeps the first interaction it sees, so visit's order decides it:
+// source order, except that an assignment's right-hand side and a range
+// expression count before their targets, and a for body before its post
+// statement. A select stays in source order; a function literal's body
+// counts where it is written.
 type firstInteractionWalk struct {
 	info    *types.Info
 	tracked map[types.Object]zeroVar
