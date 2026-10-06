@@ -114,12 +114,12 @@ func linterSuiteCases() map[string]linterSuiteCase {
 			},
 		},
 	}
-	maps.Copy(cases, factoryPatternCases())
+	maps.Copy(cases, factorySettingCases())
 
 	return cases
 }
 
-func factoryPatternCases() map[string]linterSuiteCase {
+func factorySettingCases() map[string]linterSuiteCase {
 	return map[string]linterSuiteCase{
 		"factoryPatterns": {
 			pkgs: []string{"factoryPatterns/..."},
