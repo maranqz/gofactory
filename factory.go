@@ -69,7 +69,12 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
-		var strategy blockedStrategy = newAnotherPkg()
+		var modulePath string
+		if pass.Module != nil {
+			modulePath = pass.Module.Path
+		}
+
+		var strategy blockedStrategy = newCurrentModule(modulePath)
 
 		pkgGlobs := cfg.pkgGlobs.Value()
 		if len(pkgGlobs) > 0 {
