@@ -12,3 +12,23 @@ func NewBoth() Both {
 func MakeBoth() Both {
 	return Both{}
 }
+
+// Many has four recognised factories, one more than a message lists, and
+// its three Make… factories sort before NewMany by name.
+type Many struct{}
+
+func MakeManyA() Many {
+	return Many{}
+}
+
+func MakeManyB() Many {
+	return Many{}
+}
+
+func MakeManyC() Many {
+	return Many{}
+}
+
+func NewMany() Many {
+	return Many{}
+}
