@@ -1,10 +1,9 @@
 // Package siblingfence is the README's go.work sibling recipe: fencing the
-// sibling module's path with -packageGlobs=sibling/** brings its types,
-// root package and subpackages alike, into scope the way module scope
-// already does for the current module ("factory"). Without the fence,
-// sibling's types stay silent (see testdata/module/workspace), because a
-// go.work sibling's import path is neither the current module path nor
-// under it.
+// sibling module's path with -packageGlobs=sibling/** protects its types,
+// root package and subpackages alike, from code outside the fence, such as
+// this package. Without the fence, sibling's types stay silent (see
+// testdata/module/workspace), because a go.work sibling's import path is
+// neither the current module path nor under it.
 package siblingfence
 
 import (

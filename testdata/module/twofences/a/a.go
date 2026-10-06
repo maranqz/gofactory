@@ -1,6 +1,6 @@
-// Package a is half of the probe case for the intersection rule: two
-// disjoint fences, factory/twofences/a/** and factory/twofences/b/**. a
-// stays free to bypass its own fence's types but not b's.
+// Package a is half of two disjoint fences, factory/twofences/a/** and
+// factory/twofences/b/**, for the intersection rule. a stays free to bypass
+// its own fence's types but not b's.
 package a
 
 import "factory/twofences/b"
