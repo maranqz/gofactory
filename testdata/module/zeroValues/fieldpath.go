@@ -75,11 +75,10 @@ type NotFollowed struct {
 	Slice []nested.Struct
 	Map   map[string]nested.Struct
 	Chan  chan nested.Struct
-	Array [2]nested.Struct
 }
 
-// FieldsBehindNotFollowedKindsAreSilent: a pointer, slice, map, chan or
-// array field is not followed, so an empty literal of NotFollowed reports
+// FieldsBehindNotFollowedKindsAreSilent: a pointer, slice, map or chan
+// field is not followed, so an empty literal of NotFollowed reports
 // nothing.
 func FieldsBehindNotFollowedKindsAreSilent() NotFollowed {
 	return NotFollowed{}
