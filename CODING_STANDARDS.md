@@ -21,3 +21,7 @@ with `_`. `go test` prints a subtest name with each space replaced by `_`, so a 
 `"invalid glob"` fails as `TestConfigurationErrors/invalid_glob`, and searching the source for that
 name finds nothing. A camelCase word, such as a flag name, stays as written: `packageGlobs`,
 `packageGlobsOnly_without_globs`.
+
+## Testdata
+
+A case the linter defers to later work goes in `testdata/module/unimplemented/`, with a `// want` for the diagnostic it should get.

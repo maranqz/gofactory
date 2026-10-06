@@ -30,6 +30,7 @@ func init() {
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
+	ZeroValues       bool     `json:"zero-values"`
 
 	FactoryPatterns          []string `json:"factory-patterns"`
 	UseDefaultFactoryPattern *bool    `json:"use-default-factory-pattern"`
@@ -54,6 +55,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	}
 
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
+	cfg.zeroValues = decoded.ZeroValues
 
 	for _, p := range decoded.FactoryPatterns {
 		err = cfg.extraFactoryPatterns.Set(p)

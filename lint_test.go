@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -107,8 +108,6 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	return cases
 }
 
-// baseLinterSuiteCases covers every detector outside fences and
-// factory-pattern settings.
 func baseLinterSuiteCases() map[string]linterSuiteCase {
 	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
@@ -119,6 +118,21 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
+
+		"zeroValues": {
+			pkgs:     []string{"zeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"zeroValuesOff": {
+			pkgs: []string{"zeroValuesOff/..."},
+		},
+		"zeroValuesFences": {
+			pkgs: []string{"zeroValuesFences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
+				zeroValues:   true,
+			},
+		},
 	}
 }
 
@@ -167,7 +181,6 @@ func fenceLinterSuiteCases() map[string]linterSuiteCase {
 				packageGlobs: []string{"strings"},
 			},
 		},
-		// siblingFence is the README's go.work sibling recipe: a fence over the sibling module's path, covering its subpackages too.
 		"siblingFence": {
 			pkgs: []string{"siblingfence/..."},
 			settings: caseSettings{
@@ -250,6 +263,32 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
+// TestZeroValuesInDeclarationOrder checks the order of one function's
+// zero-value diagnostics, which want comments ignore: the CLI prints them
+// in the order they are reported.
+func TestZeroValuesInDeclarationOrder(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(moduleRoot(), "zeroValuesOrder")
+
+	forEachEntryPoint(t, caseSettings{zeroValues: true},
+		func(t *testing.T, analyzer *analysis.Analyzer) {
+			var lines []int
+
+			for _, res := range analysistest.Run(t, moduleRoot(), analyzer, dir) {
+				for _, diag := range res.Action.Diagnostics {
+					pos := res.Action.Package.Fset.Position(diag.Pos)
+					lines = append(lines, pos.Line)
+				}
+			}
+
+			// first, second and third are read on lines 12, 11 and 10.
+			if want := []int{12, 11, 10}; !slices.Equal(lines, want) {
+				t.Errorf("diagnostics on lines %v, want %v", lines, want)
+			}
+		})
+}
+
 func forEachEntryPoint(
 	t *testing.T,
 	settings caseSettings,
@@ -278,6 +317,7 @@ func forEachEntryPoint(
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+	zeroValues       bool
 
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
@@ -310,6 +350,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	if s.onlyWithFactory {
 		setFlag(t, analyzer, "onlyWithFactory", "true")
+	}
+
+	if s.zeroValues {
+		setFlag(t, analyzer, "zeroValues", "true")
 	}
 
 	return analyzer
@@ -367,6 +411,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
 	}
@@ -522,8 +567,8 @@ func gopathRoot() string {
 	return filepath.Join(analysistest.TestData(), "gopath")
 }
 
-// recordingTesting is analysistest.Testing's only method, Errorf,
-// implemented to record messages instead of failing the test: analysistest.Run
+// recordingTesting implements analysistest.Testing's only method, Errorf,
+// to record messages instead of failing the test: analysistest.Run
 // reports a configuration error returned from run through exactly this
 // method, so a recording double lets TestConfigurationErrors assert the
 // message without the recorded failure also failing the outer test.
@@ -536,11 +581,8 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 }
 
 // TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, and an invalid glob, are configuration errors
-// surfaced through both entry points. Both become an error returned from
-// run (factory.go), so analysistest.Run reports them the same way it
-// reports a real analysis failure; a recording Testing captures that
-// report instead of failing the test.
+// -packageGlobs pattern, an invalid glob, and an empty glob are
+// configuration errors surfaced through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
