@@ -116,6 +116,29 @@ func linterSuiteCases() map[string]linterSuiteCase {
 			},
 		},
 
+		"zeroValues": {
+			pkgs:     []string{"zeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"zeroValuesOff": {
+			pkgs: []string{"zeroValuesOff/..."},
+		},
+		"zeroValuesFences": {
+			pkgs: []string{"zeroValuesFences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
+				zeroValues:   true,
+			},
+		},
+	}
+	maps.Copy(cases, ignoredTypeCases())
+	maps.Copy(cases, factorySettingCases())
+
+	return cases
+}
+
+func ignoredTypeCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"directive": {
 			pkgs: []string{"directive/..."},
 			settings: caseSettings{
@@ -135,25 +158,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 				zeroValues: true,
 			},
 		},
-
-		"zeroValues": {
-			pkgs:     []string{"zeroValues/..."},
-			settings: caseSettings{zeroValues: true},
-		},
-		"zeroValuesOff": {
-			pkgs: []string{"zeroValuesOff/..."},
-		},
-		"zeroValuesFences": {
-			pkgs: []string{"zeroValuesFences/..."},
-			settings: caseSettings{
-				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
-				zeroValues:   true,
-			},
-		},
 	}
-	maps.Copy(cases, factorySettingCases())
-
-	return cases
 }
 
 func factorySettingCases() map[string]linterSuiteCase {
