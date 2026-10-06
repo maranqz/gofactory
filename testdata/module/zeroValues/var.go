@@ -9,7 +9,7 @@ var globalZero nested.Struct // want `Use factory for nested.Struct: zero value`
 func ReadIsReported() int {
 	var x nested.Struct
 
-	return x.Field // want `Use factory for nested.Struct: zero value`
+	return x.Field // want `Use factory for nested.Struct: zero value \(nested.NewStruct, nested.NewStructOrErr\)$`
 }
 
 func FieldWriteIsReported() {
@@ -44,7 +44,7 @@ func ReturnIsReported() nested.Struct {
 func AddAssignIsReported() nested.Count {
 	var m nested.Count
 
-	m += 1 // want `Use factory for nested.Count: zero value`
+	m += 1 // want `Use factory for nested.Count: zero value$`
 
 	return m
 }
