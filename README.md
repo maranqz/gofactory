@@ -45,6 +45,8 @@ without a factory everywhere, not just inside a fence, [tests](testdata/module/i
 For example, `mymod/geo.*` matches every type of package `mymod/geo`, and `mymod/a.Pair` matches
 the generic `Pair` with any type arguments. Type arguments in a glob are not supported, so a single
 instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
+`*` stays within one path segment (it crosses `.` but not `/`) and `**` also crosses `/`:
+`mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`; `mymod/**` matches both.
 Repeat the flag to give several globs.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 - `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
