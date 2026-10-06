@@ -62,8 +62,9 @@ disable protection.
 
 ### Message format
 
-Every diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix is a public
-contract that does not change. A golangci-lint `linters.exclusions.rules[].text` or
+Every factory-bypass diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix
+is a public contract that does not change. A diagnostic about an unknown or misplaced
+[directive](#directives) does not carry it. A golangci-lint `linters.exclusions.rules[].text` or
 `severity.rules[].text` regex that matches the prefix without anchoring the end of the message (for
 example `^Use factory for`) keeps matching; one anchored to the end of the old, suffix-less message
 (`^Use factory for pkg\.T$`) stops matching once a factory suffix is appended.
