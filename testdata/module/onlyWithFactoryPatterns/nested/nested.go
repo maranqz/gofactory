@@ -7,8 +7,8 @@ type OnlyMake struct{}
 
 func MakeOnlyMake() OnlyMake { return OnlyMake{} }
 
-// OnlyNew's only factory matches the dropped default pattern, so it is not
-// recognised and -onlyWithFactory keeps it silent.
+// OnlyNew's only candidate factory matches the dropped default pattern, so
+// it is not recognised and -onlyWithFactory keeps it silent.
 type OnlyNew struct{}
 
 func NewOnlyNew() OnlyNew { return OnlyNew{} }

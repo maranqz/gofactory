@@ -9,7 +9,7 @@ func Reported() {
 }
 
 // Silent exercises -onlyWithFactory gated on the replaced pattern set:
-// OnlyNew's factory matches only the default pattern, dropped by
+// OnlyNew's candidate factory matches only the default pattern, dropped by
 // -useDefaultFactoryPattern=false, so -onlyWithFactory keeps it silent.
 func Silent() {
 	_ = nested.OnlyNew{}
