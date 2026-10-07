@@ -39,9 +39,10 @@ type FlaggedMethod struct{}
 // NoDirective has no factory anywhere, declared or recognised.
 type NoDirective struct{}
 
-// Inaccessible's declared factory, other.buildInaccessible, is unexported:
-// outside other, nothing can name it, so it is never suggested from there,
-// the same accessibility rule a recognised factory follows.
+// Inaccessible's declared factory, other.inaccessibleRepo.Restore, is a
+// method of an unexported type: outside other, nothing can name the
+// receiver, so it is never suggested from there, the same accessibility
+// rule a recognised factory follows.
 type Inaccessible struct{}
 
 // Unmarked has no factory anywhere either, like NoDirective; both are

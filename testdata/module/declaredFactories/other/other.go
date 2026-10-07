@@ -70,10 +70,13 @@ func OtherBypass() {
 	_ = owner.Solo{} // want `Use factory for owner.Solo \(other.Build\)`
 }
 
-// buildInaccessible is unexported, so it is still owner.Inaccessible's
-// declared factory, but never suggested outside this package.
-//
+// inaccessibleRepo is unexported, so its exported method below is still
+// owner.Inaccessible's declared factory (its fact reaches main.go, which
+// imports this package directly), but nothing outside this package can
+// name inaccessibleRepo to call it.
+type inaccessibleRepo struct{}
+
 //gofactory:factory
-func buildInaccessible() owner.Inaccessible { // want buildInaccessible:"gofactory:factory"
+func (inaccessibleRepo) Restore() owner.Inaccessible { // want Restore:"gofactory:factory"
 	return owner.Inaccessible{}
 }
