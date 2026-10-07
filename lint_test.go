@@ -105,6 +105,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	maps.Copy(cases, fenceLinterSuiteCases())
 	maps.Copy(cases, ignoredTypeCases())
 	maps.Copy(cases, factorySettingCases())
+	maps.Copy(cases, declaredFactoryCases())
 
 	return cases
 }
@@ -257,6 +258,11 @@ func factorySettingCases() map[string]linterSuiteCase {
 				useDefaultFactoryPattern: new(false),
 			},
 		},
+	}
+}
+
+func declaredFactoryCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"declaredFactories": {
 			pkgs: []string{"declaredFactories/..."},
 			settings: caseSettings{
@@ -274,6 +280,10 @@ func factorySettingCases() map[string]linterSuiteCase {
 				onlyWithFactory:          true,
 				useDefaultFactoryPattern: new(false),
 			},
+		},
+		"declaredFactoriesZeroValues": {
+			pkgs:     []string{"declaredFactoriesZeroValues/..."},
+			settings: caseSettings{zeroValues: true},
 		},
 	}
 }

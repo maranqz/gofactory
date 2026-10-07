@@ -17,6 +17,11 @@ func Build() owner.Solo { // want Build:"gofactory:factory"
 	return owner.Solo{}
 }
 
+// Build's permission ends with its body. This bypass sits right after Build
+// because entering another function would replace a leftover permission
+// anyway.
+var _ = owner.Solo{} // want `Use factory for owner.Solo \(other.Build\)`
+
 type Repo struct{}
 
 // Restore is owner.ViaMethod's declared factory, as a method of another
