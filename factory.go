@@ -38,6 +38,9 @@ const (
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
+
+	crossPackageDirectivesDesc = "propagate //gofactory: directives to importing packages and modules; " +
+		"false trades that off for not analysing dependencies, which is faster on a large monorepo"
 )
 
 // errPackageGlobsOnlyNeedsGlobs is the configuration error for
@@ -71,24 +74,59 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
+	// FactTypes is a static field, read by drivers before Run to decide
+	// whether to analyse dependencies at all, so turning it off must happen
+	// as the flag is set rather than inside Run; see
+	// newCrossPackageDirectivesFlag.
+	analyzer.Flags.Var(
+		newCrossPackageDirectivesFlag(analyzer), "crossPackageDirectives", crossPackageDirectivesDesc,
+	)
+
 	return analyzer
+}
+
+// analyzerOption configures the analysis.Analyzer built by newAnalyzer,
+// after its static fields are set. newPlugin uses this to apply
+// -crossPackageDirectives=false from decoded settings, since the plugin has
+// no flag.Value to mutate the analyzer as a flag is parsed.
+type analyzerOption func(*analysis.Analyzer)
+
+func withCrossPackageDirectives(enabled bool) analyzerOption {
+	return func(a *analysis.Analyzer) {
+		a.FactTypes = factTypesFor(enabled)
+	}
+}
+
+// factTypesFor is the FactTypes declared under -crossPackageDirectives:
+// enabled propagates //gofactory: directives as facts, as documented in
+// docs/adr/0004-cross-package-directives-via-facts.md; disabled declares
+// none, so drivers stop analysing dependencies for them.
+func factTypesFor(enabled bool) []analysis.Fact {
+	if !enabled {
+		return nil
+	}
+
+	return []analysis.Fact{new(ignoredFact)}
 }
 
 // newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
 // newPlugin. newPlugin fills cfg before the call, NewAnalyzer binds its
 // flags to cfg afterwards.
-//
-// Declaring FactTypes makes drivers analyse every dependency; see
-// docs/adr/0004-cross-package-directives-via-facts.md.
-func newAnalyzer(cfg *config) *analysis.Analyzer {
-	return &analysis.Analyzer{
+func newAnalyzer(cfg *config, opts ...analyzerOption) *analysis.Analyzer {
+	analyzer := &analysis.Analyzer{
 		Name:      name,
 		Doc:       doc,
 		URL:       url,
 		Requires:  []*analysis.Analyzer{inspect.Analyzer},
 		Run:       run(cfg),
-		FactTypes: []analysis.Fact{new(ignoredFact)},
+		FactTypes: factTypesFor(true),
 	}
+
+	for _, opt := range opts {
+		opt(analyzer)
+	}
+
+	return analyzer
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
