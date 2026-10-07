@@ -101,8 +101,9 @@ func factTypesFor(enabled bool) []analysis.Fact {
 }
 
 // newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
-// newPlugin. newPlugin fills cfg before the call, NewAnalyzer binds its
-// flags to cfg afterwards.
+// newPlugin. newPlugin fills cfg and picks opts before the call;
+// NewAnalyzer binds its flags afterwards, to cfg except for
+// -crossPackageDirectives, which sets the analyzer's FactTypes.
 func newAnalyzer(cfg *config, opts ...analyzerOption) *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
 		Name:      name,
