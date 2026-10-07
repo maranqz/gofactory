@@ -216,13 +216,15 @@ directly, calling it is suggested in messages the same way a recognised factory 
 for `--onlyWithFactory`, even with `--useDefaultFactoryPattern=false`,
 [tests](testdata/module/declaredFactories).
 
-**Reach.** A declared factory is known only to a package that imports its package directly. The
-fact that marks it sits on a function object, and go/analysis's fact machinery
-(`checker.exportedFrom`, `facts.Encode`) forwards those only to direct importers, unlike a type's
-`//gofactory:ignore` fact, which every transitive importer sees. A package that uses the protected
-type without importing the declaring package gets the bare `Use factory for pkg.T` message with no
-suggestion, and `--onlyWithFactory` silently does not report it at all — see
-[False Negative](#false-negative).
+**Reach.** A declared factory is known only to a package that imports its package directly, for a
+function and a method alike. The fact that marks it sits on a function object, and go/analysis's
+fact machinery (`checker.exportedFrom`, `facts.Encode`) forwards a function's fact only to direct
+importers, unlike a type's `//gofactory:ignore` fact, which every transitive importer sees. For a
+method, `checker.exportedFrom` over-approximates and hands its fact to more than the direct
+importers; gofactory discards what that over-approximation adds, so every driver agrees on the
+same direct-importer rule. A package that uses the protected type without importing the declaring
+package directly gets the bare `Use factory for pkg.T` message with no suggestion, and
+`--onlyWithFactory` silently does not report it at all — see [False Negative](#false-negative).
 
 A `//gofactory:factory` directive on a function or method with no protected type among its results
 is reported as a diagnostic, since it would otherwise do nothing while looking like it did

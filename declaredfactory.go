@@ -2,6 +2,7 @@ package gofactory
 
 import (
 	"go/types"
+	"slices"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
@@ -22,12 +23,14 @@ func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 }
 
 // declaredFactoryIndex indexes every declared factory the current pass can
-// see by AllObjectFacts: those exported by the current package itself (a
-// //gofactory:factory directive or a -factories match applied in run, both
-// before this runs) and those imported from a package the current package
-// directly imports. Unlike ignoredFact, a factoryFact on a package-level
-// function does not reach a package that only imports it transitively
-// (README.md, Declared factories, Reach).
+// see: those exported by the current package itself (a //gofactory:factory
+// directive or a -factories match applied in run, both before this runs)
+// and those imported from a package the current package directly imports
+// (README.md, Declared factories, Reach). The directlyImports filter below
+// is load-bearing: AllObjectFacts can also hand back a method's fact from a
+// package reached only transitively, because x/tools' checker.exportedFrom
+// over-approximates for methods and golangci-lint copies it; without the
+// filter, a method's reach would differ by driver.
 func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 	index := factoryIndex{}
 
@@ -37,7 +40,7 @@ func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 		}
 
 		factory, ok := of.Object.(*types.Func)
-		if !ok {
+		if !ok || !directlyImports(pass.Pkg, factory.Pkg()) {
 			continue
 		}
 
@@ -47,6 +50,10 @@ func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 	}
 
 	return index
+}
+
+func directlyImports(pkg, other *types.Package) bool {
+	return pkg == other || slices.Contains(pkg.Imports(), other)
 }
 
 // declaredFactoryQualifiedName is what a -factories glob matches against:
