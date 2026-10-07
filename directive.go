@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"slices"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 const directivePrefix = "//gofactory:"
 
 const misplacedDirectiveFormat = "%s%s must be in the doc comment of %s"
+
+const noProtectedResultFormat = "%s%s must have a protected type among %s's results"
 
 type declKind int
 
@@ -92,7 +95,7 @@ func checkDeclDirectives(
 	case *ast.GenDecl:
 		checkGenDeclDirectives(pass, d, consumed)
 	case *ast.FuncDecl:
-		processDoc(pass, consumed, d.Doc, declFunc, nil)
+		processDoc(pass, consumed, d.Doc, declFunc, d)
 	}
 }
 
@@ -127,12 +130,15 @@ func checkGenDeclDirectives(
 	}
 }
 
+// node is the declaration the doc comment belongs to: a *ast.TypeSpec for
+// declType/declAlias, a *ast.FuncDecl for declFunc, nil otherwise. It is
+// only consulted by the directives whose placement allows it.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,
 	doc *ast.CommentGroup,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
+	node ast.Node,
 ) {
 	if doc == nil {
 		return
@@ -146,7 +152,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, typeSpec)
+		applyDirective(pass, comment, name, kind, node)
 	}
 }
 
@@ -170,7 +176,7 @@ func applyDirective(
 	comment *ast.Comment,
 	name string,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
+	node ast.Node,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -202,8 +208,15 @@ func applyDirective(
 		return
 	}
 
-	if name == directiveIgnore {
-		applyIgnore(pass, typeSpec)
+	switch name {
+	case directiveIgnore:
+		if typeSpec, ok := node.(*ast.TypeSpec); ok {
+			applyIgnore(pass, typeSpec)
+		}
+	case directiveFactory:
+		if funcDecl, ok := node.(*ast.FuncDecl); ok {
+			applyFactory(pass, comment, funcDecl)
+		}
 	}
 }
 
@@ -214,4 +227,29 @@ func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
 	}
 
 	pass.ExportObjectFact(obj, &ignoredFact{})
+}
+
+// applyFactory makes funcDecl a declared factory of each protected type
+// among its results (protectedResultTargets drops an error result on its
+// own: error is a universe-scoped interface, neither a protected kind).
+// With none, the directive is reported instead of taking effect: it would
+// otherwise do nothing while looking like it did something.
+func applyFactory(
+	pass *analysis.Pass, comment *ast.Comment, funcDecl *ast.FuncDecl,
+) {
+	factory, ok := pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
+	if !ok {
+		return
+	}
+
+	if len(protectedResultTargets(factory.Signature())) == 0 {
+		pass.Reportf(
+			comment.Pos(), noProtectedResultFormat,
+			directivePrefix, directiveFactory, factory.Name(),
+		)
+
+		return
+	}
+
+	pass.ExportObjectFact(factory, &factoryFact{})
 }

@@ -1,6 +1,6 @@
-// Package reserved holds the factory and trusted directives, which are
-// placement-checked but have no effect yet: silent in a right place,
-// reported in a wrong one.
+// Package reserved holds the trusted directive, still placement-checked
+// with no effect, and the factory directive's placement rules; the
+// factory directive's effect is exercised in declaredFactories.
 //
 //gofactory:trusted
 package reserved
@@ -8,7 +8,7 @@ package reserved
 type Struct struct{}
 
 //gofactory:factory
-func NewStruct() Struct {
+func NewStruct() Struct { // want NewStruct:"gofactory:factory"
 	return Struct{}
 }
 
@@ -19,7 +19,7 @@ type Repo struct{}
 
 //gofactory:factory
 //gofactory:trusted
-func (Repo) Load() Struct {
+func (Repo) Load() Struct { // want Load:"gofactory:factory"
 	return Struct{}
 }
 

@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"regexp"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -20,6 +21,8 @@ type config struct {
 	extraFactoryPatterns     regexpsFlag
 	useDefaultFactoryPattern bool
 	onlyWithFactory          bool
+
+	factories globsFlag
 }
 
 const (
@@ -29,6 +32,7 @@ const (
 
 	packageGlobsFlag = "packageGlobs"
 	ignoreTypesFlag  = "ignoreTypes"
+	factoriesFlag    = "factories"
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
@@ -38,6 +42,7 @@ const (
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
+	factoriesDesc                = "qualified function/method-name glob (import/path.Func or import/path.Type.Method), repeatable; a match is a declared factory of each protected type among its results"
 )
 
 // errPackageGlobsOnlyNeedsGlobs is the configuration error for
@@ -71,6 +76,8 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
+	analyzer.Flags.Var(&cfg.factories, factoriesFlag, factoriesDesc)
+
 	return analyzer
 }
 
@@ -87,36 +94,21 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 		URL:       url,
 		Requires:  []*analysis.Analyzer{inspect.Analyzer},
 		Run:       run(cfg),
-		FactTypes: []analysis.Fact{new(ignoredFact)},
+		FactTypes: []analysis.Fact{new(ignoredFact), new(factoryFact)},
 	}
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
-		patterns := cfg.pkgGlobs.Value()
-
-		if cfg.onlyPkgGlobs && len(patterns) == 0 {
-			return nil, errPackageGlobsOnlyNeedsGlobs
-		}
-
-		fences, err := newFences(patterns)
-		if err != nil {
-			return nil, err
-		}
-
-		ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
+		fences, ignoreTypes, factories, err := cfg.compileGlobs()
 		if err != nil {
 			return nil, err
 		}
 
 		checkDirectives(pass)
+		exportFlagFactories(pass, factories)
 
-		var modulePath string
-		if pass.Module != nil {
-			modulePath = pass.Module.Path
-		}
-
-		var strategy blockedStrategy = newCurrentModule(modulePath)
+		var strategy blockedStrategy = newCurrentModule(modulePathOf(pass))
 
 		if len(fences) > 0 {
 			defaultStrategy := strategy
@@ -124,15 +116,13 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 				defaultStrategy = newNilPkg()
 			}
 
-			strategy = newFencedPkgs(
-				fences,
-				defaultStrategy,
-			)
+			strategy = newFencedPkgs(fences, defaultStrategy)
 		}
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
 			cfg.recognitionPatterns(), cfg.onlyWithFactory,
+			declaredFactoryIndex(pass),
 		)
 
 		for _, file := range pass.Files {
@@ -140,15 +130,66 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-		insp.Preorder([]ast.Node{
-			(*ast.CompositeLit)(nil),
-			(*ast.CallExpr)(nil),
-			(*ast.FuncDecl)(nil),
-			(*ast.FuncLit)(nil),
-		}, v.visit)
+		visitPackage(insp, v)
 
 		return nil, nil
 	}
+}
+
+// compileGlobs compiles every glob-shaped setting, returning the first
+// configuration error it meets.
+func (cfg *config) compileGlobs() ([]fence, []glob.Glob, []glob.Glob, error) {
+	patterns := cfg.pkgGlobs.Value()
+
+	if cfg.onlyPkgGlobs && len(patterns) == 0 {
+		return nil, nil, nil, errPackageGlobsOnlyNeedsGlobs
+	}
+
+	fences, err := newFences(patterns)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	factories, err := compileGlobs(factoriesFlag, cfg.factories.Value())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return fences, ignoreTypes, factories, nil
+}
+
+func modulePathOf(pass *analysis.Pass) string {
+	if pass.Module == nil {
+		return ""
+	}
+
+	return pass.Module.Path
+}
+
+// visitPackage walks every CompositeLit, CallExpr, FuncDecl and FuncLit of
+// the package, WithStack rather than Preorder: v.visit needs the traversal
+// stack to find the enclosing top-level function or method, to know
+// whether it may bypass a declared factory's own target types.
+func visitPackage(insp *inspector.Inspector, v *detector) {
+	nodeTypes := []ast.Node{
+		(*ast.CompositeLit)(nil),
+		(*ast.CallExpr)(nil),
+		(*ast.FuncDecl)(nil),
+		(*ast.FuncLit)(nil),
+	}
+
+	insp.WithStack(nodeTypes, func(n ast.Node, push bool, stack []ast.Node) bool {
+		if push {
+			v.visit(n, stack)
+		}
+
+		return true
+	})
 }
 
 func (cfg *config) recognitionPatterns() []*regexp.Regexp {

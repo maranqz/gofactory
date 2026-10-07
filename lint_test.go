@@ -257,6 +257,22 @@ func factorySettingCases() map[string]linterSuiteCase {
 				useDefaultFactoryPattern: new(false),
 			},
 		},
+		"declaredFactories": {
+			pkgs: []string{"declaredFactories/..."},
+			settings: caseSettings{
+				factories: []string{
+					"factory/declaredFactories/flagged.MakeFlagged",
+					"factory/declaredFactories/flagged.Box.RestoreFlaggedMethod",
+				},
+			},
+		},
+		"declaredFactoriesOnlyWithFactory": {
+			pkgs: []string{"declaredFactoriesOnlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				useDefaultFactoryPattern: new(false),
+			},
+		},
 	}
 }
 
@@ -348,6 +364,8 @@ type caseSettings struct {
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
 	onlyWithFactory          bool
+
+	factories []string
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -384,6 +402,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	for _, g := range s.ignoreTypes {
 		setFlag(t, analyzer, "ignoreTypes", g)
+	}
+
+	for _, g := range s.factories {
+		setFlag(t, analyzer, "factories", g)
 	}
 
 	return analyzer
@@ -445,6 +467,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
+		"factories":          s.factories,
 	}
 	if s.useDefaultFactoryPattern != nil {
 		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
@@ -615,13 +638,13 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 // -packageGlobs pattern, and an invalid glob, an empty glob or a glob
 // starting with '/' in -packageGlobs or -ignoreTypes, are configuration
 // errors surfaced through both entry points.
-func TestConfigurationErrors(t *testing.T) {
-	t.Parallel()
+type configurationErrorCase struct {
+	settings caseSettings
+	want     string
+}
 
-	tests := map[string]struct {
-		settings caseSettings
-		want     string
-	}{
+func configurationErrorCases() map[string]configurationErrorCase {
+	return map[string]configurationErrorCase{
 		"packageGlobsOnly_without_globs": {
 			settings: caseSettings{packageGlobsOnly: true},
 			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
@@ -650,8 +673,25 @@ func TestConfigurationErrors(t *testing.T) {
 			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
 			want:     "ignoreTypes pattern must not start with '/'",
 		},
+		"invalid_factories_glob": {
+			settings: caseSettings{factories: []string{"["}},
+			want:     "unable to compile factories pattern",
+		},
+		"empty_factories_glob": {
+			settings: caseSettings{factories: []string{"  "}},
+			want:     "factories pattern must not be empty",
+		},
+		"leading_slash_factories_glob": {
+			settings: caseSettings{factories: []string{"/factory/declaredFactories/flagged.MakeFlagged"}},
+			want:     "factories pattern must not start with '/'",
+		},
 	}
-	for name, tt := range tests {
+}
+
+func TestConfigurationErrors(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range configurationErrorCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

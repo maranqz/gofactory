@@ -37,6 +37,8 @@ type settings struct {
 	FactoryPatterns          []string `json:"factory-patterns"`
 	UseDefaultFactoryPattern *bool    `json:"use-default-factory-pattern"`
 	OnlyWithFactory          bool     `json:"only-with-factory"`
+
+	Factories []string `json:"factories"`
 }
 
 type plugin struct {
@@ -58,6 +60,10 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 
 	for _, g := range decoded.IgnoreTypes {
 		cfg.ignoreTypes.Append(g)
+	}
+
+	for _, g := range decoded.Factories {
+		cfg.factories.Append(g)
 	}
 
 	err = setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns)

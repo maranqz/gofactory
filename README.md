@@ -153,6 +153,10 @@ all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPat
 - `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
 team can adopt the linter gradually, starting from the types that already have one,
 [tests](testdata/module/onlyWithFactory).
+- `--factories` – repeatable; a qualified function- or method-name glob (`import/path.Func` or
+`import/path.Type.Method`) declaring a factory outside the usual recognition rule,
+[tests](testdata/module/declaredFactories). See [Declared factories](#declared-factories) below, and
+`--onlyWithFactory` above for how a declared factory counts there too.
 
 ### Directives
 
@@ -175,13 +179,60 @@ comment.
   }
   ```
 
-`//gofactory:factory` (on a function or method) and `//gofactory:trusted` (on a function, a method,
-or in a package's doc comment) are reserved: they are placement-checked like `ignore` but have no
-effect yet.
+- `//gofactory:factory`, in the doc comment of a function or a method, declares it a factory. See
+  [Declared factories](#declared-factories) below.
+
+`//gofactory:trusted` (on a function, a method, or in a package's doc comment) is reserved: it is
+placement-checked like `ignore` and `factory` but has no effect yet.
 
 An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
 function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
 disable protection.
+
+### Declared factories
+
+A function or a method is a factory of a type whether or not it is recognised by name pattern in
+that type's owner package: mark it with a `//gofactory:factory` doc comment, or match it with a
+`--factories` glob, and it becomes a factory of every protected type among its results (`T` or
+`*T`; an `error` result is just ignored, not disqualifying), wherever it lives. This is how a
+package that wraps generated code, say `pb`, can provide the factory for `pb.Order` from outside
+`pb` itself, something the owner-package-only recognition rule can't do:
+
+```go
+package order
+
+//gofactory:factory
+func New(id string) *pb.Order {
+    return &pb.Order{Id: id}
+}
+```
+
+A declared factory may itself bypass the factories of the types it is a factory of, inside its own
+body (including a closure it defines, which shares its enclosing top-level declaration's
+permission), the same way a recognised factory may bypass its own type's factory in its owner
+package; it gains no permission over any other type. Elsewhere, calling it is suggested in
+messages the same way a recognised factory is, and it counts for `--onlyWithFactory`, even with
+`--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactories).
+
+A `//gofactory:factory` directive on a function or method with no protected type among its results
+is reported as a diagnostic, since it would otherwise do nothing while looking like it did
+something. A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`,
+it may simply match nothing relevant.
+
+Creation and reconstitution are the same concept: a repository method that rebuilds an aggregate
+from storage, `order.Restore(id, state)`, is just a factory, enabled the same way any other
+unusually-named factory is — a `--factoryPatterns=^Restore` pattern if the convention is
+project-wide, or a `//gofactory:factory` directive if `Restore` is just this one repository's name
+for it:
+
+```go
+package order
+
+//gofactory:factory
+func Restore(id string, state orderState) *Order {
+    return &Order{id: id, state: state}
+}
+```
 
 ### Message format
 
@@ -258,6 +309,8 @@ linters:
             - "^Make"
           use-default-factory-pattern: true
           only-with-factory: false
+          factories:
+            - "mymod/order.Restore"
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
@@ -267,6 +320,7 @@ linters:
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
 - `only-with-factory` – equivalent to `--onlyWithFactory`.
+- `factories` – equivalent to `--factories`.
 
 ## Example
 

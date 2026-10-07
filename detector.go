@@ -23,9 +23,12 @@ type detector struct {
 	onlyWithFactory bool
 
 	factories map[*types.Package]factoryIndex
+	declared  factoryIndex
 	suffixes  map[*types.TypeName]string
 
-	fieldPathCache map[types.Type][]fieldPath
+	fieldPathCache        map[types.Type][]fieldPath
+	declaredTargetsCache  map[*types.Func][]*types.TypeName
+	currentFactoryTargets []*types.TypeName
 }
 
 func newDetector(
@@ -35,21 +38,26 @@ func newDetector(
 	zeroValues bool,
 	factoryPatterns []*regexp.Regexp,
 	onlyWithFactory bool,
+	declared factoryIndex,
 ) *detector {
 	return &detector{
-		pass:            pass,
-		strategy:        strategy,
-		ignoreTypes:     ignoreTypes,
-		zeroValues:      zeroValues,
-		factoryPatterns: factoryPatterns,
-		onlyWithFactory: onlyWithFactory,
-		factories:       map[*types.Package]factoryIndex{},
-		suffixes:        map[*types.TypeName]string{},
-		fieldPathCache:  map[types.Type][]fieldPath{},
+		pass:                 pass,
+		strategy:             strategy,
+		ignoreTypes:          ignoreTypes,
+		zeroValues:           zeroValues,
+		factoryPatterns:      factoryPatterns,
+		onlyWithFactory:      onlyWithFactory,
+		factories:            map[*types.Package]factoryIndex{},
+		declared:             declared,
+		suffixes:             map[*types.TypeName]string{},
+		fieldPathCache:       map[types.Type][]fieldPath{},
+		declaredTargetsCache: map[*types.Func][]*types.TypeName{},
 	}
 }
 
-func (d *detector) visit(node ast.Node) {
+func (d *detector) visit(node ast.Node, stack []ast.Node) {
+	d.currentFactoryTargets = d.enclosingFactoryTargets(stack)
+
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -60,6 +68,49 @@ func (d *detector) visit(node ast.Node) {
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
+}
+
+// enclosingFactoryTargets returns the protected types that node's nearest
+// enclosing top-level function or method is a declared factory of, so that
+// one may bypass their factories inside its own body. A closure takes its
+// enclosing top-level declaration's targets, not its own: stack is walked
+// from the innermost node outward, skipping over any *ast.FuncLit frames,
+// so a closure inside a declared factory shares its permission.
+func (d *detector) enclosingFactoryTargets(stack []ast.Node) []*types.TypeName {
+	for _, node := range slices.Backward(stack) {
+		funcDecl, ok := node.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+
+		factory, ok := d.pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
+		if !ok {
+			return nil
+		}
+
+		return d.declaredFactoryTargets(factory)
+	}
+
+	return nil
+}
+
+func (d *detector) declaredFactoryTargets(
+	factory *types.Func,
+) []*types.TypeName {
+	if targets, ok := d.declaredTargetsCache[factory]; ok {
+		return targets
+	}
+
+	var targets []*types.TypeName
+
+	var fact factoryFact
+	if d.pass.ImportObjectFact(factory, &fact) {
+		targets = protectedResultTargets(factory.Signature())
+	}
+
+	d.declaredTargetsCache[factory] = targets
+
+	return targets
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
@@ -73,6 +124,10 @@ func (d *detector) reportProtectedSuffix(
 ) {
 	named, ok := protectedNamed(t)
 	if !ok || d.isIgnored(named) {
+		return
+	}
+
+	if slices.Contains(d.currentFactoryTargets, named.Obj()) {
 		return
 	}
 
@@ -124,7 +179,17 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 		d.factories[target.Pkg()] = index
 	}
 
-	suffix := factorySuffix(d.pass.Pkg, index[target])
+	// A function recognised by name pattern in target's own package may
+	// also carry a //gofactory:factory directive or match -factories;
+	// append only skips it the second time to avoid listing it twice.
+	factories := append([]*types.Func{}, index[target]...)
+	for _, fn := range d.declared[target] {
+		if !slices.Contains(factories, fn) {
+			factories = append(factories, fn)
+		}
+	}
+
+	suffix := factorySuffix(d.pass.Pkg, factories)
 	d.suffixes[target] = suffix
 
 	return suffix
