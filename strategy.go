@@ -22,11 +22,10 @@ var errEmptyGlobPattern = errors.New("pattern must not be empty")
 // compile and silently match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
-// site is the enclosing function or method of the code being checked for a
-// bypass, or nil at package scope (a package-level var, for instance).
+// currentFn is nil at package scope (a package-level var, for instance).
 type blockedStrategy interface {
 	IsBlocked(
-		currentPkg *types.Package, identObj types.Object, site *types.Func,
+		currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
 	) bool
 }
 
@@ -134,7 +133,7 @@ func newFencedPkgs(
 func (s fencedPkgs) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
-	site *types.Func,
+	currentFn *types.Func,
 ) bool {
 	identPkgPath := identObj.Pkg().Path()
 
@@ -153,7 +152,7 @@ func (s fencedPkgs) IsBlocked(
 	}
 
 	if !inAnyFence {
-		return s.defaultStrategy.IsBlocked(currentPkg, identObj, site)
+		return s.defaultStrategy.IsBlocked(currentPkg, identObj, currentFn)
 	}
 
 	return false

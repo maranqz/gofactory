@@ -35,12 +35,13 @@ func newTrustedCode(globs []glob.Glob, trust *trustInfo) trustedCode {
 	return trustedCode{globs: globs, trust: trust}
 }
 
-func (t trustedCode) isTrusted(pkg *types.Package, site *types.Func) bool {
+func (t trustedCode) isTrusted(pkg *types.Package, currentFn *types.Func) bool {
 	if t.trust.pkg || t.matchesPackage(pkg.Path()) {
 		return true
 	}
 
-	return site != nil && (t.trust.funcs[site] || t.matchesFunc(site))
+	return currentFn != nil &&
+		(t.trust.funcs[currentFn] || t.matchesFunc(currentFn))
 }
 
 func (t trustedCode) matchesPackage(pkgPath string) bool {
@@ -69,11 +70,11 @@ func newTrustedStrategy(
 }
 
 func (s trustedStrategy) IsBlocked(
-	currentPkg *types.Package, identObj types.Object, site *types.Func,
+	currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
 ) bool {
-	if s.trusted.isTrusted(currentPkg, site) {
+	if s.trusted.isTrusted(currentPkg, currentFn) {
 		return false
 	}
 
-	return s.wrapped.IsBlocked(currentPkg, identObj, site)
+	return s.wrapped.IsBlocked(currentPkg, identObj, currentFn)
 }

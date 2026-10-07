@@ -24,9 +24,9 @@ func newCurrentModule(path string) currentModule {
 func (c currentModule) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
-	site *types.Func,
+	currentFn *types.Func,
 ) bool {
-	if !newAnotherPkg().IsBlocked(currentPkg, identObj, site) {
+	if !newAnotherPkg().IsBlocked(currentPkg, identObj, currentFn) {
 		return false
 	}
 
