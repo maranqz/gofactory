@@ -1,6 +1,6 @@
 // Package other declares factories of owner's types from outside owner,
 // through //gofactory:factory; flagged.go in the sibling package covers
-// the -factories glob entry point instead.
+// -factories instead.
 package other
 
 import "factory/declaredFactories/owner"
