@@ -2,7 +2,6 @@ package gofactory
 
 import (
 	"go/types"
-	"slices"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
@@ -55,14 +54,7 @@ func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 // (the message suffix), it names the package by import path, not by
 // Pkg().Name() (the package clause).
 func declaredFactoryQualifiedName(factory *types.Func) string {
-	pkgPath := factory.Pkg().Path()
-
-	recv := receiverNamed(factory)
-	if recv == nil {
-		return pkgPath + "." + factory.Name()
-	}
-
-	return pkgPath + "." + recv.Obj().Name() + "." + factory.Name()
+	return qualifiedName(factory.Pkg().Path(), factory)
 }
 
 // exportFlagFactories applies -factories to every top-level function and
@@ -74,47 +66,18 @@ func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) {
 		return
 	}
 
-	scope := pass.Pkg.Scope()
-	for _, name := range scope.Names() {
-		switch obj := scope.Lookup(name).(type) {
-		case *types.Func:
-			exportFlagFactory(pass, globs, obj)
-		case *types.TypeName:
-			exportFlagFactoryMethods(pass, globs, obj)
-		}
-	}
-}
-
-// Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
-// the aliased *types.Named itself, so an alias of another package's type
-// would hand back that package's methods, and ExportObjectFact panics when
-// asked to export a fact on an object from another package.
-func exportFlagFactoryMethods(
-	pass *analysis.Pass, globs []glob.Glob, receiver *types.TypeName,
-) {
-	if receiver.IsAlias() {
-		return
-	}
-
-	named, ok := receiver.Type().(*types.Named)
-	if !ok {
-		return
-	}
-
-	for method := range named.Methods() {
-		exportFlagFactory(pass, globs, method)
-	}
+	walkPackageFuncs(pass.Pkg, func(fn *types.Func, _ *types.TypeName) {
+		exportFlagFactory(pass, globs, fn)
+	})
 }
 
 func exportFlagFactory(
 	pass *analysis.Pass, globs []glob.Glob, factory *types.Func,
 ) {
 	name := declaredFactoryQualifiedName(factory)
+	targets := protectedResultTargets(factory.Signature())
 
-	matches := slices.ContainsFunc(globs, func(g glob.Glob) bool {
-		return g.Match(name)
-	})
-	if !matches || len(protectedResultTargets(factory.Signature())) == 0 {
+	if !matchesAnyGlob(globs, name) || len(targets) == 0 {
 		return
 	}
 

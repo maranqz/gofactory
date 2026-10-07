@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/gobwas/glob"
 )
 
 // sortFactories ranks names matching it first, even when
@@ -41,25 +43,36 @@ func indexFactories(
 ) factoryIndex {
 	index := factoryIndex{}
 
-	scope := pkg.Scope()
-	for _, name := range scope.Names() {
-		switch obj := scope.Lookup(name).(type) {
-		case *types.Func:
-			index.add(patterns, obj, nil)
-		case *types.TypeName:
-			index.addMethods(patterns, obj)
-		}
-	}
+	walkPackageFuncs(pkg, func(fn *types.Func, receiver *types.TypeName) {
+		index.add(patterns, fn, receiver)
+	})
 
 	return index
 }
 
+// walkPackageFuncs calls visit for every top-level function (receiver nil)
+// and method (receiver its type) of pkg: indexFactories and
+// exportFlagFactories both need every declared-factory candidate in a
+// package this way.
+func walkPackageFuncs(
+	pkg *types.Package, visit func(fn *types.Func, receiver *types.TypeName),
+) {
+	scope := pkg.Scope()
+	for _, name := range scope.Names() {
+		switch obj := scope.Lookup(name).(type) {
+		case *types.Func:
+			visit(obj, nil)
+		case *types.TypeName:
+			walkMethods(obj, visit)
+		}
+	}
+}
+
 // Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
-// the aliased *types.Named itself, so an alias of target would hand back
-// target's own methods, and an alias of another type would list its
-// factories twice.
-func (index factoryIndex) addMethods(
-	patterns []*regexp.Regexp, receiver *types.TypeName,
+// the aliased *types.Named itself, so walking through it would visit the
+// aliased type's methods under the wrong receiver.
+func walkMethods(
+	receiver *types.TypeName, visit func(fn *types.Func, receiver *types.TypeName),
 ) {
 	if receiver.IsAlias() {
 		return
@@ -71,7 +84,7 @@ func (index factoryIndex) addMethods(
 	}
 
 	for method := range named.Methods() {
-		index.add(patterns, method, receiver)
+		visit(method, receiver)
 	}
 }
 
@@ -100,6 +113,12 @@ func matchesAny(patterns []*regexp.Regexp, name string) bool {
 	}
 
 	return false
+}
+
+func matchesAnyGlob(globs []glob.Glob, name string) bool {
+	return slices.ContainsFunc(globs, func(g glob.Glob) bool {
+		return g.Match(name)
+	})
 }
 
 func resultTargets(sig *types.Signature) []*types.TypeName {
@@ -222,12 +241,18 @@ func sortFactories(factories []*types.Func) {
 }
 
 func factoryQualifiedName(factory *types.Func) string {
-	pkgName := factory.Pkg().Name()
+	return qualifiedName(factory.Pkg().Name(), factory)
+}
 
+// qualifiedName builds pkgPart.Func or pkgPart.Type.Method: the shared
+// shape of factoryQualifiedName (pkgPart the package name, for messages)
+// and declaredFactoryQualifiedName (pkgPart the import path, for
+// -factories globs).
+func qualifiedName(pkgPart string, factory *types.Func) string {
 	recv := receiverNamed(factory)
 	if recv == nil {
-		return pkgName + "." + factory.Name()
+		return pkgPart + "." + factory.Name()
 	}
 
-	return pkgName + "." + recv.Obj().Name() + "." + factory.Name()
+	return pkgPart + "." + recv.Obj().Name() + "." + factory.Name()
 }

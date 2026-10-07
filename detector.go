@@ -146,9 +146,7 @@ func (d *detector) isIgnored(named *types.Named) bool {
 
 	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
 
-	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
-		return g.Match(qualifiedName)
-	})
+	return matchesAnyGlob(d.ignoreTypes, qualifiedName)
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named, route string) {
