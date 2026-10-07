@@ -1,8 +1,5 @@
-// Package trustedfunc checks that //gofactory:trusted on a function or a
-// method lets it bypass trustedtarget's factory through every route, a
-// closure inside it included, while an untrusted function, its own
-// closure, and package scope once the trusted function ends, are still
-// checked.
+// Package trustedfunc is checked under -zeroValues; after follows a
+// trusted function to check that trust ends with it.
 package trustedfunc
 
 import "factory/trustedtarget"

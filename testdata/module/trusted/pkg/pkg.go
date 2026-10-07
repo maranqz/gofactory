@@ -1,6 +1,4 @@
-// Package pkg is trusted as a whole by a -trusted glob matching its exact
-// package path, so every bypass route here is allowed without any
-// directive.
+// Package pkg is trusted by a -trusted glob matching its exact package path.
 package pkg
 
 import "factory/trustedtarget"

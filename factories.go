@@ -226,14 +226,11 @@ func factoryQualifiedName(factory *types.Func) string {
 	return qualifiedName(factory.Pkg().Name(), factory)
 }
 
-// qualifiedName joins pkgPart (a package name or import path, depending on
-// the caller) to function the way a qualified name is written: pkgPart.Name,
-// or pkgPart.Type.Method for a method.
-func qualifiedName(pkgPart string, function *types.Func) string {
+func qualifiedName(qualifier string, function *types.Func) string {
 	recv := receiverNamed(function)
 	if recv == nil {
-		return pkgPart + "." + function.Name()
+		return qualifier + "." + function.Name()
 	}
 
-	return pkgPart + "." + recv.Obj().Name() + "." + function.Name()
+	return qualifier + "." + recv.Obj().Name() + "." + function.Name()
 }
