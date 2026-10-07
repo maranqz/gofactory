@@ -110,9 +110,10 @@ Mark it one of three ways:
   method and package-level var in it, nothing else annotated individually,
   [tests](testdata/module/directive) (`trustedfunc/` and `trustedpkg/`).
 - `--trusted`, a repeatable glob, trusts code by name instead of by directive — a package path or a
-  qualified function/method name — for code you can't add a directive to, such as a dependency you
-  don't own, or to keep every trust decision in your linter configuration instead of next to the
-  code, [tests](testdata/module/trusted). See [Options](#options) for its glob syntax.
+  qualified function/method name — to trust a whole subtree at once (e.g.
+  `--trusted='example.com/app/infra/**'`), or to keep every trust decision in your linter
+  configuration instead of next to the code, [tests](testdata/module/trusted). See
+  [Options](#options) for its glob syntax.
 
 Code outside trusted code is still checked as usual.
 
@@ -138,8 +139,9 @@ func (r *OrderRepository) Load(id string) (*order.Order, error) {
 
 `Load` may build `order.Order` directly from `row` on every route, while every other caller still
 needs `order.NewOrder` or whichever factory the domain package declares. Prefer
-`--trusted='example.com/app/infra/postgres.OrderRepository.Load'` over the directive when
-`OrderRepository` lives in a dependency you don't own.
+`--trusted='example.com/app/infra/postgres.OrderRepository.Load'` over the directive to keep the
+trust decision in your linter configuration rather than next to the code, or
+`--trusted='example.com/app/infra/**'` to trust every repository under `infra` at once.
 
 ## Usage
 
