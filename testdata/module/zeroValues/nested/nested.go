@@ -70,3 +70,14 @@ func OwnPackageZero() int {
 
 	return x.Field
 }
+
+// Holder keeps a Struct in an unexported field that only its own methods
+// can reach.
+type Holder struct {
+	s Struct
+	X int
+}
+
+func (h Holder) Get() Struct {
+	return h.s
+}

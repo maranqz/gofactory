@@ -126,10 +126,11 @@ conversion or `new`, [tests](testdata/module/zeroValues).
     it reports nothing. A zero-valued variable of the enclosing type is reported the same way, under the first-interaction rule above, judged once for
     the whole variable: writing one field, or passing that field's address to a call, still reports every protected
     field of the variable at that write, the written one included, even though the write itself used a factory; only
-    a whole-value assignment or `&x` on the variable itself is silent. Fields behind a pointer, slice, map, chan or array are not followed, and an
-    array element in a field path is deferred like
-    every other array, pending fill analysis. Field-path analysis uses a per-type cache, benchmarked by
-    `BenchmarkFieldPaths`.
+    a whole-value assignment or `&x` on the variable itself is silent. A path through an unexported field of another
+    package's type is reported too, though the reporting code can't set that field: the type's own methods can still
+    hand out its zero value, so the fix lies with a factory for the enclosing type. Fields behind a pointer, slice,
+    map, chan or array are not followed, and an array element in a field path is deferred like every other array,
+    pending fill analysis. Field-path analysis uses a per-type cache, benchmarked by `BenchmarkFieldPaths`.
   - Goes through the same owner-package and fences policy as every other route.
 - `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
 e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).

@@ -174,3 +174,14 @@ func BlankFieldIsSilent() int {
 
 	return bl.X
 }
+
+// UnexportedFieldOfAnotherPackageIsReported: s can't be set from here, but
+// Holder.Get still hands out its zero value, so the path through it is
+// reported like any other; the fix lies with a factory for Holder.
+func UnexportedFieldOfAnotherPackageIsReported() nested.Struct {
+	_ = nested.Holder{X: 1} // want `^Use factory for nested.Holder$` `^Use factory for nested.Struct: zero value in s \(nested.NewStruct, nested.NewStructOrErr\)$`
+
+	var h nested.Holder
+
+	return h.Get() // want `^Use factory for nested.Holder: zero value$` `^Use factory for nested.Struct: zero value in s \(nested.NewStruct, nested.NewStructOrErr\)$`
+}
