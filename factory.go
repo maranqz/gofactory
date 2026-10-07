@@ -74,10 +74,6 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
-	// FactTypes is a static field, read by drivers before Run to decide
-	// whether to analyse dependencies at all, so turning it off must happen
-	// as the flag is set rather than inside Run; see
-	// newCrossPackageDirectivesFlag.
 	analyzer.Flags.Var(
 		newCrossPackageDirectivesFlag(analyzer), "crossPackageDirectives", crossPackageDirectivesDesc,
 	)
@@ -85,10 +81,6 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-// analyzerOption configures the analysis.Analyzer built by newAnalyzer,
-// after its static fields are set. newPlugin uses this to apply
-// -crossPackageDirectives=false from decoded settings, since the plugin has
-// no flag.Value to mutate the analyzer as a flag is parsed.
 type analyzerOption func(*analysis.Analyzer)
 
 func withCrossPackageDirectives(enabled bool) analyzerOption {
@@ -97,10 +89,8 @@ func withCrossPackageDirectives(enabled bool) analyzerOption {
 	}
 }
 
-// factTypesFor is the FactTypes declared under -crossPackageDirectives:
-// enabled propagates //gofactory: directives as facts, as documented in
-// docs/adr/0004-cross-package-directives-via-facts.md; disabled declares
-// none, so drivers stop analysing dependencies for them.
+// Declaring any FactTypes makes drivers analyse every dependency; see
+// docs/adr/0004-cross-package-directives-via-facts.md.
 func factTypesFor(enabled bool) []analysis.Fact {
 	if !enabled {
 		return nil

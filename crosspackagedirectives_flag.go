@@ -10,8 +10,8 @@ import (
 // crossPackageDirectivesFlag is -crossPackageDirectives. Unlike the other
 // flags, which only fill cfg for run to read later, Set here mutates
 // analyzer.FactTypes directly: FactTypes is a static field that drivers
-// inspect before Run to decide whether to analyse dependencies at all (see
-// factTypesFor), so flipping it inside run would already be too late.
+// inspect before Run to decide whether to analyse dependencies at all, so
+// flipping it inside run would already be too late.
 type crossPackageDirectivesFlag struct {
 	analyzer *analysis.Analyzer
 	enabled  bool
@@ -31,8 +31,6 @@ func (f *crossPackageDirectivesFlag) String() string {
 	return strconv.FormatBool(f.enabled)
 }
 
-// IsBoolFlag lets the flag package accept "-crossPackageDirectives" alone,
-// the same as a flag.Bool, instead of demanding "-crossPackageDirectives=false".
 func (f *crossPackageDirectivesFlag) IsBoolFlag() bool {
 	return true
 }
