@@ -92,6 +92,39 @@ func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	}
 }
 
+// TestCrossPackageDirectivesFactTypes checks Analyzer.FactTypes directly,
+// through both entry points: declared by default, so directives propagate
+// across packages, and empty under -crossPackageDirectives=false, so
+// drivers stop analysing dependencies for them (see
+// docs/adr/0004-cross-package-directives-via-facts.md).
+// TestLinterSuite's "crossPackageDirectivesOff" case checks the resulting
+// behaviour; this test checks the field drivers actually read.
+func TestCrossPackageDirectivesFactTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared by default")
+				}
+			})
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(false)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) != 0 {
+					t.Fatalf("FactTypes is %v, want empty", analyzer.FactTypes)
+				}
+			})
+	})
+}
+
 const factoryPatternMake = "^Make"
 
 type linterSuiteCase struct {
@@ -198,6 +231,13 @@ func ignoredTypeCases() map[string]linterSuiteCase {
 			settings: caseSettings{
 				packageGlobs: []string{"sibling/**"},
 				zeroValues:   true,
+			},
+		},
+
+		"crossPackageDirectivesOff": {
+			pkgs: []string{"crossPackageDirectives/..."},
+			settings: caseSettings{
+				crossPackageDirectives: new(false),
 			},
 		},
 
@@ -348,6 +388,8 @@ type caseSettings struct {
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
 	onlyWithFactory          bool
+
+	crossPackageDirectives *bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -384,6 +426,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	for _, g := range s.ignoreTypes {
 		setFlag(t, analyzer, "ignoreTypes", g)
+	}
+
+	if s.crossPackageDirectives != nil {
+		setFlag(t, analyzer, "crossPackageDirectives", strconv.FormatBool(*s.crossPackageDirectives))
 	}
 
 	return analyzer
@@ -448,6 +494,10 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	}
 	if s.useDefaultFactoryPattern != nil {
 		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
+	}
+
+	if s.crossPackageDirectives != nil {
+		rawSettings["cross-package-directives"] = *s.crossPackageDirectives
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
