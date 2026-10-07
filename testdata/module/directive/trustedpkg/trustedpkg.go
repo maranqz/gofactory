@@ -1,7 +1,5 @@
-// Package trustedpkg checks that a //gofactory:trusted package doc comment
-// trusts every bypass route anywhere in the package, including a
-// package-level var under -zeroValues (otherwise always reported) and an
-// ordinary method, with nothing annotated individually.
+// Package trustedpkg is checked under -zeroValues, where its package-level
+// var would be reported if the package were not trusted.
 //
 //gofactory:trusted
 package trustedpkg
