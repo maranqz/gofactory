@@ -15,6 +15,7 @@ type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 	ignoreTypes  globsFlag
+	trusted      globsFlag
 	zeroValues   bool
 
 	extraFactoryPatterns     regexpsFlag
@@ -29,10 +30,12 @@ const (
 
 	packageGlobsFlag = "packageGlobs"
 	ignoreTypesFlag  = "ignoreTypes"
+	trustedFlag      = "trusted"
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
 	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
+	trustedDesc      = "package-path or qualified function/method-name glob, repeatable; matching code may bypass any protected type's factory through any route"
 	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
@@ -65,6 +68,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	analyzer.Flags.Var(&cfg.ignoreTypes, ignoreTypesFlag, ignoreTypesDesc)
+
+	analyzer.Flags.Var(&cfg.trusted, trustedFlag, trustedDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
@@ -140,30 +145,18 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		ignored := checkDirectives(pass)
-
-		var modulePath string
-		if pass.Module != nil {
-			modulePath = pass.Module.Path
+		trustedGlobs, err := compileGlobs(trustedFlag, cfg.trusted.Value())
+		if err != nil {
+			return nil, err
 		}
 
-		var strategy blockedStrategy = newCurrentModule(modulePath)
-
-		if len(fences) > 0 {
-			defaultStrategy := strategy
-			if cfg.onlyPkgGlobs {
-				defaultStrategy = newNilPkg()
-			}
-
-			strategy = newFencedPkgs(
-				fences,
-				defaultStrategy,
-			)
-		}
+		state := checkDirectives(pass)
+		trusted := newTrustedCode(trustedGlobs, state.trust)
+		strategy := buildStrategy(cfg, pass, fences, trusted)
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
-			cfg.recognitionPatterns(), cfg.onlyWithFactory, ignored,
+			cfg.recognitionPatterns(), cfg.onlyWithFactory, state.ignored,
 		)
 
 		for _, file := range pass.Files {
@@ -171,7 +164,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-		insp.Preorder([]ast.Node{
+		insp.WithStack([]ast.Node{
 			(*ast.CompositeLit)(nil),
 			(*ast.CallExpr)(nil),
 			(*ast.FuncDecl)(nil),
@@ -180,6 +173,30 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		return nil, nil
 	}
+}
+
+// trustedStrategy must stay outermost: no strategy it wraps checks trust
+// itself.
+func buildStrategy(
+	cfg *config, pass *analysis.Pass, fences []fence, trusted trustedCode,
+) trustedStrategy {
+	var modulePath string
+	if pass.Module != nil {
+		modulePath = pass.Module.Path
+	}
+
+	var strategy blockedStrategy = newCurrentModule(modulePath)
+
+	if len(fences) > 0 {
+		defaultStrategy := strategy
+		if cfg.onlyPkgGlobs {
+			defaultStrategy = newNilPkg()
+		}
+
+		strategy = newFencedPkgs(fences, defaultStrategy)
+	}
+
+	return newTrustedStrategy(trusted, strategy)
 }
 
 func (cfg *config) recognitionPatterns() []*regexp.Regexp {

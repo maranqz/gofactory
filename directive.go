@@ -26,7 +26,7 @@ const (
 	declPackage
 )
 
-// factory and trusted are only placement-checked.
+// factory is placement-checked but has no effect.
 const (
 	directiveIgnore  = "ignore"
 	directiveFactory = "factory"
@@ -60,33 +60,41 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-// checkDirectives applies every //gofactory: directive found in pass and
-// returns the types.Object of each one ignored by a //gofactory:ignore in
-// this package. isIgnored consults that set directly: with
-// -crossPackageDirectives=false, Analyzer.FactTypes is empty and applyIgnore
-// stops exporting ignoredFact, so a same-package ignore would otherwise be
-// unreachable to this pass.
-func checkDirectives(pass *analysis.Pass) map[types.Object]bool {
-	ignored := make(map[types.Object]bool)
+// directiveState accumulates what checkDirectives finds across a package:
+// ignored holds the types.Object of each type a same-package
+// //gofactory:ignore took out of protection, and trust what
+// //gofactory:trusted marked. isIgnored consults ignored directly, because
+// with -crossPackageDirectives=false, Analyzer.FactTypes is empty and
+// applyIgnore stops exporting ignoredFact, leaving a same-package ignore
+// otherwise unreachable to this pass; trust needs no such fallback, since
+// its effect never crosses a package boundary.
+type directiveState struct {
+	ignored map[types.Object]bool
+	trust   *trustInfo
+}
 
-	for _, file := range pass.Files {
-		checkFileDirectives(pass, file, ignored)
+func checkDirectives(pass *analysis.Pass) *directiveState {
+	state := &directiveState{
+		ignored: make(map[types.Object]bool),
+		trust:   newTrustInfo(),
 	}
 
-	return ignored
+	for _, file := range pass.Files {
+		checkFileDirectives(pass, file, state)
+	}
+
+	return state
 }
 
 func checkFileDirectives(
-	pass *analysis.Pass,
-	file *ast.File,
-	ignored map[types.Object]bool,
+	pass *analysis.Pass, file *ast.File, state *directiveState,
 ) {
 	consumed := make(map[*ast.CommentGroup]bool)
 
-	processDoc(pass, consumed, ignored, file.Doc, declPackage, nil)
+	processDoc(pass, consumed, file.Doc, declPackage, nil, state)
 
 	for _, decl := range file.Decls {
-		checkDeclDirectives(pass, decl, consumed, ignored)
+		checkDeclDirectives(pass, decl, consumed, state)
 	}
 
 	for _, cg := range file.Comments {
@@ -94,7 +102,7 @@ func checkFileDirectives(
 			continue
 		}
 
-		processDoc(pass, consumed, ignored, cg, declOther, nil)
+		processDoc(pass, consumed, cg, declOther, nil, state)
 	}
 }
 
@@ -102,13 +110,13 @@ func checkDeclDirectives(
 	pass *analysis.Pass,
 	decl ast.Decl,
 	consumed map[*ast.CommentGroup]bool,
-	ignored map[types.Object]bool,
+	state *directiveState,
 ) {
 	switch d := decl.(type) {
 	case *ast.GenDecl:
-		checkGenDeclDirectives(pass, d, consumed, ignored)
+		checkGenDeclDirectives(pass, d, consumed, state)
 	case *ast.FuncDecl:
-		processDoc(pass, consumed, ignored, d.Doc, declFunc, nil)
+		processDoc(pass, consumed, d.Doc, declFunc, d, state)
 	}
 }
 
@@ -116,7 +124,7 @@ func checkGenDeclDirectives(
 	pass *analysis.Pass,
 	decl *ast.GenDecl,
 	consumed map[*ast.CommentGroup]bool,
-	ignored map[types.Object]bool,
+	state *directiveState,
 ) {
 	if decl.Tok != token.TYPE {
 		return // the file-wide sweep reports these as misplaced
@@ -137,20 +145,22 @@ func checkGenDeclDirectives(
 		}
 
 		if len(decl.Specs) == 1 {
-			processDoc(pass, consumed, ignored, decl.Doc, kind, typeSpec)
+			processDoc(pass, consumed, decl.Doc, kind, typeSpec, state)
 		}
 
-		processDoc(pass, consumed, ignored, typeSpec.Doc, kind, typeSpec)
+		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec, state)
 	}
 }
 
+// node is *ast.TypeSpec for declType and declAlias, *ast.FuncDecl for
+// declFunc, nil otherwise.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,
-	ignored map[types.Object]bool,
 	doc *ast.CommentGroup,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
+	node ast.Node,
+	state *directiveState,
 ) {
 	if doc == nil {
 		return
@@ -164,7 +174,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, typeSpec, ignored)
+		applyDirective(pass, comment, name, kind, node, state)
 	}
 }
 
@@ -188,8 +198,8 @@ func applyDirective(
 	comment *ast.Comment,
 	name string,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
-	ignored map[types.Object]bool,
+	node ast.Node,
+	state *directiveState,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -221,8 +231,13 @@ func applyDirective(
 		return
 	}
 
-	if name == directiveIgnore {
-		applyIgnore(pass, typeSpec, ignored)
+	switch name {
+	case directiveIgnore:
+		if typeSpec, ok := node.(*ast.TypeSpec); ok {
+			applyIgnore(pass, typeSpec, state.ignored)
+		}
+	case directiveTrusted:
+		applyTrusted(pass, state.trust, kind, node)
 	}
 }
 
@@ -244,4 +259,26 @@ func applyIgnore(
 	if len(pass.Analyzer.FactTypes) > 0 {
 		pass.ExportObjectFact(obj, &ignoredFact{})
 	}
+}
+
+func applyTrusted(
+	pass *analysis.Pass, trust *trustInfo, kind declKind, node ast.Node,
+) {
+	if kind == declPackage {
+		trust.markPackage()
+
+		return
+	}
+
+	decl, ok := node.(*ast.FuncDecl)
+	if !ok {
+		return
+	}
+
+	fn, ok := pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
+	if !ok {
+		return
+	}
+
+	trust.markFunc(fn)
 }
