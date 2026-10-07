@@ -27,10 +27,11 @@ func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 // directive or a -factories match applied in run, both before this runs)
 // and those imported from a package the current package directly imports
 // (README.md, Declared factories, Reach). The directlyImports filter below
-// is load-bearing: AllObjectFacts can also hand back a method's fact from a
-// package reached only transitively, because x/tools' checker.exportedFrom
-// over-approximates for methods and golangci-lint copies it; without the
-// filter, a method's reach would differ by driver.
+// is load-bearing: x/tools forwards a method's fact past direct importers,
+// always under checker.exportedFrom (golangci-lint copies it), and under
+// go vet's facts.Encode whenever the method's package is in an importer's
+// export data; without the filter, a method's reach would depend on the
+// driver and on the API in between.
 func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 	index := factoryIndex{}
 

@@ -224,10 +224,12 @@ for `--onlyWithFactory`, even with `--useDefaultFactoryPattern=false`,
 function and a method alike. The fact that marks it sits on a function object, and go/analysis's
 fact machinery (`checker.exportedFrom`, `facts.Encode`) forwards a function's fact only to direct
 importers, unlike a type's `//gofactory:ignore` fact, which every transitive importer sees. For a
-method, `checker.exportedFrom` over-approximates and hands its fact to more than the direct
-importers; gofactory discards what that over-approximation adds, so every driver agrees on the
-same direct-importer rule. A package that uses the protected type without importing the declaring
-package directly gets the bare `Use factory for pkg.T` message with no suggestion, and
+method, both `checker.exportedFrom` and go vet's `facts.Encode` can hand its fact to more than the
+direct importers — `checker.exportedFrom` over-approximates outright, and `facts.Encode` forwards
+it whenever an importer's export data includes the declaring package; gofactory discards what
+either adds, so every driver agrees on the same direct-importer rule. A package that uses the
+protected type without importing the declaring package directly gets the bare
+`Use factory for pkg.T` message with no suggestion, and
 `--onlyWithFactory` silently does not report it at all — see [False Negative](#false-negative).
 
 A `//gofactory:factory` directive on a function or method with no protected type among its results
