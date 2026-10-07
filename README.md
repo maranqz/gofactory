@@ -157,6 +157,11 @@ team can adopt the linter gradually, starting from the types that already have o
 `import/path.Type.Method`) declaring a factory outside the usual recognition rule,
 [tests](testdata/module/declaredFactories). See [Declared factories](#declared-factories) below,
 including its reach limit.
+`*` stays within one path segment, but unlike in `--ignoreTypes` and `--packageGlobs` that segment
+is the qualified name, not the import path: `*` crosses `.`, so `mymod/order.*` also matches a
+method of any type in `mymod/order`, but not `/`. `**` also crosses `/`.
+Repeat the flag to give several globs: a comma does not separate them. An empty glob, or one
+starting with `/`, is a configuration error.
 
 ### Directives
 
