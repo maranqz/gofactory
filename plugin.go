@@ -80,8 +80,10 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	cfg.onlyWithFactory = decoded.OnlyWithFactory
 
 	var opts []analyzerOption
-	if decoded.CrossPackageDirectives != nil && !*decoded.CrossPackageDirectives {
-		opts = append(opts, withCrossPackageDirectives(false))
+	if decoded.CrossPackageDirectives != nil {
+		opts = append(
+			opts, withCrossPackageDirectives(*decoded.CrossPackageDirectives),
+		)
 	}
 
 	return &plugin{analyzer: newAnalyzer(cfg, opts...)}, nil
