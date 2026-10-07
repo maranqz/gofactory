@@ -6,7 +6,6 @@ import (
 	"go/ast"
 	"regexp"
 
-	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -120,7 +119,9 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		strategy := buildStrategy(cfg, pass, fences, trustedGlobs)
+		trust := checkDirectives(pass)
+		trusted := newTrustedCode(trustedGlobs, trust)
+		strategy := buildStrategy(cfg, pass, fences, trusted)
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
@@ -145,11 +146,9 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 // trustedStrategy must stay outermost: no strategy it wraps checks trust
 // itself.
-//
-//nolint:ireturn // the policy is a chain of blockedStrategy decorators.
 func buildStrategy(
-	cfg *config, pass *analysis.Pass, fences []fence, trustedGlobs []glob.Glob,
-) blockedStrategy {
+	cfg *config, pass *analysis.Pass, fences []fence, trusted trustedCode,
+) trustedStrategy {
 	var modulePath string
 	if pass.Module != nil {
 		modulePath = pass.Module.Path
@@ -166,9 +165,7 @@ func buildStrategy(
 		strategy = newFencedPkgs(fences, defaultStrategy)
 	}
 
-	trust := checkDirectives(pass)
-
-	return newTrustedStrategy(newTrustedCode(trustedGlobs, trust), strategy)
+	return newTrustedStrategy(trusted, strategy)
 }
 
 func (cfg *config) recognitionPatterns() []*regexp.Regexp {
