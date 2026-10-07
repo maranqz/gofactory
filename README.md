@@ -216,9 +216,9 @@ A declared factory may itself bypass the factories of the types it is a factory 
 body (including a closure it defines, which shares its enclosing top-level declaration's
 permission), the same way a recognised factory may bypass its own type's factory in its owner
 package; it gains no permission over any other type. In a package that imports its package
-directly, calling it is suggested in messages the same way a recognised factory is, and it counts
-for `--onlyWithFactory`, even with `--useDefaultFactoryPattern=false`,
-[tests](testdata/module/declaredFactories).
+directly, calling it is suggested in messages the same way a recognised factory is,
+[tests](testdata/module/declaredFactories). There it also counts for `--onlyWithFactory`, even
+with `--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactoriesOnlyWithFactory).
 
 **Reach.** A declared factory is known only to a package that imports its package directly, for a
 function and a method alike. The fact that marks it sits on a function object, and go/analysis's
