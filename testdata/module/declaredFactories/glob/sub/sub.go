@@ -1,7 +1,7 @@
 // Package sub is reached by the "declaredFactories" case's
-// factory/declaredFactories/glob/*.MakeGlobbed glob, which crosses the "."
-// before MakeGlobbed but not the "/" before deep (sub/deep/deep.go has the
-// identical name one path segment further, and must stay unmatched).
+// factory/declaredFactories/glob/*.MakeGlobbed glob, whose "*" does not
+// cross the "/" before deep (sub/deep/deep.go has the identical name one
+// path segment further, and must stay unmatched).
 package sub
 
 import "factory/declaredFactories/owner"

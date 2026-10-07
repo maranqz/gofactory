@@ -84,8 +84,6 @@ func (d *detector) visit(node ast.Node) {
 	}
 }
 
-// declaredFactoryTargets returns the protected types factory is a declared
-// factory of, or nil if it isn't one.
 func (d *detector) declaredFactoryTargets(
 	factory *types.Func,
 ) []*types.TypeName {

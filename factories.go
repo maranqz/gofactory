@@ -51,9 +51,7 @@ func indexFactories(
 }
 
 // walkPackageFuncs calls visit for every top-level function (receiver nil)
-// and method (receiver its type) of pkg: indexFactories and
-// exportFlagFactories both need every declared-factory candidate in a
-// package this way.
+// and method (receiver its type) of pkg.
 func walkPackageFuncs(
 	pkg *types.Package, visit func(fn *types.Func, receiver *types.TypeName),
 ) {
@@ -70,7 +68,9 @@ func walkPackageFuncs(
 
 // Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
 // the aliased *types.Named itself, so walking through it would visit the
-// aliased type's methods under the wrong receiver.
+// aliased type's methods under the wrong receiver (indexFactories), and
+// ExportObjectFact panics on a method belonging to another package
+// (exportFlagFactories).
 func walkMethods(
 	receiver *types.TypeName, visit func(fn *types.Func, receiver *types.TypeName),
 ) {
@@ -244,10 +244,6 @@ func factoryQualifiedName(factory *types.Func) string {
 	return qualifiedName(factory.Pkg().Name(), factory)
 }
 
-// qualifiedName builds pkgPart.Func or pkgPart.Type.Method: the shared
-// shape of factoryQualifiedName (pkgPart the package name, for messages)
-// and declaredFactoryQualifiedName (pkgPart the import path, for
-// -factories globs).
 func qualifiedName(pkgPart string, factory *types.Func) string {
 	recv := receiverNamed(factory)
 	if recv == nil {

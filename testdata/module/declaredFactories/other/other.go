@@ -55,9 +55,8 @@ func BuildViaClosure() owner.ClosureTarget { // want BuildViaClosure:"gofactory:
 	return build()
 }
 
-// BuildPtr is *owner.PtrBuilt's declared factory: AC1's headline example
-// (*pb.Order) is a pointer result. It builds one both ways a pointer
-// literal is spelled, each silent under its own permission.
+// BuildPtr returns a pointer; &owner.PtrBuilt{} and new(owner.PtrBuilt) in
+// it are both silent.
 //
 //gofactory:factory
 func BuildPtr() (*owner.PtrBuilt, error) { // want BuildPtr:"gofactory:factory"

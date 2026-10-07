@@ -25,8 +25,6 @@ type config struct {
 	factoryGlobs globsFlag
 }
 
-// compiledGlobs is every glob-shaped setting after compileGlobs/newFences,
-// returned together so a caller can't swap one for another unnoticed.
 type compiledGlobs struct {
 	fences       []fence
 	ignoreTypes  []glob.Glob
