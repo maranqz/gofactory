@@ -23,3 +23,13 @@ func PartialArrayLiteral() nested.Struct {
 
 	return a[1] // want `Use factory for nested.Struct: zero value`
 }
+
+type ArrayField struct {
+	A [2]nested.Struct
+}
+
+func ArrayElementInFieldPath() nested.Struct {
+	var f ArrayField
+
+	return f.A[0] // want `Use factory for nested.Struct: zero value in A`
+}

@@ -21,6 +21,8 @@ type detector struct {
 
 	factories map[*types.Package]factoryIndex
 	suffixes  map[*types.TypeName]string
+
+	fieldPathCache map[types.Type][]fieldPath
 }
 
 func newDetector(
@@ -38,6 +40,7 @@ func newDetector(
 		onlyWithFactory: onlyWithFactory,
 		factories:       map[*types.Package]factoryIndex{},
 		suffixes:        map[*types.TypeName]string{},
+		fieldPathCache:  map[types.Type][]fieldPath{},
 	}
 }
 

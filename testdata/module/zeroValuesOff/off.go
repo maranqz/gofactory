@@ -16,3 +16,11 @@ func ReadIsSilentWithoutSetting() int {
 func NakedReturnIsSilentWithoutSetting() (hack nested.Struct) {
 	return
 }
+
+type Wrapper struct {
+	S nested.Struct
+}
+
+func UnsetFieldIsSilentWithoutSetting() (Wrapper, *Wrapper) {
+	return Wrapper{}, new(Wrapper)
+}

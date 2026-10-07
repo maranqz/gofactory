@@ -28,7 +28,7 @@ const (
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
-	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
+	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
