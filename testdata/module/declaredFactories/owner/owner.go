@@ -39,6 +39,11 @@ type FlaggedMethod struct{}
 // PtrBuilt's declared factory, other.BuildPtr, returns a pointer.
 type PtrBuilt struct{}
 
+// Globbed's declared factory, sub.MakeGlobbed, is matched by a -factories
+// wildcard; deep.MakeGlobbed, matched against the identical glob but one
+// path segment further, is not (glob/sub, glob/sub/deep).
+type Globbed struct{}
+
 // NoDirective has no factory anywhere, declared or recognised.
 type NoDirective struct{}
 

@@ -262,7 +262,8 @@ func factorySettingCases() map[string]linterSuiteCase {
 			settings: caseSettings{
 				factories: []string{
 					"factory/declaredFactories/flagged.MakeFlagged",
-					"factory/declaredFactories/flagged.Box.RestoreFlaggedMethod",
+					"factory/declaredFactories/flagged.*.Restore*",
+					"factory/declaredFactories/glob/*.MakeGlobbed",
 				},
 			},
 		},

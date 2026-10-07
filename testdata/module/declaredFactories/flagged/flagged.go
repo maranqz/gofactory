@@ -1,8 +1,8 @@
 // Package flagged declares factories of owner's types through -factories
 // glob patterns instead of a directive: the "declaredFactories" case in
-// lint_test.go configures
-// factory/declaredFactories/flagged.MakeFlagged and
-// factory/declaredFactories/flagged.Box.RestoreFlaggedMethod.
+// lint_test.go configures an exact name, factory/declaredFactories/
+// flagged.MakeFlagged, and a wildcard crossing "." but not "/" for the
+// method, factory/declaredFactories/flagged.*.Restore*.
 package flagged
 
 import "factory/declaredFactories/owner"
