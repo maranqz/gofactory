@@ -1,8 +1,6 @@
-// Package reserved holds the factory directive, still placement-checked
-// only, and every valid and invalid placement of trusted. Struct belongs to
-// this package, so nothing here exercises trusted's effect on a bypass;
-// that is covered separately, under trustedfunc/ and trustedpkg/, where it
-// actually guards trustedtarget's protected type.
+// Package reserved holds the factory directive, which is only
+// placement-checked, and trusted in each valid place and on a type. Struct
+// belongs to this package, so trusted has no visible effect here.
 //
 //gofactory:trusted
 package reserved

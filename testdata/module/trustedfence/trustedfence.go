@@ -1,8 +1,7 @@
-// Package trustedfence checks that //gofactory:trusted still bypasses
-// trustedtarget's factory when a -packageGlobs fence covers trustedtarget
-// but not this package: trustedStrategy runs before fencedPkgs, so a
-// trusted function is let through even where the fence alone would block
-// it, while an untrusted function is still blocked by the fence.
+// Package trustedfence checks that a //gofactory:trusted function may
+// bypass trustedtarget's factory even though a -packageGlobs fence covers
+// trustedtarget but not this package, while an untrusted function is still
+// reported.
 package trustedfence
 
 import "factory/trustedtarget"

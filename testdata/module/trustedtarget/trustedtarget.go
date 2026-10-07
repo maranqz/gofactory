@@ -1,7 +1,5 @@
-// Package trustedtarget is the protected type that the trusted-code tests,
-// under testdata/module/directive and testdata/module/trusted, bypass
-// freely from code that is trusted and still get reported from code that
-// is not.
+// Package trustedtarget holds the protected type the trusted-code tests
+// bypass.
 package trustedtarget
 
 type Struct struct{}
