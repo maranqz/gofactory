@@ -44,11 +44,7 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 	d.reportProtected(call, argTV.Type)
 
 	if d.zeroValues {
-		for _, entry := range d.fieldPaths(argTV.Type) {
-			if len(entry.path) > 0 {
-				d.reportFieldPath(call, entry)
-			}
-		}
+		d.reportUnsetFields(call, argTV.Type, nil)
 	}
 
 	return true

@@ -32,15 +32,17 @@ func (d *detector) checkZeroValueFields(
 		return
 	}
 
-	keyed := keyedFieldNames(lit)
+	d.reportUnsetFields(lit, litType, keyedFieldNames(lit))
+}
 
-	for _, entry := range d.fieldPaths(litType) {
-		// The literal route already reports the literal's own type.
-		if len(entry.path) == 0 || keyed[entry.path[0]] {
-			continue
+// typ's own entry is left out: the route that built the value reports it.
+func (d *detector) reportUnsetFields(
+	node ast.Node, typ types.Type, set map[string]bool,
+) {
+	for _, entry := range d.fieldPaths(typ) {
+		if len(entry.path) > 0 && !set[entry.path[0]] {
+			d.reportFieldPath(node, entry)
 		}
-
-		d.reportFieldPath(lit, entry)
 	}
 }
 
