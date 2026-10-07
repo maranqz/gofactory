@@ -189,9 +189,17 @@ func visitPackage(insp *inspector.Inspector, v *detector) {
 		(*ast.FuncLit)(nil),
 	}
 
-	insp.WithStack(nodeTypes, func(n ast.Node, push bool, stack []ast.Node) bool {
+	insp.WithStack(nodeTypes, func(node ast.Node, push bool, _ []ast.Node) bool {
+		if funcDecl, ok := node.(*ast.FuncDecl); ok {
+			if push {
+				v.enterFuncDecl(funcDecl)
+			} else {
+				v.leaveFuncDecl()
+			}
+		}
+
 		if push {
-			v.visit(n, stack)
+			v.visit(node)
 		}
 
 		return true

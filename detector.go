@@ -27,7 +27,6 @@ type detector struct {
 	suffixes  map[*types.TypeName]string
 
 	fieldPathCache        map[types.Type][]fieldPath
-	declaredTargetsCache  map[*types.Func][]*types.TypeName
 	currentFactoryTargets []*types.TypeName
 }
 
@@ -41,23 +40,38 @@ func newDetector(
 	declared factoryIndex,
 ) *detector {
 	return &detector{
-		pass:                 pass,
-		strategy:             strategy,
-		ignoreTypes:          ignoreTypes,
-		zeroValues:           zeroValues,
-		factoryPatterns:      factoryPatterns,
-		onlyWithFactory:      onlyWithFactory,
-		factories:            map[*types.Package]factoryIndex{},
-		declared:             declared,
-		suffixes:             map[*types.TypeName]string{},
-		fieldPathCache:       map[types.Type][]fieldPath{},
-		declaredTargetsCache: map[*types.Func][]*types.TypeName{},
+		pass:            pass,
+		strategy:        strategy,
+		ignoreTypes:     ignoreTypes,
+		zeroValues:      zeroValues,
+		factoryPatterns: factoryPatterns,
+		onlyWithFactory: onlyWithFactory,
+		factories:       map[*types.Package]factoryIndex{},
+		declared:        declared,
+		suffixes:        map[*types.TypeName]string{},
+		fieldPathCache:  map[types.Type][]fieldPath{},
 	}
 }
 
-func (d *detector) visit(node ast.Node, stack []ast.Node) {
-	d.currentFactoryTargets = d.enclosingFactoryTargets(stack)
+// enterFuncDecl and leaveFuncDecl track the permission to bypass a declared
+// factory's own target types inside its body, as visitPackage pushes and
+// pops a *ast.FuncDecl frame. A closure shares its enclosing declaration's
+// permission, since a *ast.FuncLit frame leaves it untouched; Go disallows
+// nesting one FuncDecl inside another, so at most one is ever active.
+func (d *detector) enterFuncDecl(funcDecl *ast.FuncDecl) {
+	factory, ok := d.pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
+	if !ok {
+		return
+	}
 
+	d.currentFactoryTargets = d.declaredFactoryTargets(factory)
+}
+
+func (d *detector) leaveFuncDecl() {
+	d.currentFactoryTargets = nil
+}
+
+func (d *detector) visit(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -70,45 +84,17 @@ func (d *detector) visit(node ast.Node, stack []ast.Node) {
 	}
 }
 
-// enclosingFactoryTargets returns the protected types the enclosing
-// top-level function or method is a declared factory of. A closure shares
-// its enclosing declaration's permission: stack is walked from the
-// innermost node outward, skipping over any *ast.FuncLit frames.
-func (d *detector) enclosingFactoryTargets(stack []ast.Node) []*types.TypeName {
-	for _, node := range slices.Backward(stack) {
-		funcDecl, ok := node.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-
-		factory, ok := d.pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
-		if !ok {
-			return nil
-		}
-
-		return d.declaredFactoryTargets(factory)
-	}
-
-	return nil
-}
-
+// declaredFactoryTargets returns the protected types factory is a declared
+// factory of, or nil if it isn't one.
 func (d *detector) declaredFactoryTargets(
 	factory *types.Func,
 ) []*types.TypeName {
-	if targets, ok := d.declaredTargetsCache[factory]; ok {
-		return targets
-	}
-
-	var targets []*types.TypeName
-
 	var fact factoryFact
-	if d.pass.ImportObjectFact(factory, &fact) {
-		targets = protectedResultTargets(factory.Signature())
+	if !d.pass.ImportObjectFact(factory, &fact) {
+		return nil
 	}
 
-	d.declaredTargetsCache[factory] = targets
-
-	return targets
+	return protectedResultTargets(factory.Signature())
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
