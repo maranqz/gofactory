@@ -50,15 +50,11 @@ func (t trustedCode) matchesPackage(pkgPath string) bool {
 }
 
 func (t trustedCode) matchesFunc(fn *types.Func) bool {
-	qualifiedName := qualifiedFuncName(fn)
+	name := qualifiedName(fn.Pkg().Path(), fn)
 
 	return slices.ContainsFunc(t.globs, func(g glob.Glob) bool {
-		return g.Match(qualifiedName)
+		return g.Match(name)
 	})
-}
-
-func qualifiedFuncName(function *types.Func) string {
-	return qualifiedName(function.Pkg().Path(), function)
 }
 
 type trustedStrategy struct {

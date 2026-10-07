@@ -117,10 +117,10 @@ func (d *detector) isIgnored(named *types.Named) bool {
 		return true
 	}
 
-	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+	name := obj.Pkg().Path() + "." + obj.Name()
 
 	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
-		return g.Match(qualifiedName)
+		return g.Match(name)
 	})
 }
 
