@@ -1,7 +1,8 @@
-// Package owner declares a type taken out of protection by
-// //gofactory:ignore and bypasses it locally, so the crossPackageDirectives
-// test case can check that -crossPackageDirectives=false, which disables
-// cross-package propagation, still leaves a same-package directive working.
+// Package owner is the crossPackageDirectivesOff case's same-package side.
+// Ignored is exempted by its own //gofactory:ignore; GlobIgnored has no
+// directive and is exempted only by the case's -ignoreTypes setting
+// instead; Misplaced puts the directive where it does not belong, to show
+// directive validation still runs with the setting false.
 package owner
 
 //gofactory:ignore
@@ -11,8 +12,7 @@ func NewIgnored() Ignored {
 	return Ignored{}
 }
 
-func Local() {
-	_ = Ignored{}
-	_ = &Ignored{}
-	_ = new(Ignored)
-}
+type GlobIgnored struct{}
+
+//gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
+func Misplaced() {}
