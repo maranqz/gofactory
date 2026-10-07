@@ -270,6 +270,7 @@ func trustedCases() map[string]linterSuiteCase {
 					"factory/trusted/pkg",
 					"factory/trusted/funcname.Reconstitute",
 					"factory/trusted/funcname.Repo.Load",
+					"factory/trusted/funcname.Repo.LoadAsPtr",
 				},
 			},
 		},
