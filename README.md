@@ -71,10 +71,10 @@ types outside it, however many `--packageGlobs` patterns you pass. The migration
 bypassing and the bypassed packages in one fence, e.g.
 `--packageGlobs='{app/infra/**,app/domain/**}'` in place of separate `app/infra/**` and
 `app/domain/**` patterns (gobwas/glob brace syntax), so that code in either package still lies
-inside the same fence as the other's types. `-trusted`, planned in #43, will be the direct
-replacement for "this code may bypass anything, anywhere." Also replace any `*` you relied on
-crossing `/` with `**`. `pkg/` and `pkg/**` still match the same packages as before, and `pkg`
-alone now matches exactly `pkg`.
+inside the same fence as the other's types. `--trusted` (see [Trusted code](#trusted-code) below)
+is the direct replacement for "this code may bypass anything, anywhere." Also replace any `*` you
+relied on crossing `/` with `**`. `pkg/` and `pkg/**` still match the same packages as before, and
+`pkg` alone now matches exactly `pkg`.
 
 ### Recipe: protecting `go.work` sibling modules
 
@@ -92,6 +92,56 @@ current module is not in that fence, so it is blocked from bypassing any of the 
 factories; code inside the sibling module itself still may bypass any of them, which is looser
 than module scope's per-package strictness — don't reuse this setting when linting the sibling
 module itself, [tests](testdata/module/siblingfence).
+
+## Trusted code
+
+Infrastructure code, such as a repository reconstituting an aggregate from storage, legitimately
+needs to bypass a protected type's factory: a factory shaped for fresh input usually can't accept a
+persisted row, field by field, the way reconstitution needs to. Trusted code may bypass any
+protected type through every route, in every mode — module scope, fences, `--onlyWithFactory` and
+`--zeroValues` included. It is the permission policy's first check, so a mode added later respects
+it automatically, without needing its own trusted check.
+
+Mark it one of three ways:
+
+- `//gofactory:trusted` in the doc comment of a function or a method trusts that function or
+  method, and any closure written inside it.
+- `//gofactory:trusted` in a package's doc comment trusts the whole package: every function,
+  method and package-level var in it, without marking each one,
+  [tests](testdata/module/directive) (`trustedfunc/` and `trustedpkg/`).
+- `--trusted`, a repeatable glob, trusts code by name instead of by directive — a package path or a
+  qualified function/method name — to trust a whole subtree at once (e.g.
+  `--trusted='example.com/app/infra/**'`), or to keep every trust decision in your linter
+  configuration instead of next to the code, [tests](testdata/module/trusted). See
+  [Options](#options) for its glob syntax.
+
+Code outside trusted code is still checked as usual.
+
+### Recipe: trusted-repository reconstitution
+
+```go
+package postgres
+
+import "example.com/app/domain/order"
+
+type OrderRepository struct{ /* ... */ }
+
+//gofactory:trusted
+func (r *OrderRepository) Load(id string) (*order.Order, error) {
+    row, err := r.queryRow(id)
+    if err != nil {
+        return nil, err
+    }
+
+    return &order.Order{ID: row.ID, Status: order.Status(row.Status)}, nil
+}
+```
+
+`Load` may build `order.Order` directly from `row` on every route, while every other caller still
+needs `order.NewOrder` or whichever factory the domain package declares. Prefer
+`--trusted='example.com/app/infra/postgres.OrderRepository.Load'` over the directive to keep the
+trust decision in your linter configuration rather than next to the code, or
+`--trusted='example.com/app/infra/**'` to trust every repository under `infra` at once.
 
 ## Usage
 
@@ -153,20 +203,26 @@ all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPat
 - `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
 team can adopt the linter gradually, starting from the types that already have one,
 [tests](testdata/module/onlyWithFactory).
+- `--trusted` – repeatable; a package-path glob (matched like `--packageGlobs`, see [Glob
+syntax](#glob-syntax)) or a qualified function- or method-name glob (`import/path.Name`,
+`import/path.Type.Method`, matched like `--ignoreTypes`) for code that may bypass any protected
+type's factory through any route, in every mode, [tests](testdata/module/trusted). See [Trusted
+code](#trusted-code) for the equivalent `//gofactory:trusted` directive and a reconstitution
+recipe.
 
 ### Directives
 
 A `//gofactory:` comment, written in a declaration's doc comment (the comment group directly above
 it) with no space after the slashes (like `//go:build`), marks that declaration for the linter.
-It takes effect in every package and module that imports the declaration, not just the one that
-writes it: gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
-so an importing package's analysis sees them even though it never parses the file that carries the
-comment.
 
 - `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
   not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
   protection: nothing in any package needs a factory to obtain a value of it, on any bypass route.
-  It is the directive form of `--ignoreTypes`, [tests](testdata/module/directive).
+  It is the directive form of `--ignoreTypes`, [tests](testdata/module/directive). It takes effect
+  in every package and module that imports the type, not just the one that writes it: gofactory
+  exports it as an [analysis fact](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact), so an
+  importing package's analysis sees it even though it never parses the file that carries the
+  comment.
 
   ```go
   //gofactory:ignore
@@ -175,9 +231,13 @@ comment.
   }
   ```
 
-`//gofactory:factory` (on a function or method) and `//gofactory:trusted` (on a function, a method,
-or in a package's doc comment) are reserved: they are placement-checked like `ignore` but have no
-effect yet.
+- `//gofactory:trusted`, in the doc comment of a function, a method or a package, trusts that
+  declaration — see [Trusted code](#trusted-code). Unlike `ignore`, its effect never crosses a
+  package boundary: it describes who may bypass a factory, not which type is exempt, and who is
+  always decided inside the package being linted, so it needs no fact.
+
+`//gofactory:factory` (on a function or method) is reserved: it is placement-checked like `ignore`
+and `trusted` but has no effect yet.
 
 An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
 function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
@@ -253,6 +313,8 @@ linters:
           package-globs-only: false
           ignore-types:
             - "mypkg.Point"
+          trusted:
+            - "mypkg/infra/**"
           zero-values: false
           factory-patterns:
             - "^Make"
@@ -263,6 +325,7 @@ linters:
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
 - `ignore-types` – equivalent to `--ignoreTypes`.
+- `trusted` – equivalent to `--trusted`.
 - `zero-values` – equivalent to `--zeroValues`.
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.

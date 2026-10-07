@@ -1,6 +1,6 @@
-// Package reserved holds the factory and trusted directives, which are
-// placement-checked but have no effect yet: silent in a right place,
-// reported in a wrong one.
+// Package reserved holds the factory directive, which is only
+// placement-checked, and trusted in each valid place and on a type. Struct
+// belongs to this package, so trusted has no visible effect here.
 //
 //gofactory:trusted
 package reserved

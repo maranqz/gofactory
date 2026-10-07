@@ -32,6 +32,7 @@ type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
 	IgnoreTypes      []string `json:"ignore-types"`
+	Trusted          []string `json:"trusted"`
 	ZeroValues       bool     `json:"zero-values"`
 
 	FactoryPatterns          []string `json:"factory-patterns"`
@@ -58,6 +59,10 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 
 	for _, g := range decoded.IgnoreTypes {
 		cfg.ignoreTypes.Append(g)
+	}
+
+	for _, g := range decoded.Trusted {
+		cfg.trusted.Append(g)
 	}
 
 	err = setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns)

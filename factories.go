@@ -223,12 +223,14 @@ func sortFactories(factories []*types.Func) {
 }
 
 func factoryQualifiedName(factory *types.Func) string {
-	pkgName := factory.Pkg().Name()
+	return qualifiedName(factory.Pkg().Name(), factory)
+}
 
-	recv := receiverNamed(factory)
+func qualifiedName(qualifier string, function *types.Func) string {
+	recv := receiverNamed(function)
 	if recv == nil {
-		return pkgName + "." + factory.Name()
+		return qualifier + "." + function.Name()
 	}
 
-	return pkgName + "." + recv.Obj().Name() + "." + factory.Name()
+	return qualifier + "." + recv.Obj().Name() + "." + function.Name()
 }

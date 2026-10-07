@@ -26,6 +26,10 @@ type detector struct {
 	suffixes  map[*types.TypeName]string
 
 	fieldPathCache map[types.Type][]fieldPath
+
+	// currentFn is the FuncDecl enclosing the checked node, nil at package
+	// scope; a closure counts as its enclosing FuncDecl.
+	currentFn *types.Func
 }
 
 func newDetector(
@@ -49,7 +53,13 @@ func newDetector(
 	}
 }
 
-func (d *detector) visit(node ast.Node) {
+func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
+	if !push {
+		return true
+	}
+
+	d.currentFn = d.topLevelFunc(stack)
+
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -60,6 +70,21 @@ func (d *detector) visit(node ast.Node) {
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
+
+	return true
+}
+
+// stack[0] is the *ast.File, so stack[1] is the top-level declaration
+// holding the visited node.
+func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
+	decl, ok := stack[1].(*ast.FuncDecl)
+	if !ok {
+		return nil
+	}
+
+	fn, _ := d.pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
+
+	return fn
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
@@ -76,7 +101,7 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
-	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
+	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn) {
 		return
 	}
 
@@ -91,10 +116,10 @@ func (d *detector) isIgnored(named *types.Named) bool {
 		return true
 	}
 
-	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+	name := obj.Pkg().Path() + "." + obj.Name()
 
 	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
-		return g.Match(qualifiedName)
+		return g.Match(name)
 	})
 }
 
