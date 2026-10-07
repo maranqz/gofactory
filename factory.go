@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"regexp"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -15,6 +16,7 @@ type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 	ignoreTypes  globsFlag
+	trusted      globsFlag
 	zeroValues   bool
 
 	extraFactoryPatterns     regexpsFlag
@@ -29,10 +31,12 @@ const (
 
 	packageGlobsFlag = "packageGlobs"
 	ignoreTypesFlag  = "ignoreTypes"
+	trustedFlag      = "trusted"
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
 	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
+	trustedDesc      = "package-path or qualified function/method-name glob, repeatable; matching code may bypass any protected type's factory through any route"
 	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
@@ -60,6 +64,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	analyzer.Flags.Var(&cfg.ignoreTypes, ignoreTypesFlag, ignoreTypesDesc)
+
+	analyzer.Flags.Var(&cfg.trusted, trustedFlag, trustedDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
@@ -109,26 +115,12 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		checkDirectives(pass)
-
-		var modulePath string
-		if pass.Module != nil {
-			modulePath = pass.Module.Path
+		trustedGlobs, err := compileGlobs(trustedFlag, cfg.trusted.Value())
+		if err != nil {
+			return nil, err
 		}
 
-		var strategy blockedStrategy = newCurrentModule(modulePath)
-
-		if len(fences) > 0 {
-			defaultStrategy := strategy
-			if cfg.onlyPkgGlobs {
-				defaultStrategy = newNilPkg()
-			}
-
-			strategy = newFencedPkgs(
-				fences,
-				defaultStrategy,
-			)
-		}
+		strategy := buildStrategy(cfg, pass, fences, trustedGlobs)
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
@@ -140,7 +132,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-		insp.Preorder([]ast.Node{
+		insp.WithStack([]ast.Node{
 			(*ast.CompositeLit)(nil),
 			(*ast.CallExpr)(nil),
 			(*ast.FuncDecl)(nil),
@@ -149,6 +141,36 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		return nil, nil
 	}
+}
+
+// buildStrategy builds the permission policy: module scope, narrowed by
+// fences when any are given, wrapped by trusted code last so that every
+// mode it wraps, including one added later, respects //gofactory:trusted
+// and -trusted without its own trusted check.
+//
+//nolint:ireturn // the policy is a chain of blockedStrategy decorators.
+func buildStrategy(
+	cfg *config, pass *analysis.Pass, fences []fence, trustedGlobs []glob.Glob,
+) blockedStrategy {
+	var modulePath string
+	if pass.Module != nil {
+		modulePath = pass.Module.Path
+	}
+
+	var strategy blockedStrategy = newCurrentModule(modulePath)
+
+	if len(fences) > 0 {
+		defaultStrategy := strategy
+		if cfg.onlyPkgGlobs {
+			defaultStrategy = newNilPkg()
+		}
+
+		strategy = newFencedPkgs(fences, defaultStrategy)
+	}
+
+	trust := checkDirectives(pass)
+
+	return newTrustedStrategy(newTrustedCode(trustedGlobs, trust), strategy)
 }
 
 func (cfg *config) recognitionPatterns() []*regexp.Regexp {

@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"slices"
 	"strings"
 
@@ -25,7 +26,7 @@ const (
 	declPackage
 )
 
-// factory and trusted are only placement-checked.
+// factory is only placement-checked so far.
 const (
 	directiveIgnore  = "ignore"
 	directiveFactory = "factory"
@@ -59,19 +60,28 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-func checkDirectives(pass *analysis.Pass) {
+// checkDirectives also collects //gofactory:trusted directives into the
+// returned trustInfo: its effect is intra-pass (see trustInfo), so it has
+// no fact to export and nothing to apply to a types.Object here.
+func checkDirectives(pass *analysis.Pass) *trustInfo {
+	trust := newTrustInfo()
+
 	for _, file := range pass.Files {
-		checkFileDirectives(pass, file)
+		checkFileDirectives(pass, file, trust)
 	}
+
+	return trust
 }
 
-func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
+func checkFileDirectives(
+	pass *analysis.Pass, file *ast.File, trust *trustInfo,
+) {
 	consumed := make(map[*ast.CommentGroup]bool)
 
-	processDoc(pass, consumed, file.Doc, declPackage, nil)
+	processDoc(pass, consumed, file.Doc, declPackage, nil, trust)
 
 	for _, decl := range file.Decls {
-		checkDeclDirectives(pass, decl, consumed)
+		checkDeclDirectives(pass, decl, consumed, trust)
 	}
 
 	for _, cg := range file.Comments {
@@ -79,7 +89,7 @@ func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
 			continue
 		}
 
-		processDoc(pass, consumed, cg, declOther, nil)
+		processDoc(pass, consumed, cg, declOther, nil, trust)
 	}
 }
 
@@ -87,12 +97,13 @@ func checkDeclDirectives(
 	pass *analysis.Pass,
 	decl ast.Decl,
 	consumed map[*ast.CommentGroup]bool,
+	trust *trustInfo,
 ) {
 	switch d := decl.(type) {
 	case *ast.GenDecl:
-		checkGenDeclDirectives(pass, d, consumed)
+		checkGenDeclDirectives(pass, d, consumed, trust)
 	case *ast.FuncDecl:
-		processDoc(pass, consumed, d.Doc, declFunc, nil)
+		processDoc(pass, consumed, d.Doc, declFunc, d, trust)
 	}
 }
 
@@ -100,6 +111,7 @@ func checkGenDeclDirectives(
 	pass *analysis.Pass,
 	decl *ast.GenDecl,
 	consumed map[*ast.CommentGroup]bool,
+	trust *trustInfo,
 ) {
 	if decl.Tok != token.TYPE {
 		return // the file-wide sweep reports these as misplaced
@@ -120,19 +132,23 @@ func checkGenDeclDirectives(
 		}
 
 		if len(decl.Specs) == 1 {
-			processDoc(pass, consumed, decl.Doc, kind, typeSpec)
+			processDoc(pass, consumed, decl.Doc, kind, typeSpec, trust)
 		}
 
-		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec)
+		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec, trust)
 	}
 }
 
+// node is the declaration the directive would apply to: *ast.TypeSpec for
+// declType/declAlias, *ast.FuncDecl for declFunc, nil for declPackage and
+// declOther, where no directive can take effect.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,
 	doc *ast.CommentGroup,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
+	node ast.Node,
+	trust *trustInfo,
 ) {
 	if doc == nil {
 		return
@@ -146,7 +162,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, typeSpec)
+		applyDirective(pass, comment, name, kind, node, trust)
 	}
 }
 
@@ -170,7 +186,8 @@ func applyDirective(
 	comment *ast.Comment,
 	name string,
 	kind declKind,
-	typeSpec *ast.TypeSpec,
+	node ast.Node,
+	trust *trustInfo,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -202,8 +219,13 @@ func applyDirective(
 		return
 	}
 
-	if name == directiveIgnore {
-		applyIgnore(pass, typeSpec)
+	switch name {
+	case directiveIgnore:
+		if typeSpec, ok := node.(*ast.TypeSpec); ok {
+			applyIgnore(pass, typeSpec)
+		}
+	case directiveTrusted:
+		applyTrusted(pass, trust, kind, node)
 	}
 }
 
@@ -214,4 +236,26 @@ func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
 	}
 
 	pass.ExportObjectFact(obj, &ignoredFact{})
+}
+
+func applyTrusted(
+	pass *analysis.Pass, trust *trustInfo, kind declKind, node ast.Node,
+) {
+	if kind == declPackage {
+		trust.markPackage()
+
+		return
+	}
+
+	decl, ok := node.(*ast.FuncDecl)
+	if !ok {
+		return
+	}
+
+	fn, ok := pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
+	if !ok {
+		return
+	}
+
+	trust.markFunc(fn)
 }

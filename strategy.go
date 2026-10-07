@@ -21,8 +21,15 @@ var errEmptyGlobPattern = errors.New("pattern must not be empty")
 // match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
+// site is the enclosing function or method of the code being checked for a
+// bypass, or nil at package scope (a package-level var, for instance). Only
+// trustedStrategy consults it today; a strategy that doesn't care about the
+// site, such as fencedPkgs, still receives and threads it through so that a
+// mode added later can.
 type blockedStrategy interface {
-	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
+	IsBlocked(
+		currentPkg *types.Package, identObj types.Object, site *types.Func,
+	) bool
 }
 
 type nilPkg struct{}
@@ -31,7 +38,7 @@ func newNilPkg() nilPkg {
 	return nilPkg{}
 }
 
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
+func (nilPkg) IsBlocked(_ *types.Package, _ types.Object, _ *types.Func) bool {
 	return false
 }
 
@@ -44,6 +51,7 @@ func newAnotherPkg() anotherPkg {
 func (anotherPkg) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
+	_ *types.Func,
 ) bool {
 	return currentPkg.Path() != identObj.Pkg().Path()
 }
@@ -124,6 +132,7 @@ func newFencedPkgs(
 func (s fencedPkgs) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
+	site *types.Func,
 ) bool {
 	identPkgPath := identObj.Pkg().Path()
 
@@ -142,7 +151,7 @@ func (s fencedPkgs) IsBlocked(
 	}
 
 	if !inAnyFence {
-		return s.defaultStrategy.IsBlocked(currentPkg, identObj)
+		return s.defaultStrategy.IsBlocked(currentPkg, identObj, site)
 	}
 
 	return false
