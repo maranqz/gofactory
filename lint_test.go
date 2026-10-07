@@ -1,11 +1,13 @@
 package gofactory_test
 
 import (
+	"fmt"
 	"maps"
 	"net/url"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -18,6 +20,11 @@ import (
 // register.Plugin, which golangci-lint would use as the plugin key in its
 // own configuration.
 const pluginName = "gofactory"
+
+// siblingModulePath is the go.work sibling test module: its directory name
+// under moduleRoot, its own module path and import path are all this
+// string; siblingModulePath+"/**" fences it and its subpackages.
+const siblingModulePath = "sibling"
 
 // TestAnalyzerURL checks that both entry points produce an Analyzer.URL
 // that parses as an absolute URL: golangci-lint fails to load an analyzer
@@ -42,15 +49,17 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 	}
 }
 
-// TestPluginRejectsBadSettings checks that the plugin fails on settings it
-// cannot apply instead of silently ignoring them.
+// TestPluginRejectsBadSettings checks that the plugin fails on a settings
+// key spelled like the flag rather than in kebab-case, and on an invalid
+// factory-name regex, instead of silently ignoring them. An invalid glob is
+// a configuration error too, but only once run executes (see run in
+// factory.go): TestConfigurationErrors covers it through both entry points.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling":           {"packageGlobs": []string{"factory/**"}},
-		"invalid glob":            {"package-globs": []string{"["}},
-		"invalid factory pattern": {"factory-patterns": []string{"("}},
+		"flag_spelling":           {"packageGlobs": []string{"factory/**"}},
+		"invalid_factory_pattern": {"factory-patterns": []string{"("}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -71,7 +80,7 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 
 // TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
 // flag fails on an invalid regex, the flags-entry-point counterpart to
-// TestPluginRejectsBadSettings's "invalid factory pattern" plugin-side case.
+// TestPluginRejectsBadSettings's "invalid_factory_pattern" plugin-side case.
 func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	t.Parallel()
 
@@ -91,7 +100,16 @@ type linterSuiteCase struct {
 }
 
 func linterSuiteCases() map[string]linterSuiteCase {
-	cases := map[string]linterSuiteCase{
+	cases := baseLinterSuiteCases()
+
+	maps.Copy(cases, fenceLinterSuiteCases())
+	maps.Copy(cases, factorySettingCases())
+
+	return cases
+}
+
+func baseLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"simple":    {pkgs: []string{"simple/..."}},
 		"casting":   {pkgs: []string{"casting/..."}},
 		"generic":   {pkgs: []string{"generic/..."}},
@@ -100,20 +118,6 @@ func linterSuiteCases() map[string]linterSuiteCase {
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
-
-		"packageGlobs": {
-			pkgs: []string{"packageGlobs/..."},
-			settings: caseSettings{
-				packageGlobs: []string{"factory/packageGlobs/blocked/**"},
-			},
-		},
-		"packageGlobsOnly": {
-			pkgs: []string{"packageGlobsOnly/main/..."},
-			settings: caseSettings{
-				packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
-				packageGlobsOnly: true,
-			},
-		},
 
 		"zeroValues": {
 			pkgs:     []string{"zeroValues/..."},
@@ -130,9 +134,60 @@ func linterSuiteCases() map[string]linterSuiteCase {
 			},
 		},
 	}
-	maps.Copy(cases, factorySettingCases())
+}
 
-	return cases
+func fenceLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"packageGlobs": {
+			pkgs: []string{"packageGlobs/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/packageGlobs/blocked/**"},
+			},
+		},
+		"packageGlobsOnly": {
+			pkgs: []string{"packageGlobsOnly/main/..."},
+			settings: caseSettings{
+				packageGlobs:     []string{"factory/packageGlobsOnly/blocked/**"},
+				packageGlobsOnly: true,
+			},
+		},
+		"twoFences": {
+			pkgs: []string{"twofences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/twofences/a/**",
+					"factory/twofences/b/**",
+				},
+			},
+		},
+		"nestedFence": {
+			pkgs: []string{"nestedfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/nestedfence/*/a/**",
+					"factory/nestedfence/*/a/domain/**",
+				},
+			},
+		},
+		"globSyntax": {
+			pkgs: []string{"globsyntax/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/globsyntax/*"},
+			},
+		},
+		"stdlibFence": {
+			pkgs: []string{"stdlibfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"strings"},
+			},
+		},
+		"siblingFence": {
+			pkgs: []string{"siblingfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{siblingModulePath + "/**"},
+			},
+		},
+	}
 }
 
 func factorySettingCases() map[string]linterSuiteCase {
@@ -416,7 +471,7 @@ func TestTestdataRoots(t *testing.T) {
 			root: moduleRoot(),
 			pkgs: []string{
 				filepath.Join(moduleRoot(), "workspace"),
-				filepath.Join(moduleRoot(), "sibling"),
+				filepath.Join(moduleRoot(), siblingModulePath),
 				filepath.Join(moduleRoot(), "nestedmodule"),
 			},
 			modules: map[string]analysis.Module{
@@ -425,8 +480,8 @@ func TestTestdataRoots(t *testing.T) {
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
-				"sibling": {
-					Path:      "sibling",
+				siblingModulePath: {
+					Path:      siblingModulePath,
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
@@ -510,4 +565,67 @@ func moduleRoot() string {
 // gopathRoot is the GOPATH-style testdata root, for runs without a module.
 func gopathRoot() string {
 	return filepath.Join(analysistest.TestData(), "gopath")
+}
+
+// recordingTesting implements analysistest.Testing's only method, Errorf,
+// to record messages instead of failing the test: analysistest.Run
+// reports a configuration error returned from run through exactly this
+// method, so a recording double lets TestConfigurationErrors assert the
+// message without the recorded failure also failing the outer test.
+type recordingTesting struct {
+	messages []string
+}
+
+func (r *recordingTesting) Errorf(format string, args ...any) {
+	r.messages = append(r.messages, fmt.Sprintf(format, args...))
+}
+
+// TestConfigurationErrors checks that -packageGlobsOnly without any
+// -packageGlobs pattern, an invalid glob, an empty glob, and a glob
+// starting with '/' are configuration errors surfaced through both entry
+// points.
+func TestConfigurationErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		settings caseSettings
+		want     string
+	}{
+		"packageGlobsOnly_without_globs": {
+			settings: caseSettings{packageGlobsOnly: true},
+			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
+		},
+		"invalid_glob": {
+			settings: caseSettings{packageGlobs: []string{"["}},
+			want:     "unable to compile packageGlobs pattern",
+		},
+		"empty_glob": {
+			settings: caseSettings{packageGlobs: []string{"  "}},
+			want:     "packageGlobs pattern must not be empty",
+		},
+		"leading_slash_glob": {
+			settings: caseSettings{packageGlobs: []string{"/sibling/**"}},
+			want:     "packageGlobs pattern must not start with '/'",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			forEachEntryPoint(t, tt.settings,
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					rec := &recordingTesting{}
+					analysistest.Run(rec, moduleRoot(), analyzer, filepath.Join(moduleRoot(), "simple"))
+
+					if len(rec.messages) == 0 {
+						t.Fatalf("got no configuration error, want one containing %q", tt.want)
+					}
+
+					got := strings.Join(rec.messages, "\n")
+					if !strings.Contains(got, tt.want) {
+						t.Fatalf("got errors %q, want one containing %q", got, tt.want)
+					}
+				})
+		})
+	}
 }
