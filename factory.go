@@ -147,7 +147,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		checkDirectives(pass)
+		ignored := checkDirectives(pass)
 
 		var modulePath string
 		if pass.Module != nil {
@@ -170,7 +170,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
-			cfg.recognitionPatterns(), cfg.onlyWithFactory,
+			cfg.recognitionPatterns(), cfg.onlyWithFactory, ignored,
 		)
 
 		for _, file := range pass.Files {

@@ -2,9 +2,11 @@ package gofactory_test
 
 import (
 	"fmt"
+	"go/types"
 	"maps"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -448,7 +450,9 @@ func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
 // unitchecker before Go 1.27 fills it: Path, Version and GoVersion without
 // Main, and nil without a module. analysistest sets Main on every module it
 // loads and never passes nil, so only this entry point catches code relying
-// on either.
+// on either. It also wraps Pass.ExportObjectFact to fail on a fact type
+// absent from Analyzer.FactTypes: go vet's gob encoder panics there instead,
+// since it only registers the types FactTypes declares.
 func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	t.Helper()
 
@@ -465,6 +469,25 @@ func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 				Version:   pass.Module.Version,
 				GoVersion: pass.Module.GoVersion,
 			}
+		}
+
+		export := vetPass.ExportObjectFact
+		vetPass.ExportObjectFact = func(obj types.Object, fact analysis.Fact) {
+			declared := slices.ContainsFunc(
+				pass.Analyzer.FactTypes,
+				func(f analysis.Fact) bool {
+					return reflect.TypeOf(f) == reflect.TypeOf(fact)
+				},
+			)
+			if !declared {
+				t.Fatalf(
+					"ExportObjectFact(%v, %T): fact type not in Analyzer.FactTypes %v; "+
+						"go vet's gob encoder would panic here",
+					obj, fact, pass.Analyzer.FactTypes,
+				)
+			}
+
+			export(obj, fact)
 		}
 
 		return run(&vetPass)

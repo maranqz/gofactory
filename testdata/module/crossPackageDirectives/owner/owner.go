@@ -5,7 +5,7 @@
 package owner
 
 //gofactory:ignore
-type Ignored struct{} // want Ignored:"gofactory:ignore"
+type Ignored struct{}
 
 func NewIgnored() Ignored {
 	return Ignored{}

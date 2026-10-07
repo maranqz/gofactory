@@ -3,6 +3,7 @@ package gofactory
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"slices"
 	"strings"
 
@@ -59,19 +60,33 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-func checkDirectives(pass *analysis.Pass) {
+// checkDirectives applies every //gofactory: directive found in pass and
+// returns the types.Object of each one ignored by a //gofactory:ignore in
+// this package. isIgnored consults that set directly: with
+// -crossPackageDirectives=false, Analyzer.FactTypes is empty and applyIgnore
+// stops exporting ignoredFact, so a same-package ignore would otherwise be
+// unreachable to this pass.
+func checkDirectives(pass *analysis.Pass) map[types.Object]bool {
+	ignored := make(map[types.Object]bool)
+
 	for _, file := range pass.Files {
-		checkFileDirectives(pass, file)
+		checkFileDirectives(pass, file, ignored)
 	}
+
+	return ignored
 }
 
-func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
+func checkFileDirectives(
+	pass *analysis.Pass,
+	file *ast.File,
+	ignored map[types.Object]bool,
+) {
 	consumed := make(map[*ast.CommentGroup]bool)
 
-	processDoc(pass, consumed, file.Doc, declPackage, nil)
+	processDoc(pass, consumed, ignored, file.Doc, declPackage, nil)
 
 	for _, decl := range file.Decls {
-		checkDeclDirectives(pass, decl, consumed)
+		checkDeclDirectives(pass, decl, consumed, ignored)
 	}
 
 	for _, cg := range file.Comments {
@@ -79,7 +94,7 @@ func checkFileDirectives(pass *analysis.Pass, file *ast.File) {
 			continue
 		}
 
-		processDoc(pass, consumed, cg, declOther, nil)
+		processDoc(pass, consumed, ignored, cg, declOther, nil)
 	}
 }
 
@@ -87,12 +102,13 @@ func checkDeclDirectives(
 	pass *analysis.Pass,
 	decl ast.Decl,
 	consumed map[*ast.CommentGroup]bool,
+	ignored map[types.Object]bool,
 ) {
 	switch d := decl.(type) {
 	case *ast.GenDecl:
-		checkGenDeclDirectives(pass, d, consumed)
+		checkGenDeclDirectives(pass, d, consumed, ignored)
 	case *ast.FuncDecl:
-		processDoc(pass, consumed, d.Doc, declFunc, nil)
+		processDoc(pass, consumed, ignored, d.Doc, declFunc, nil)
 	}
 }
 
@@ -100,6 +116,7 @@ func checkGenDeclDirectives(
 	pass *analysis.Pass,
 	decl *ast.GenDecl,
 	consumed map[*ast.CommentGroup]bool,
+	ignored map[types.Object]bool,
 ) {
 	if decl.Tok != token.TYPE {
 		return // the file-wide sweep reports these as misplaced
@@ -120,16 +137,17 @@ func checkGenDeclDirectives(
 		}
 
 		if len(decl.Specs) == 1 {
-			processDoc(pass, consumed, decl.Doc, kind, typeSpec)
+			processDoc(pass, consumed, ignored, decl.Doc, kind, typeSpec)
 		}
 
-		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec)
+		processDoc(pass, consumed, ignored, typeSpec.Doc, kind, typeSpec)
 	}
 }
 
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,
+	ignored map[types.Object]bool,
 	doc *ast.CommentGroup,
 	kind declKind,
 	typeSpec *ast.TypeSpec,
@@ -146,7 +164,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, typeSpec)
+		applyDirective(pass, comment, name, kind, typeSpec, ignored)
 	}
 }
 
@@ -171,6 +189,7 @@ func applyDirective(
 	name string,
 	kind declKind,
 	typeSpec *ast.TypeSpec,
+	ignored map[types.Object]bool,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -203,15 +222,26 @@ func applyDirective(
 	}
 
 	if name == directiveIgnore {
-		applyIgnore(pass, typeSpec)
+		applyIgnore(pass, typeSpec, ignored)
 	}
 }
 
-func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
+func applyIgnore(
+	pass *analysis.Pass,
+	typeSpec *ast.TypeSpec,
+	ignored map[types.Object]bool,
+) {
 	obj := pass.TypesInfo.ObjectOf(typeSpec.Name)
 	if obj == nil {
 		return
 	}
 
-	pass.ExportObjectFact(obj, &ignoredFact{})
+	ignored[obj] = true
+
+	// An Analyzer that uses facts must declare their types (go/analysis's
+	// documented rule); with -crossPackageDirectives=false, Analyzer.FactTypes
+	// is empty, and go vet's gob encoder panics on an undeclared fact.
+	if len(pass.Analyzer.FactTypes) > 0 {
+		pass.ExportObjectFact(obj, &ignoredFact{})
+	}
 }
