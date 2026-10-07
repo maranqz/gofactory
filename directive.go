@@ -253,9 +253,10 @@ func applyIgnore(
 
 	ignored[obj] = true
 
-	// An Analyzer that uses facts must declare their types (go/analysis's
-	// documented rule); with -crossPackageDirectives=false, Analyzer.FactTypes
-	// is empty, and go vet's gob encoder panics on an undeclared fact.
+	// Exporting a fact while Analyzer.FactTypes is empty panics under go vet,
+	// whose gob encoder registers only declared fact types, and under
+	// golangci-lint, which then allocates no fact map. Importing one is a
+	// plain lookup in every driver, so isIgnored needs no such check.
 	if len(pass.Analyzer.FactTypes) > 0 {
 		pass.ExportObjectFact(obj, &ignoredFact{})
 	}
