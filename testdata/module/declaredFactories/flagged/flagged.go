@@ -2,7 +2,7 @@
 // glob patterns instead of a directive: the "declaredFactories" case in
 // lint_test.go configures an exact name, factory/declaredFactories/
 // flagged.MakeFlagged, and a wildcard crossing "." but not "/" for the
-// method, factory/declaredFactories/flagged.*.Restore*.
+// method, factory/declaredFactories/flagged.*FlaggedMethod.
 package flagged
 
 import "factory/declaredFactories/owner"
