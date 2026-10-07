@@ -47,6 +47,12 @@ func EmptyWrapperLiteralIsReported() Wrapper {
 	return Wrapper{} // want `^Use factory for nested.Struct: zero value in S \(nested.NewStruct, nested.NewStructOrErr\)$`
 }
 
+// NewWrapperIsReported is EmptyWrapperLiteralIsReported spelled new(Wrapper):
+// both allocate a Wrapper whose S is never set.
+func NewWrapperIsReported() *Wrapper {
+	return new(Wrapper) // want `^Use factory for nested.Struct: zero value in S \(nested.NewStruct, nested.NewStructOrErr\)$`
+}
+
 // EmbeddedFieldLiteralIsReported: an embedded field's path segment is the
 // embedded type's own name, Struct here.
 func EmbeddedFieldLiteralIsReported() {

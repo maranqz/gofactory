@@ -20,7 +20,8 @@ func (d *detector) checkCall(call *ast.CallExpr) {
 	d.checkConversion(call)
 }
 
-// checkNew reports new(T) and returns true when call is a call to the
+// checkNew reports new(T), and under -zeroValues T's unset protected fields,
+// and returns true when call is a call to the
 // builtin new, so the caller does not also try to treat it as a conversion.
 func (d *detector) checkNew(call *ast.CallExpr) bool {
 	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
@@ -42,6 +43,14 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 	// new(*T) allocates a nil *T and builds no T, so argTV.Type is passed
 	// as-is rather than through pointee.
 	d.reportProtected(call, argTV.Type)
+
+	if d.zeroValues {
+		for _, entry := range d.fieldPaths(argTV.Type) {
+			if len(entry.path) > 0 {
+				d.reportFieldPath(call, entry)
+			}
+		}
+	}
 
 	return true
 }
