@@ -63,7 +63,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	}
 
 	for _, g := range decoded.Factories {
-		cfg.factories.Append(g)
+		cfg.factoryGlobs.Append(g)
 	}
 
 	err = setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns)

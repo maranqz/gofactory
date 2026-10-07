@@ -22,7 +22,15 @@ type config struct {
 	useDefaultFactoryPattern bool
 	onlyWithFactory          bool
 
-	factories globsFlag
+	factoryGlobs globsFlag
+}
+
+// compiledGlobs is every glob-shaped setting after compileGlobs/newFences,
+// returned together so a caller can't swap one for another unnoticed.
+type compiledGlobs struct {
+	fences       []fence
+	ignoreTypes  []glob.Glob
+	factoryGlobs []glob.Glob
 }
 
 const (
@@ -76,7 +84,7 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
-	analyzer.Flags.Var(&cfg.factories, factoriesFlag, factoriesDesc)
+	analyzer.Flags.Var(&cfg.factoryGlobs, factoriesFlag, factoriesDesc)
 
 	return analyzer
 }
@@ -100,27 +108,27 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
-		fences, ignoreTypes, factories, err := cfg.compileGlobs()
+		compiled, err := cfg.compile()
 		if err != nil {
 			return nil, err
 		}
 
 		checkDirectives(pass)
-		exportFlagFactories(pass, factories)
+		exportFlagFactories(pass, compiled.factoryGlobs)
 
 		var strategy blockedStrategy = newCurrentModule(modulePathOf(pass))
 
-		if len(fences) > 0 {
+		if len(compiled.fences) > 0 {
 			defaultStrategy := strategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
-			strategy = newFencedPkgs(fences, defaultStrategy)
+			strategy = newFencedPkgs(compiled.fences, defaultStrategy)
 		}
 
 		v := newDetector(
-			pass, strategy, ignoreTypes, cfg.zeroValues,
+			pass, strategy, compiled.ignoreTypes, cfg.zeroValues,
 			cfg.recognitionPatterns(), cfg.onlyWithFactory,
 			declaredFactoryIndex(pass),
 		)
@@ -136,29 +144,33 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	}
 }
 
-func (cfg *config) compileGlobs() ([]fence, []glob.Glob, []glob.Glob, error) {
+func (cfg *config) compile() (compiledGlobs, error) {
 	patterns := cfg.pkgGlobs.Value()
 
 	if cfg.onlyPkgGlobs && len(patterns) == 0 {
-		return nil, nil, nil, errPackageGlobsOnlyNeedsGlobs
+		return compiledGlobs{}, errPackageGlobsOnlyNeedsGlobs
 	}
 
 	fences, err := newFences(patterns)
 	if err != nil {
-		return nil, nil, nil, err
+		return compiledGlobs{}, err
 	}
 
 	ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
 	if err != nil {
-		return nil, nil, nil, err
+		return compiledGlobs{}, err
 	}
 
-	factories, err := compileGlobs(factoriesFlag, cfg.factories.Value())
+	factoryGlobs, err := compileGlobs(factoriesFlag, cfg.factoryGlobs.Value())
 	if err != nil {
-		return nil, nil, nil, err
+		return compiledGlobs{}, err
 	}
 
-	return fences, ignoreTypes, factories, nil
+	return compiledGlobs{
+		fences:       fences,
+		ignoreTypes:  ignoreTypes,
+		factoryGlobs: factoryGlobs,
+	}, nil
 }
 
 func modulePathOf(pass *analysis.Pass) string {
