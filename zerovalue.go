@@ -20,6 +20,17 @@ func (d *detector) reportFieldPath(node ast.Node, entry fieldPath) {
 	d.reportProtectedSuffix(node, entry.named, suffix)
 }
 
+// typ's own entry is left out: the route that built the value reports it.
+func (d *detector) reportUnsetFields(
+	node ast.Node, typ types.Type, set map[string]bool,
+) {
+	for _, entry := range d.fieldPaths(typ) {
+		if len(entry.path) > 0 && !set[entry.path[0]] {
+			d.reportFieldPath(node, entry)
+		}
+	}
+}
+
 // A package-level var has no function to decide a first interaction in, so
 // it is always a candidate.
 func (d *detector) checkPackageVars(file *ast.File) {

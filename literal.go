@@ -35,17 +35,6 @@ func (d *detector) checkZeroValueFields(
 	d.reportUnsetFields(lit, litType, keyedFieldNames(lit))
 }
 
-// typ's own entry is left out: the route that built the value reports it.
-func (d *detector) reportUnsetFields(
-	node ast.Node, typ types.Type, set map[string]bool,
-) {
-	for _, entry := range d.fieldPaths(typ) {
-		if len(entry.path) > 0 && !set[entry.path[0]] {
-			d.reportFieldPath(node, entry)
-		}
-	}
-}
-
 // isFullyPositional reports whether every field of lit's struct type is
 // set: Go requires a positional struct literal to supply every field, so
 // a non-empty, unkeyed literal leaves nothing unset.
