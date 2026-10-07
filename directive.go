@@ -60,14 +60,9 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-// directiveState accumulates what checkDirectives finds across a package:
-// ignored holds the types.Object of each type a same-package
-// //gofactory:ignore took out of protection, and trust what
-// //gofactory:trusted marked. isIgnored consults ignored directly, because
-// with -crossPackageDirectives=false, Analyzer.FactTypes is empty and
-// applyIgnore stops exporting ignoredFact, leaving a same-package ignore
-// otherwise unreachable to this pass; trust needs no such fallback, since
-// its effect never crosses a package boundary.
+// With -crossPackageDirectives=false, applyIgnore exports no ignoredFact,
+// so ignored is the only way isIgnored (as detector.locallyIgnored) sees
+// this package's own //gofactory:ignore.
 type directiveState struct {
 	ignored map[types.Object]bool
 	trust   *trustInfo
