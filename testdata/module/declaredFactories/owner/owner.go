@@ -36,6 +36,9 @@ type Flagged struct{}
 // declared through -factories too, over a method this time.
 type FlaggedMethod struct{}
 
+// PtrBuilt's declared factory, other.BuildPtr, returns a pointer.
+type PtrBuilt struct{}
+
 // NoDirective has no factory anywhere, declared or recognised.
 type NoDirective struct{}
 

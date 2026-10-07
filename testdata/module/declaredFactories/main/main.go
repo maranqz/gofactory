@@ -19,6 +19,7 @@ func main() {
 	_ = owner.Partner{}             // want `Use factory for owner.Partner \(other.BuildBoth\)`
 	_ = owner.WithErr{}             // want `Use factory for owner.WithErr \(other.BuildWithErr\)`
 	_ = owner.ClosureTarget{}       // want `Use factory for owner.ClosureTarget \(other.BuildViaClosure\)`
+	_ = &owner.PtrBuilt{}           // want `Use factory for owner.PtrBuilt \(other.BuildPtr\)`
 	_ = owner.Flagged{}             // want `Use factory for owner.Flagged \(flagged.MakeFlagged\)`
 	_ = owner.FlaggedMethod{}       // want `Use factory for owner.FlaggedMethod \(flagged.Box.RestoreFlaggedMethod\)`
 	_ = owner.NoDirective{}         // want `Use factory for owner.NoDirective$`

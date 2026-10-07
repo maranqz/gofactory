@@ -55,6 +55,17 @@ func BuildViaClosure() owner.ClosureTarget { // want BuildViaClosure:"gofactory:
 	return build()
 }
 
+// BuildPtr is *owner.PtrBuilt's declared factory: AC1's headline example
+// (*pb.Order) is a pointer result. It builds one both ways a pointer
+// literal is spelled, each silent under its own permission.
+//
+//gofactory:factory
+func BuildPtr() (*owner.PtrBuilt, error) { // want BuildPtr:"gofactory:factory"
+	_ = &owner.PtrBuilt{}
+
+	return new(owner.PtrBuilt), nil
+}
+
 // NothingInteresting has no protected type among its results, so the
 // directive is reported instead of taking effect.
 //
