@@ -153,6 +153,14 @@ all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPat
 - `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
 team can adopt the linter gradually, starting from the types that already have one,
 [tests](testdata/module/onlyWithFactory).
+- `--crossPackageDirectives` – propagate `//gofactory:` directives to importing packages and
+modules, `true` by default; see [Directives](#directives) below for what that means. Set to
+`false` on a large monorepo to trade that off for not analysing dependencies, which is faster: with
+it off, the analyzer declares no `FactTypes`, and `go vet`, golangci-lint and other drivers decide
+from `FactTypes` whether to analyse a package's dependencies at all, so they stop doing it. A
+directive still takes effect in the package that declares it, and settings such as `--ignoreTypes`
+and `--packageGlobs` still apply everywhere; only propagation to a directive's importers is turned
+off, [tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 
@@ -161,7 +169,7 @@ it) with no space after the slashes (like `//go:build`), marks that declaration 
 It takes effect in every package and module that imports the declaration, not just the one that
 writes it: gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
 so an importing package's analysis sees them even though it never parses the file that carries the
-comment.
+comment, unless `--crossPackageDirectives=false` turns that propagation off.
 
 - `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
   not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
@@ -258,6 +266,7 @@ linters:
             - "^Make"
           use-default-factory-pattern: true
           only-with-factory: false
+          cross-package-directives: true
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
@@ -267,6 +276,7 @@ linters:
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
 - `only-with-factory` – equivalent to `--onlyWithFactory`.
+- `cross-package-directives` – equivalent to `--crossPackageDirectives`.
 
 ## Example
 
