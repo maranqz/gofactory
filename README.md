@@ -106,8 +106,8 @@ module itself, [tests](testdata/module/siblingfence).
 - `--packageGlobsOnly` – protect exactly the fence packages named by `--packageGlobs`, instead of
 every current-module type, [tests](testdata/module/packageGlobsOnly). A configuration error
 without at least one `--packageGlobs` pattern.
-- `--ignoreTypes` – list of qualified name globs (`import/path.Name`) for types that may be created
-without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
+- `--ignoreTypes` – repeatable; a qualified name glob (`import/path.Name`) for types that may be
+created without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
 For example, `mymod/geo.*` matches every type of package `mymod/geo`, and `mymod/a.Pair` matches
 the generic `Pair` with any type arguments. Type arguments in a glob are not supported, so a single
 instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
@@ -115,7 +115,8 @@ instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
 `mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`; `mymod/**` matches both.
 Name the type where it is defined: an alias's name does not match, and neither does a bare package
 path.
-Repeat the flag to give several globs.
+Repeat the flag to give several globs: a comma does not separate them. As with `--packageGlobs`, an
+empty glob or one starting with `/` is a configuration error.
 See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 - `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
 conversion or `new`, [tests](testdata/module/zeroValues).

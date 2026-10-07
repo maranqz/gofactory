@@ -612,9 +612,9 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 }
 
 // TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, an invalid glob, an empty glob, a glob starting
-// with '/', and an invalid -ignoreTypes glob are configuration errors
-// surfaced through both entry points.
+// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
+// starting with '/' in -packageGlobs or -ignoreTypes, are configuration
+// errors surfaced through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
@@ -641,6 +641,14 @@ func TestConfigurationErrors(t *testing.T) {
 		"invalid_ignoreTypes_glob": {
 			settings: caseSettings{ignoreTypes: []string{"["}},
 			want:     "unable to compile ignoreTypes pattern",
+		},
+		"empty_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"  "}},
+			want:     "ignoreTypes pattern must not be empty",
+		},
+		"leading_slash_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
+			want:     "ignoreTypes pattern must not start with '/'",
 		},
 	}
 	for name, tt := range tests {

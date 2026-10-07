@@ -27,9 +27,12 @@ const (
 	doc  = "Blocks the creation of structures directly, without a factory."
 	url  = "https://github.com/maranqz/gofactory"
 
+	packageGlobsFlag = "packageGlobs"
+	ignoreTypesFlag  = "ignoreTypes"
+
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
-	ignoreTypesDesc  = "list of qualified name globs (import/path.Name) for types that may be created without a factory"
+	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
 	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
@@ -52,11 +55,11 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer := newAnalyzer(cfg)
 
-	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
+	analyzer.Flags.Var(&cfg.pkgGlobs, packageGlobsFlag, packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
-	analyzer.Flags.Var(&cfg.ignoreTypes, "ignoreTypes", ignoreTypesDesc)
+	analyzer.Flags.Var(&cfg.ignoreTypes, ignoreTypesFlag, ignoreTypesDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
@@ -101,7 +104,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		ignoreTypes, err := compileIgnoreTypes(cfg.ignoreTypes.Value())
+		ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
 		if err != nil {
 			return nil, err
 		}
