@@ -155,12 +155,14 @@ team can adopt the linter gradually, starting from the types that already have o
 [tests](testdata/module/onlyWithFactory).
 - `--crossPackageDirectives` – propagate `//gofactory:` directives to importing packages and
 modules, `true` by default; see [Directives](#directives) below for what that means. Set to
-`false` on a large monorepo to trade that off for not analysing dependencies, which is faster: with
-it off, the analyzer declares no `FactTypes`, and `go vet`, golangci-lint and other drivers decide
-from `FactTypes` whether to analyse a package's dependencies at all, so they stop doing it. A
-directive still takes effect in the package that declares it, and settings such as `--ignoreTypes`
-and `--packageGlobs` still apply everywhere; only propagation to a directive's importers is turned
-off, [tests](testdata/module/crossPackageDirectives).
+`false` on a large monorepo to trade that off for less analysis of dependencies: with it off, the
+analyzer declares no `FactTypes`, so the standalone `gofactory` command no longer loads and
+analyses dependencies, and golangci-lint no longer runs gofactory on them (it still loads them if
+another enabled linter uses facts). `go vet` runs the tool on, and type-checks, every dependency
+either way, so there the setting saves only gofactory's own pass. A directive still takes effect in
+the package that declares it, and settings such as `--ignoreTypes` and `--packageGlobs` still apply
+everywhere; only propagation to a directive's importers is turned off,
+[tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 

@@ -13,7 +13,9 @@ or asking users to repeat `--ignoreTypes` per module.
 The trade-off: declaring `FactTypes` makes `go vet` and golangci-lint analyse the current package's
 full transitive dependency graph, not just its own files, which is slower on a large monorepo. We
 chose correctness-by-default over that cost; `-crossPackageDirectives=false` (#56) opts back out of
-the transitive analysis by clearing `FactTypes`, trading directive propagation for speed.
+the transitive analysis by clearing `FactTypes`, trading directive propagation for speed — except
+under `go vet`, which type-checks every dependency regardless of `FactTypes`, so there the setting
+only skips gofactory's own pass over them.
 
 A second cost: a configuration error, which `run` returns, now fails the analysis of every
 dependency as well. The standalone `gofactory` CLI prints the error once for each dependency without
