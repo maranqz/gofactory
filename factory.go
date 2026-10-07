@@ -40,8 +40,9 @@ const (
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
 
 	crossPackageDirectivesDesc = "propagate //gofactory: directives to importing packages and modules; " +
-		"false limits each directive to its own package and skips analysing dependencies, " +
-		"which speeds up the standalone command but not go vet: it type-checks them anyway"
+		"false limits each directive to its own package and skips analysing dependencies: " +
+		"a large speed-up for the standalone command, at most a small one under go vet, " +
+		"which type-checks them anyway"
 )
 
 // errPackageGlobsOnlyNeedsGlobs is the configuration error for
