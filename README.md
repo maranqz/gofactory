@@ -131,6 +131,18 @@ conversion or `new`, [tests](testdata/module/zeroValues).
   - Pointers, slices, maps and chans are not followed, and `make([]T, n)` and arrays are not reported yet, pending
     fill analysis: `var a [N]T` and `make([]T, n)` stay silent. A defined type such as
     `type Grid [3]T` or `type Tags []T` is a protected type itself, so `var g Grid` is reported.
+  - An unset by-value field of a protected type is reported at any depth through struct fields and embedding, with
+    the field path in the message, e.g. `Use factory for pkg.T: zero value in V.W.S`. A composite literal that
+    leaves such a field unset is reported (an empty literal, a partially keyed one for its unset fields only, or an
+    embedded field left out), and so is `new(W)`, which sets none; a fully positional literal sets every field, so
+    it reports nothing. A zero-valued variable of the enclosing type is reported the same way, under the first-interaction rule above, judged once for
+    the whole variable: writing one field, or passing that field's address to a call, still reports every protected
+    field of the variable at that write, the written one included, even though the write itself used a factory; only
+    a whole-value assignment or `&x` on the variable itself is silent. A path through an unexported field of another
+    package's type is reported too, though the reporting code can't set that field: the type's own methods can still
+    hand out its zero value, so the fix lies with a factory for the enclosing type. Fields behind a pointer, slice,
+    map, chan or array are not followed, and an array element in a field path is deferred like every other array,
+    pending fill analysis. Field-path analysis uses a per-type cache, benchmarked by `BenchmarkFieldPaths`.
   - Goes through the same owner-package and fences policy as every other route.
 - `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
 e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
@@ -184,7 +196,8 @@ When `T` has a factory the reported site can call, the message gets a suffix nam
 them, `New…` first, in a deterministic order: `Use factory for order.Order (order.NewOrder)`. A type
 with no accessible factory keeps the bare prefix. A zero value reported under `--zeroValues` adds
 `: zero value` right after the prefix, before any factory list:
-`Use factory for order.Order: zero value (order.NewOrder)`.
+`Use factory for order.Order: zero value (order.NewOrder)`. A zero value reported through a field
+path adds where the field is, e.g. `Use factory for order.Order: zero value in Shipment.Order (order.NewOrder)`.
 
 A factory is recognised automatically in `T`'s owner package when it is an exported function, or an
 exported method of another type than `T`, that returns `T` or `*T` among its results, takes no `T` or
