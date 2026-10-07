@@ -209,16 +209,17 @@ syntax](#glob-syntax)) or a qualified function- or method-name glob (`import/pat
 type's factory through any route, in every mode, [tests](testdata/module/trusted). See [Trusted
 code](#trusted-code) for the equivalent `//gofactory:trusted` directive and a reconstitution
 recipe.
-- `--crossPackageDirectives` – propagate `//gofactory:` directives to importing packages and
-modules, `true` by default; see [Directives](#directives) below for what that means. Set to
-`false` on a large monorepo to trade that off for less analysis of dependencies: with it off, the
-analyzer declares no `FactTypes`, so the standalone `gofactory` command no longer parses,
-type-checks and analyses dependencies from source (the `go` command still compiles them for their
-export data), and golangci-lint no longer runs gofactory on them (it still parses and type-checks
-them from source if another enabled linter uses facts). `go vet` runs the tool on, and type-checks,
-every dependency either way, so there the setting saves only gofactory's own pass. A directive
-still takes effect in the package that declares it, and settings such as `--ignoreTypes` and
-`--packageGlobs` still apply everywhere; only propagation to a directive's importers is turned off,
+- `--crossPackageDirectives` – propagate `//gofactory:ignore` to importing packages and modules,
+`true` by default; see [Directives](#directives) below for what that means (`//gofactory:trusted`
+never crosses a package boundary, so this setting does not concern it). Set to `false` on a large
+monorepo to trade that off for less analysis of dependencies: with it off, the analyzer declares no
+`FactTypes`, so the standalone `gofactory` command no longer parses, type-checks and analyses
+dependencies from source (the `go` command still compiles them for their export data), and
+golangci-lint no longer runs gofactory on them (it still parses and type-checks them from source if
+another enabled linter uses facts). `go vet` runs the tool on, and type-checks, every dependency
+either way, so there the setting saves only gofactory's own pass. `//gofactory:ignore` still takes
+effect in the package that declares it, and settings such as `--ignoreTypes` and `--packageGlobs`
+still apply everywhere; only propagation to importers is turned off,
 [tests](testdata/module/crossPackageDirectives).
 
 ### Directives

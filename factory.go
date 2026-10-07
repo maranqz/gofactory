@@ -42,8 +42,8 @@ const (
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
 
-	crossPackageDirectivesDesc = "propagate //gofactory: directives to importing packages and modules; " +
-		"false limits each directive to its own package and skips analysing dependencies: " +
+	crossPackageDirectivesDesc = "propagate //gofactory:ignore to importing packages and modules; " +
+		"false limits it to its own package and skips analysing dependencies: " +
 		"a large speed-up for the standalone command, at most a small one under go vet, " +
 		"which type-checks them anyway"
 )
