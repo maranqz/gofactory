@@ -143,10 +143,8 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	}
 }
 
-// buildStrategy builds the permission policy: module scope, narrowed by
-// fences when any are given, wrapped by trusted code last so that every
-// mode it wraps, including one added later, respects //gofactory:trusted
-// and -trusted without its own trusted check.
+// trustedStrategy must stay outermost: no strategy it wraps checks trust
+// itself.
 //
 //nolint:ireturn // the policy is a chain of blockedStrategy decorators.
 func buildStrategy(

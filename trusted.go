@@ -7,11 +7,8 @@ import (
 	"github.com/gobwas/glob"
 )
 
-// trustInfo collects //gofactory:trusted directives while checkDirectives
-// walks the package's files. Unlike //gofactory:ignore, a trusted
-// directive's effect is checked at the very site it annotates, which is
-// always in the package being analysed, so it never needs to cross a
-// package boundary and needs no analysis fact.
+// Unlike //gofactory:ignore, trust needs no analysis fact: it only affects
+// code in the package that declares it.
 type trustInfo struct {
 	pkg   bool
 	funcs map[*types.Func]bool
@@ -29,11 +26,6 @@ func (t *trustInfo) markFunc(fn *types.Func) {
 	t.funcs[fn] = true
 }
 
-// trustedCode decides whether a bypass site is infrastructure code doing
-// reconstitution, which may use every bypass route in every mode: a
-// function or method this pass found marked //gofactory:trusted, a package
-// whose doc comment carried it, or a -trusted glob matching the package
-// path or the qualified function or method name.
 type trustedCode struct {
 	globs []glob.Glob
 	trust *trustInfo
@@ -51,8 +43,6 @@ func (t trustedCode) isTrusted(pkg *types.Package, site *types.Func) bool {
 	return site != nil && (t.trust.funcs[site] || t.matchesFunc(site))
 }
 
-// matchesPackage is tested like a fence's package path, against both the
-// path and the path plus "/", so an exact path matches without a wildcard.
 func (t trustedCode) matchesPackage(pkgPath string) bool {
 	return slices.ContainsFunc(t.globs, func(g glob.Glob) bool {
 		return g.Match(pkgPath) || g.Match(pkgPath+"/")
@@ -67,9 +57,7 @@ func (t trustedCode) matchesFunc(fn *types.Func) bool {
 	})
 }
 
-// qualifiedFuncName renders function the way -trusted and -factories globs
-// name a function or method: import/path.Name, or import/path.Type.Method
-// for a method.
+// import/path.Name, or import/path.Type.Method for a method.
 func qualifiedFuncName(function *types.Func) string {
 	pkgPath := function.Pkg().Path()
 
@@ -80,10 +68,6 @@ func qualifiedFuncName(function *types.Func) string {
 	return pkgPath + "." + function.Name()
 }
 
-// trustedStrategy allows every bypass at a trusted site, in every mode,
-// before consulting wrapped. That ordering is what the permission policy
-// gets for free when a mode lands later, such as -ownPackage: it only ever
-// sees a site that trustedStrategy has already let through.
 type trustedStrategy struct {
 	trusted trustedCode
 	wrapped blockedStrategy

@@ -9,23 +9,21 @@ import (
 	"github.com/gobwas/glob"
 )
 
-// errEmptyGlobPattern is the configuration error for a -packageGlobs or
-// -ignoreTypes pattern that is empty after TrimSpace: it can never match a
-// package path or a qualified name, so it would silently do nothing.
+// errEmptyGlobPattern is the configuration error for a -packageGlobs,
+// -ignoreTypes or -trusted pattern that is empty after TrimSpace: it can
+// never match a package path or a qualified name, so it would silently do
+// nothing.
 var errEmptyGlobPattern = errors.New("pattern must not be empty")
 
-// errLeadingSlashGlobPattern is the configuration error for a -packageGlobs
-// or -ignoreTypes pattern starting with '/': gitignore gives a leading '/' a
-// special "from the root" meaning, but a Go package path, and so a qualified
-// name, never starts with '/', so such a pattern would compile and silently
-// match nothing.
+// errLeadingSlashGlobPattern is the configuration error for a -packageGlobs,
+// -ignoreTypes or -trusted pattern starting with '/': gitignore gives a
+// leading '/' a special "from the root" meaning, but a Go package path, and
+// so a qualified name, never starts with '/', so such a pattern would
+// compile and silently match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
 // site is the enclosing function or method of the code being checked for a
-// bypass, or nil at package scope (a package-level var, for instance). Only
-// trustedStrategy consults it today; a strategy that doesn't care about the
-// site, such as fencedPkgs, still receives and threads it through so that a
-// mode added later can.
+// bypass, or nil at package scope (a package-level var, for instance).
 type blockedStrategy interface {
 	IsBlocked(
 		currentPkg *types.Package, identObj types.Object, site *types.Func,

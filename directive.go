@@ -26,7 +26,7 @@ const (
 	declPackage
 )
 
-// factory is only placement-checked so far.
+// factory is placement-checked but has no effect.
 const (
 	directiveIgnore  = "ignore"
 	directiveFactory = "factory"
@@ -60,9 +60,6 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-// checkDirectives also collects //gofactory:trusted directives into the
-// returned trustInfo: its effect is intra-pass (see trustInfo), so it has
-// no fact to export and nothing to apply to a types.Object here.
 func checkDirectives(pass *analysis.Pass) *trustInfo {
 	trust := newTrustInfo()
 
@@ -139,9 +136,8 @@ func checkGenDeclDirectives(
 	}
 }
 
-// node is the declaration the directive would apply to: *ast.TypeSpec for
-// declType/declAlias, *ast.FuncDecl for declFunc, nil for declPackage and
-// declOther, where no directive can take effect.
+// node is *ast.TypeSpec for declType and declAlias, *ast.FuncDecl for
+// declFunc, nil otherwise.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,

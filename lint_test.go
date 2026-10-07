@@ -261,9 +261,6 @@ func factorySettingCases() map[string]linterSuiteCase {
 	}
 }
 
-// trustedCases exercises -trusted, the glob-flag counterpart to the
-// //gofactory:trusted directive effect covered under the "directive" case's
-// trustedfunc/ and trustedpkg/ testdata.
 func trustedCases() map[string]linterSuiteCase {
 	return map[string]linterSuiteCase{
 		"trusted": {
@@ -636,11 +633,9 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 	r.messages = append(r.messages, fmt.Sprintf(format, args...))
 }
 
-// configurationErrorCase is one TestConfigurationErrors case: settings that
-// should fail validation, and a substring of the error message they produce.
 type configurationErrorCase struct {
 	settings caseSettings
-	want     string
+	want     string // substring of the error
 }
 
 func configurationErrorCases() map[string]configurationErrorCase {

@@ -27,11 +27,8 @@ type detector struct {
 
 	fieldPathCache map[types.Type][]fieldPath
 
-	// currentFn is the enclosing function or method of the node being
-	// checked, set while visit is inside a *ast.FuncDecl, and nil at
-	// package scope. A closure inherits it: visit does not change it when
-	// entering a *ast.FuncLit, since a //gofactory:trusted directive can
-	// only be placed on a FuncDecl.
+	// currentFn is the FuncDecl enclosing the checked node, nil at package
+	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
 }
 
@@ -56,10 +53,8 @@ func newDetector(
 	}
 }
 
-// visit is an inspector.Inspector.WithStack callback rather than a plain
-// Preorder one, because a trusted site needs the exit edge too: a *ast.
-// FuncDecl cannot nest in Go, so push sets currentFn and pop always clears
-// it back to package scope.
+// A FuncDecl cannot nest, so pop resets currentFn to nil rather than
+// restoring it.
 func (d *detector) visit(node ast.Node, push bool, _ []ast.Node) bool {
 	decl, ok := node.(*ast.FuncDecl)
 	if ok {
