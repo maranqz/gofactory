@@ -452,8 +452,8 @@ actual output. Every case added there must carry such a `// want` comment.
    elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
 7. A declared factory (`//gofactory:factory` or `--factories`) is suggested, and counted by
-   `--onlyWithFactory`, only in a package that imports its package directly; a package that reaches
-   the protected type through some other package never sees it,
+   `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
+   the declaring package only through another package, or not at all, never sees it,
    [example](testdata/module/unimplemented/visibility/).
 
 ## TODO
