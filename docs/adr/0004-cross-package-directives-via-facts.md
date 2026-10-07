@@ -23,4 +23,4 @@ Checking settings while flags are parsed can't avoid this: `-packageGlobsOnly` w
 `-packageGlobs` can only be caught once every flag is set. Reading directives in a separate analyzer
 that takes no settings can: only it would declare `FactTypes` and run on dependencies, while the
 main analyzer, which checks the settings, would run only on the packages being linted. We leave
-that split to its own ticket under #43.
+that split to #81.
