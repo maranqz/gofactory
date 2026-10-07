@@ -16,6 +16,7 @@ type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
 	ignoreTypes  globsFlag
+	trusted      globsFlag
 	zeroValues   bool
 
 	extraFactoryPatterns     regexpsFlag
@@ -29,6 +30,7 @@ type compiledGlobs struct {
 	fences       []fence
 	ignoreTypes  []glob.Glob
 	factoryGlobs []glob.Glob
+	trustedGlobs []glob.Glob
 }
 
 const (
@@ -39,10 +41,12 @@ const (
 	packageGlobsFlag = "packageGlobs"
 	ignoreTypesFlag  = "ignoreTypes"
 	factoriesFlag    = "factories"
+	trustedFlag      = "trusted"
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
 	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
+	trustedDesc      = "package-path or qualified function/method-name glob, repeatable; matching code may bypass any protected type's factory through any route"
 	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
@@ -71,6 +75,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
 
 	analyzer.Flags.Var(&cfg.ignoreTypes, ignoreTypesFlag, ignoreTypesDesc)
+
+	analyzer.Flags.Var(&cfg.trusted, trustedFlag, trustedDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
@@ -111,19 +117,11 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		checkDirectives(pass)
+		trust := checkDirectives(pass)
 		exportFlagFactories(pass, compiled.factoryGlobs)
 
-		var strategy blockedStrategy = newCurrentModule(modulePathOf(pass))
-
-		if len(compiled.fences) > 0 {
-			defaultStrategy := strategy
-			if cfg.onlyPkgGlobs {
-				defaultStrategy = newNilPkg()
-			}
-
-			strategy = newFencedPkgs(compiled.fences, defaultStrategy)
-		}
+		trusted := newTrustedCode(compiled.trustedGlobs, trust)
+		strategy := buildStrategy(cfg, pass, compiled.fences, trusted)
 
 		v := newDetector(
 			pass, strategy, compiled.ignoreTypes, cfg.zeroValues,
@@ -136,7 +134,12 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-		visitPackage(insp, v)
+		insp.WithStack([]ast.Node{
+			(*ast.CompositeLit)(nil),
+			(*ast.CallExpr)(nil),
+			(*ast.FuncDecl)(nil),
+			(*ast.FuncLit)(nil),
+		}, v.visit)
 
 		return nil, nil
 	}
@@ -164,44 +167,41 @@ func (cfg *config) compile() (compiledGlobs, error) {
 		return compiledGlobs{}, err
 	}
 
+	trustedGlobs, err := compileGlobs(trustedFlag, cfg.trusted.Value())
+	if err != nil {
+		return compiledGlobs{}, err
+	}
+
 	return compiledGlobs{
 		fences:       fences,
 		ignoreTypes:  ignoreTypes,
 		factoryGlobs: factoryGlobs,
+		trustedGlobs: trustedGlobs,
 	}, nil
 }
 
-func modulePathOf(pass *analysis.Pass) string {
-	if pass.Module == nil {
-		return ""
+// trustedStrategy must stay outermost: no strategy it wraps checks trust
+// itself.
+func buildStrategy(
+	cfg *config, pass *analysis.Pass, fences []fence, trusted trustedCode,
+) trustedStrategy {
+	var modulePath string
+	if pass.Module != nil {
+		modulePath = pass.Module.Path
 	}
 
-	return pass.Module.Path
-}
+	var strategy blockedStrategy = newCurrentModule(modulePath)
 
-func visitPackage(insp *inspector.Inspector, v *detector) {
-	nodeTypes := []ast.Node{
-		(*ast.CompositeLit)(nil),
-		(*ast.CallExpr)(nil),
-		(*ast.FuncDecl)(nil),
-		(*ast.FuncLit)(nil),
+	if len(fences) > 0 {
+		defaultStrategy := strategy
+		if cfg.onlyPkgGlobs {
+			defaultStrategy = newNilPkg()
+		}
+
+		strategy = newFencedPkgs(fences, defaultStrategy)
 	}
 
-	insp.Nodes(nodeTypes, func(node ast.Node, push bool) bool {
-		if funcDecl, ok := node.(*ast.FuncDecl); ok {
-			if push {
-				v.enterFuncDecl(funcDecl)
-			} else {
-				v.leaveFuncDecl()
-			}
-		}
-
-		if push {
-			v.visit(node)
-		}
-
-		return true
-	})
+	return newTrustedStrategy(trusted, strategy)
 }
 
 func (cfg *config) recognitionPatterns() []*regexp.Regexp {

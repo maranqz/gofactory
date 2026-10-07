@@ -244,11 +244,11 @@ func factoryQualifiedName(factory *types.Func) string {
 	return qualifiedName(factory.Pkg().Name(), factory)
 }
 
-func qualifiedName(pkgPart string, factory *types.Func) string {
-	recv := receiverNamed(factory)
+func qualifiedName(qualifier string, function *types.Func) string {
+	recv := receiverNamed(function)
 	if recv == nil {
-		return pkgPart + "." + factory.Name()
+		return qualifier + "." + function.Name()
 	}
 
-	return pkgPart + "." + recv.Obj().Name() + "." + factory.Name()
+	return qualifier + "." + recv.Obj().Name() + "." + function.Name()
 }

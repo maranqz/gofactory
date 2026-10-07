@@ -26,8 +26,11 @@ type detector struct {
 	declared  factoryIndex
 	suffixes  map[*types.TypeName]string
 
-	fieldPathCache        map[types.Type][]fieldPath
-	currentFactoryTargets []*types.TypeName
+	fieldPathCache map[types.Type][]fieldPath
+
+	// currentFn is the FuncDecl enclosing the checked node, nil at package
+	// scope; a closure counts as its enclosing FuncDecl.
+	currentFn *types.Func
 }
 
 func newDetector(
@@ -53,25 +56,13 @@ func newDetector(
 	}
 }
 
-// enterFuncDecl and leaveFuncDecl track the permission to bypass a declared
-// factory's own target types inside its body, as visitPackage pushes and
-// pops a *ast.FuncDecl frame. A closure shares its enclosing declaration's
-// permission, since a *ast.FuncLit frame leaves it untouched; Go disallows
-// nesting one FuncDecl inside another, so at most one is ever active.
-func (d *detector) enterFuncDecl(funcDecl *ast.FuncDecl) {
-	factory, ok := d.pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
-	if !ok {
-		return
+func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
+	if !push {
+		return true
 	}
 
-	d.currentFactoryTargets = d.declaredFactoryTargets(factory)
-}
+	d.currentFn = d.topLevelFunc(stack)
 
-func (d *detector) leaveFuncDecl() {
-	d.currentFactoryTargets = nil
-}
-
-func (d *detector) visit(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -82,11 +73,33 @@ func (d *detector) visit(node ast.Node) {
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
+
+	return true
 }
 
+// stack[0] is the *ast.File, so stack[1] is the top-level declaration
+// holding the visited node.
+func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
+	decl, ok := stack[1].(*ast.FuncDecl)
+	if !ok {
+		return nil
+	}
+
+	fn, _ := d.pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
+
+	return fn
+}
+
+// declaredFactoryTargets is the permission to bypass a declared factory's
+// own target types inside its body, including a closure's, since
+// topLevelFunc resolves a closure to its enclosing declaration.
 func (d *detector) declaredFactoryTargets(
 	factory *types.Func,
 ) []*types.TypeName {
+	if factory == nil {
+		return nil
+	}
+
 	var fact factoryFact
 	if !d.pass.ImportObjectFact(factory, &fact) {
 		return nil
@@ -109,11 +122,11 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
-	if slices.Contains(d.currentFactoryTargets, named.Obj()) {
+	if slices.Contains(d.declaredFactoryTargets(d.currentFn), named.Obj()) {
 		return
 	}
 
-	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
+	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn) {
 		return
 	}
 
@@ -128,9 +141,11 @@ func (d *detector) isIgnored(named *types.Named) bool {
 		return true
 	}
 
-	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+	name := obj.Pkg().Path() + "." + obj.Name()
 
-	return matchesAnyGlob(d.ignoreTypes, qualifiedName)
+	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
+		return g.Match(name)
+	})
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named, route string) {

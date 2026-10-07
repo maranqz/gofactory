@@ -1,6 +1,6 @@
-// Package reserved holds the trusted directive, still placement-checked
-// with no effect, and the factory directive's placement rules; the
-// factory directive's effect is exercised in declaredFactories.
+// Package reserved holds the factory and trusted directives' placement
+// rules, and the fact the factory directive exports. Struct belongs to
+// this package, so the package-level trust has no visible effect here.
 //
 //gofactory:trusted
 package reserved

@@ -106,6 +106,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	maps.Copy(cases, ignoredTypeCases())
 	maps.Copy(cases, factorySettingCases())
 	maps.Copy(cases, declaredFactoryCases())
+	maps.Copy(cases, trustedCases())
 
 	return cases
 }
@@ -288,6 +289,26 @@ func declaredFactoryCases() map[string]linterSuiteCase {
 	}
 }
 
+func trustedCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"trusted": {
+			pkgs: []string{"trusted/..."},
+			settings: caseSettings{
+				trusted: []string{
+					"factory/trusted/pkg",
+					"factory/trusted/funcname.Reconstitute",
+					"factory/trusted/funcname.Repo.Load",
+					"factory/trusted/funcname.Repo.LoadAsPtr",
+				},
+			},
+		},
+		"trustedFence": {
+			pkgs:     []string{"trustedfence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/trustedtarget"}},
+		},
+	}
+}
+
 // TestLinterSuite runs every case through every entry point that populates
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
@@ -371,6 +392,7 @@ type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
 	ignoreTypes      []string
+	trusted          []string
 	zeroValues       bool
 
 	factoryPatterns          []string
@@ -418,6 +440,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	for _, g := range s.factories {
 		setFlag(t, analyzer, "factories", g)
+	}
+
+	for _, g := range s.trusted {
+		setFlag(t, analyzer, "trusted", g)
 	}
 
 	return analyzer
@@ -476,6 +502,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
 		"ignore-types":       s.ignoreTypes,
+		"trusted":            s.trusted,
 		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
@@ -648,7 +675,7 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 
 type configurationErrorCase struct {
 	settings caseSettings
-	want     string
+	want     string // substring of the error
 }
 
 func configurationErrorCases() map[string]configurationErrorCase {
@@ -693,11 +720,25 @@ func configurationErrorCases() map[string]configurationErrorCase {
 			settings: caseSettings{factories: []string{"/factory/declaredFactories/flagged.MakeFlagged"}},
 			want:     "factories pattern must not start with '/'",
 		},
+		"invalid_trusted_glob": {
+			settings: caseSettings{trusted: []string{"["}},
+			want:     "unable to compile trusted pattern",
+		},
+		"empty_trusted_glob": {
+			settings: caseSettings{trusted: []string{"  "}},
+			want:     "trusted pattern must not be empty",
+		},
+		"leading_slash_trusted_glob": {
+			settings: caseSettings{trusted: []string{"/factory/trusted/pkg"}},
+			want:     "trusted pattern must not start with '/'",
+		},
 	}
 }
 
-// TestConfigurationErrors checks that each configurationErrorCase surfaces
-// as a configuration error through both entry points.
+// TestConfigurationErrors checks that -packageGlobsOnly without any
+// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
+// starting with '/' in any glob flag, are configuration errors surfaced
+// through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 

@@ -9,21 +9,23 @@ import (
 	"github.com/gobwas/glob"
 )
 
-// errEmptyGlobPattern is the configuration error for a -packageGlobs,
-// -ignoreTypes or -factories pattern that is empty after TrimSpace: it can
-// never match a package path or a qualified name, so it would silently do
-// nothing.
+// errEmptyGlobPattern is the configuration error for a glob-flag pattern
+// (see compileGlobs) that is empty after TrimSpace: it can never match a
+// package path or a qualified name, so it would silently do nothing.
 var errEmptyGlobPattern = errors.New("pattern must not be empty")
 
-// errLeadingSlashGlobPattern is the configuration error for a -packageGlobs,
-// -ignoreTypes or -factories pattern starting with '/': gitignore gives a
-// leading '/' a special "from the root" meaning, but a Go package path, and
-// so a qualified name, never starts with '/', so such a pattern would
-// compile and silently match nothing.
+// errLeadingSlashGlobPattern is the configuration error for a glob-flag
+// pattern (see compileGlobs) starting with '/': gitignore gives a leading
+// '/' a special "from the root" meaning, but a Go package path, and so a
+// qualified name, never starts with '/', so such a pattern would compile
+// and silently match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
+// currentFn is nil at package scope (a package-level var, for instance).
 type blockedStrategy interface {
-	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
+	IsBlocked(
+		currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
+	) bool
 }
 
 type nilPkg struct{}
@@ -32,7 +34,7 @@ func newNilPkg() nilPkg {
 	return nilPkg{}
 }
 
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object) bool {
+func (nilPkg) IsBlocked(_ *types.Package, _ types.Object, _ *types.Func) bool {
 	return false
 }
 
@@ -45,6 +47,7 @@ func newAnotherPkg() anotherPkg {
 func (anotherPkg) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
+	_ *types.Func,
 ) bool {
 	return currentPkg.Path() != identObj.Pkg().Path()
 }
@@ -100,7 +103,11 @@ func compileGlobs(flag string, patterns []string) ([]glob.Glob, error) {
 }
 
 func (f fence) contains(pkgPath string) bool {
-	return f.glob.Match(pkgPath) || f.glob.Match(pkgPath+"/")
+	return matchesPackagePath(f.glob, pkgPath)
+}
+
+func matchesPackagePath(g glob.Glob, pkgPath string) bool {
+	return g.Match(pkgPath) || g.Match(pkgPath+"/")
 }
 
 // fencedPkgs applies the intersection rule: a type whose package lies in
@@ -125,6 +132,7 @@ func newFencedPkgs(
 func (s fencedPkgs) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
+	currentFn *types.Func,
 ) bool {
 	identPkgPath := identObj.Pkg().Path()
 
@@ -143,7 +151,7 @@ func (s fencedPkgs) IsBlocked(
 	}
 
 	if !inAnyFence {
-		return s.defaultStrategy.IsBlocked(currentPkg, identObj)
+		return s.defaultStrategy.IsBlocked(currentPkg, identObj, currentFn)
 	}
 
 	return false
