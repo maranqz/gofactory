@@ -278,8 +278,11 @@ func New(id string) *pb.Order {
 A declared factory may itself bypass the factories of the types it is a factory of, inside its own
 body (including a closure it defines, which shares its enclosing top-level declaration's
 permission), the same way a recognised factory may bypass its own type's factory in its owner
-package; it gains no permission over any other type. In a package that imports its package
-directly, calling it is suggested in messages the same way a recognised factory is,
+package; it gains no permission over any other type. This holds even when the type lies in a
+fence (see [Fences](#fences)) that the factory's package is outside of,
+[tests](testdata/module/declaredFactoriesFence): a declared factory is a statement about that
+function, independent of where it lives. In a package that imports its package directly, calling
+it is suggested in messages the same way a recognised factory is,
 [tests](testdata/module/declaredFactories). There it also counts for `--onlyWithFactory`, even
 with `--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactoriesOnlyWithFactory).
 

@@ -286,6 +286,10 @@ func declaredFactoryCases() map[string]linterSuiteCase {
 			pkgs:     []string{"declaredFactoriesZeroValues/..."},
 			settings: caseSettings{zeroValues: true},
 		},
+		"declaredFactoriesFence": {
+			pkgs:     []string{"declaredFactoriesFence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/declaredFactoriesFence/owner/**"}},
+		},
 	}
 }
 
