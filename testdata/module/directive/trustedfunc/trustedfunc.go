@@ -1,7 +1,8 @@
 // Package trustedfunc checks that //gofactory:trusted on a function or a
 // method lets it bypass trustedtarget's factory through every route, a
-// closure inside it included, while an untrusted function and its own
-// closure are still checked.
+// closure inside it included, while an untrusted function, its own
+// closure, and package scope once the trusted function ends, are still
+// checked.
 package trustedfunc
 
 import "factory/trustedtarget"
@@ -22,6 +23,8 @@ func Reconstitute() {
 		_ = trustedtarget.Struct{}
 	}()
 }
+
+var after = trustedtarget.Struct{} // want `Use factory for trustedtarget.Struct \(trustedtarget.NewStruct\)`
 
 type Repo struct{}
 
