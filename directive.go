@@ -28,7 +28,7 @@ const (
 	declPackage
 )
 
-// factory and trusted are only placement-checked.
+// trusted is only placement-checked.
 const (
 	directiveIgnore  = "ignore"
 	directiveFactory = "factory"
@@ -229,11 +229,6 @@ func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
 	pass.ExportObjectFact(obj, &ignoredFact{})
 }
 
-// applyFactory makes funcDecl a declared factory of each protected type
-// among its results (protectedResultTargets drops an error result on its
-// own: error is a universe-scoped interface, neither a protected kind).
-// With none, the directive is reported instead of taking effect: it would
-// otherwise do nothing while looking like it did something.
 func applyFactory(
 	pass *analysis.Pass, comment *ast.Comment, funcDecl *ast.FuncDecl,
 ) {

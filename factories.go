@@ -146,8 +146,7 @@ func takesTarget(sig *types.Signature, target *types.TypeName) bool {
 }
 
 // Outside its package, a method of an unexported type renders as
-// pkg.builder.NewX, which doesn't compile. The result is a fresh slice:
-// factorySuffix sorts it, and factories belongs to the cached index.
+// pkg.builder.NewX, which doesn't compile.
 func accessibleFactories(
 	site *types.Package, factories []*types.Func,
 ) []*types.Func {

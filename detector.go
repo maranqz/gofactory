@@ -70,12 +70,10 @@ func (d *detector) visit(node ast.Node, stack []ast.Node) {
 	}
 }
 
-// enclosingFactoryTargets returns the protected types that node's nearest
-// enclosing top-level function or method is a declared factory of, so that
-// one may bypass their factories inside its own body. A closure takes its
-// enclosing top-level declaration's targets, not its own: stack is walked
-// from the innermost node outward, skipping over any *ast.FuncLit frames,
-// so a closure inside a declared factory shares its permission.
+// enclosingFactoryTargets returns the protected types the enclosing
+// top-level function or method is a declared factory of. A closure shares
+// its enclosing declaration's permission: stack is walked from the
+// innermost node outward, skipping over any *ast.FuncLit frames.
 func (d *detector) enclosingFactoryTargets(stack []ast.Node) []*types.TypeName {
 	for _, node := range slices.Backward(stack) {
 		funcDecl, ok := node.(*ast.FuncDecl)
@@ -179,9 +177,7 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 		d.factories[target.Pkg()] = index
 	}
 
-	// A function recognised by name pattern in target's own package may
-	// also carry a //gofactory:factory directive or match -factories;
-	// append only skips it the second time to avoid listing it twice.
+	// A recognised factory may also be declared; skip adding it twice.
 	factories := append([]*types.Func{}, index[target]...)
 	for _, fn := range d.declared[target] {
 		if !slices.Contains(factories, fn) {

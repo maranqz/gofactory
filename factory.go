@@ -136,8 +136,6 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	}
 }
 
-// compileGlobs compiles every glob-shaped setting, returning the first
-// configuration error it meets.
 func (cfg *config) compileGlobs() ([]fence, []glob.Glob, []glob.Glob, error) {
 	patterns := cfg.pkgGlobs.Value()
 
@@ -171,10 +169,6 @@ func modulePathOf(pass *analysis.Pass) string {
 	return pass.Module.Path
 }
 
-// visitPackage walks every CompositeLit, CallExpr, FuncDecl and FuncLit of
-// the package, WithStack rather than Preorder: v.visit needs the traversal
-// stack to find the enclosing top-level function or method, to know
-// whether it may bypass a declared factory's own target types.
 func visitPackage(insp *inspector.Inspector, v *detector) {
 	nodeTypes := []ast.Node{
 		(*ast.CompositeLit)(nil),

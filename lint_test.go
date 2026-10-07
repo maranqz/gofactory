@@ -635,10 +635,6 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 	r.messages = append(r.messages, fmt.Sprintf(format, args...))
 }
 
-// TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
-// starting with '/' in -packageGlobs or -ignoreTypes, are configuration
-// errors surfaced through both entry points.
 type configurationErrorCase struct {
 	settings caseSettings
 	want     string
@@ -689,6 +685,8 @@ func configurationErrorCases() map[string]configurationErrorCase {
 	}
 }
 
+// TestConfigurationErrors checks that each configurationErrorCase surfaces
+// as a configuration error through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 

@@ -53,9 +53,7 @@ type NoDirective struct{}
 // rule a recognised factory follows.
 type Inaccessible struct{}
 
-// Unmarked has no factory anywhere either, like NoDirective; both are
-// bypassed from main.go to show the bare-prefix message still applies
-// alongside the declared-factory suggestions above.
+// Unmarked has no factory anywhere either, like NoDirective.
 type Unmarked struct{}
 
 // RedundantlyDeclared already matches the default ^New pattern; marking

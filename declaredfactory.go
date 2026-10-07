@@ -8,11 +8,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// protectedResultTargets is resultTargets filtered to protected kinds: it
-// is what "a protected type among its results" (the directive's placement
-// rule, and -factories' and //gofactory:factory's "factory of") means for
-// a declared factory, so error results, interfaces and func types never
-// qualify a function and are never targets of it.
+// protectedResultTargets is resultTargets filtered to protected kinds only;
+// module scope, fences and ignored types are decided at the site, not here.
 func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 	var targets []*types.TypeName
 
@@ -55,10 +52,8 @@ func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 
 // declaredFactoryQualifiedName is what a -factories glob matches against:
 // import/path.Func or import/path.Type.Method. Unlike factoryQualifiedName
-// (the message suffix), it names the package by import path rather than by
-// its local identifier, because a glob must match the same string
-// regardless of how the matched function's package happens to be imported
-// elsewhere.
+// (the message suffix), it names the package by import path, not by
+// Pkg().Name() (the package clause).
 func declaredFactoryQualifiedName(factory *types.Func) string {
 	pkgPath := factory.Pkg().Path()
 
@@ -71,11 +66,9 @@ func declaredFactoryQualifiedName(factory *types.Func) string {
 }
 
 // exportFlagFactories applies -factories to every top-level function and
-// method of the current package: a name matching any glob is a declared
-// factory, exported the same way the //gofactory:factory directive is, so
-// that declaredFactoryIndex finds both alike. Unlike the directive, a match
-// with no protected type among its results is not a configuration error:
-// a glob, like -ignoreTypes, may simply match nothing relevant.
+// method of the current package, exporting a factoryFact the same way
+// //gofactory:factory does. Unlike the directive, a match with no
+// protected type among its results is skipped silently, not reported.
 func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) {
 	if len(globs) == 0 {
 		return
@@ -92,9 +85,10 @@ func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) {
 	}
 }
 
-// Aliases are skipped for the same reason indexFactories.addMethods skips
-// them: under GODEBUG=gotypesalias=0 an alias's Type() is the aliased
-// *types.Named itself.
+// Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
+// the aliased *types.Named itself, so an alias of another package's type
+// would hand back that package's methods, and ExportObjectFact panics when
+// asked to export a fact on an object from another package.
 func exportFlagFactoryMethods(
 	pass *analysis.Pass, globs []glob.Glob, receiver *types.TypeName,
 ) {
