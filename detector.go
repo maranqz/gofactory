@@ -53,29 +53,20 @@ func newDetector(
 	}
 }
 
-// A FuncDecl cannot nest, so pop resets currentFn to nil rather than
-// restoring it.
-func (d *detector) visit(node ast.Node, push bool, _ []ast.Node) bool {
-	decl, ok := node.(*ast.FuncDecl)
-	if ok {
-		if push {
-			d.enterFunc(decl)
-		} else {
-			d.currentFn = nil
-		}
-
-		return true
-	}
-
+func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	if !push {
 		return true
 	}
+
+	d.currentFn = d.topLevelFunc(stack)
 
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
 	case *ast.CallExpr:
 		d.checkCall(node)
+	case *ast.FuncDecl:
+		d.checkFuncZeroValues(node.Type, node.Body)
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
@@ -83,9 +74,17 @@ func (d *detector) visit(node ast.Node, push bool, _ []ast.Node) bool {
 	return true
 }
 
-func (d *detector) enterFunc(decl *ast.FuncDecl) {
-	d.currentFn, _ = d.pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
-	d.checkFuncZeroValues(decl.Type, decl.Body)
+// stack[0] is the *ast.File, so stack[1] is the top-level declaration
+// holding the visited node.
+func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
+	decl, ok := stack[1].(*ast.FuncDecl)
+	if !ok {
+		return nil
+	}
+
+	fn, _ := d.pass.TypesInfo.ObjectOf(decl.Name).(*types.Func)
+
+	return fn
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
