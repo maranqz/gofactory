@@ -103,6 +103,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	cases := baseLinterSuiteCases()
 
 	maps.Copy(cases, fenceLinterSuiteCases())
+	maps.Copy(cases, ignoredTypeCases())
 	maps.Copy(cases, factorySettingCases())
 
 	return cases
@@ -185,6 +186,30 @@ func fenceLinterSuiteCases() map[string]linterSuiteCase {
 			pkgs: []string{"siblingfence/..."},
 			settings: caseSettings{
 				packageGlobs: []string{siblingModulePath + "/**"},
+			},
+		},
+	}
+}
+
+func ignoredTypeCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"directive": {
+			pkgs: []string{"directive/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"sibling/**"},
+				zeroValues:   true,
+			},
+		},
+
+		"ignoreTypes": {
+			pkgs: []string{"ignoreTypes/main/..."},
+			settings: caseSettings{
+				ignoreTypes: []string{
+					"factory/ignoreTypes/exact.Struct",
+					"factory/ignoreTypes/generic.Pair",
+					"factory/ignoreTypes/glob/*",
+				},
+				zeroValues: true,
 			},
 		},
 	}
@@ -317,6 +342,7 @@ func forEachEntryPoint(
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+	ignoreTypes      []string
 	zeroValues       bool
 
 	factoryPatterns          []string
@@ -354,6 +380,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	if s.zeroValues {
 		setFlag(t, analyzer, "zeroValues", "true")
+	}
+
+	for _, g := range s.ignoreTypes {
+		setFlag(t, analyzer, "ignoreTypes", g)
 	}
 
 	return analyzer
@@ -411,6 +441,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"ignore-types":       s.ignoreTypes,
 		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
@@ -581,9 +612,9 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 }
 
 // TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, an invalid glob, an empty glob, and a glob
-// starting with '/' are configuration errors surfaced through both entry
-// points.
+// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
+// starting with '/' in -packageGlobs or -ignoreTypes, are configuration
+// errors surfaced through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
@@ -607,6 +638,18 @@ func TestConfigurationErrors(t *testing.T) {
 			settings: caseSettings{packageGlobs: []string{"/sibling/**"}},
 			want:     "packageGlobs pattern must not start with '/'",
 		},
+		"invalid_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"["}},
+			want:     "unable to compile ignoreTypes pattern",
+		},
+		"empty_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"  "}},
+			want:     "ignoreTypes pattern must not be empty",
+		},
+		"leading_slash_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
+			want:     "ignoreTypes pattern must not start with '/'",
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -615,7 +658,11 @@ func TestConfigurationErrors(t *testing.T) {
 			forEachEntryPoint(t, tt.settings,
 				func(t *testing.T, analyzer *analysis.Analyzer) {
 					rec := &recordingTesting{}
-					analysistest.Run(rec, moduleRoot(), analyzer, filepath.Join(moduleRoot(), "simple"))
+					// The root package imports nothing: FactTypes runs the
+					// analyzer on every dependency first, and analysistest
+					// reports a root whose dependency failed only as "failed
+					// prerequisites", without the dependency's error.
+					analysistest.Run(rec, moduleRoot(), analyzer, moduleRoot())
 
 					if len(rec.messages) == 0 {
 						t.Fatalf("got no configuration error, want one containing %q", tt.want)

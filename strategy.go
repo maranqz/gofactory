@@ -9,16 +9,17 @@ import (
 	"github.com/gobwas/glob"
 )
 
-// errEmptyPackageGlobPattern is the configuration error for a -packageGlobs
-// pattern that is empty after TrimSpace: it can never match a package, so
-// it would silently protect nothing instead of forming a fence.
-var errEmptyPackageGlobPattern = errors.New("packageGlobs pattern must not be empty")
+// errEmptyGlobPattern is the configuration error for a -packageGlobs or
+// -ignoreTypes pattern that is empty after TrimSpace: it can never match a
+// package path or a qualified name, so it would silently do nothing.
+var errEmptyGlobPattern = errors.New("pattern must not be empty")
 
 // errLeadingSlashGlobPattern is the configuration error for a -packageGlobs
-// pattern starting with '/': gitignore gives a leading '/' a special
-// "from the root" meaning, but a Go package path never starts with '/', so
-// such a pattern would compile and silently match nothing.
-var errLeadingSlashGlobPattern = errors.New("packageGlobs pattern must not start with '/'")
+// or -ignoreTypes pattern starting with '/': gitignore gives a leading '/' a
+// special "from the root" meaning, but a Go package path, and so a qualified
+// name, never starts with '/', so such a pattern would compile and silently
+// match nothing.
+var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
 type blockedStrategy interface {
 	IsBlocked(currentPkg *types.Package, identObj types.Object) bool
@@ -57,36 +58,44 @@ type fence struct {
 	glob glob.Glob
 }
 
-func newFence(pattern string) (fence, error) {
-	if pattern == "" {
-		return fence{}, errEmptyPackageGlobPattern
-	}
-
-	if strings.HasPrefix(pattern, "/") {
-		return fence{}, errLeadingSlashGlobPattern
-	}
-
-	compiled, err := glob.Compile(pattern, '/')
-	if err != nil {
-		return fence{}, fmt.Errorf("unable to compile packageGlobs pattern %q: %w", pattern, err)
-	}
-
-	return fence{glob: compiled}, nil
-}
-
 func newFences(patterns []string) ([]fence, error) {
-	fences := make([]fence, 0, len(patterns))
+	globs, err := compileGlobs(packageGlobsFlag, patterns)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, pattern := range patterns {
-		f, err := newFence(pattern)
-		if err != nil {
-			return nil, err
-		}
-
-		fences = append(fences, f)
+	fences := make([]fence, 0, len(globs))
+	for _, g := range globs {
+		fences = append(fences, fence{glob: g})
 	}
 
 	return fences, nil
+}
+
+// compileGlobs compiles the patterns of flag with '/' as the only separator,
+// so '*' does not cross a package boundary but does cross the '.' of a
+// qualified name (import/path.Name).
+func compileGlobs(flag string, patterns []string) ([]glob.Glob, error) {
+	globs := make([]glob.Glob, 0, len(patterns))
+
+	for _, pattern := range patterns {
+		if pattern == "" {
+			return nil, fmt.Errorf("%s %w", flag, errEmptyGlobPattern)
+		}
+
+		if strings.HasPrefix(pattern, "/") {
+			return nil, fmt.Errorf("%s %w", flag, errLeadingSlashGlobPattern)
+		}
+
+		compiled, err := glob.Compile(pattern, '/')
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile %s pattern %q: %w", flag, pattern, err)
+		}
+
+		globs = append(globs, compiled)
+	}
+
+	return globs, nil
 }
 
 func (f fence) contains(pkgPath string) bool {

@@ -1,6 +1,7 @@
 package gofactory
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -30,6 +31,7 @@ func init() {
 type settings struct {
 	PackageGlobs     []string `json:"package-globs"`
 	PackageGlobsOnly bool     `json:"package-globs-only"`
+	IgnoreTypes      []string `json:"ignore-types"`
 	ZeroValues       bool     `json:"zero-values"`
 
 	FactoryPatterns          []string `json:"factory-patterns"`
@@ -54,15 +56,17 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 		cfg.pkgGlobs.Append(g)
 	}
 
+	for _, g := range decoded.IgnoreTypes {
+		cfg.ignoreTypes.Append(g)
+	}
+
+	err = setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
 	cfg.zeroValues = decoded.ZeroValues
-
-	for _, p := range decoded.FactoryPatterns {
-		err = cfg.extraFactoryPatterns.Set(p)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
-		}
-	}
 
 	if decoded.UseDefaultFactoryPattern != nil {
 		cfg.useDefaultFactoryPattern = *decoded.UseDefaultFactoryPattern
@@ -71,6 +75,17 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 	cfg.onlyWithFactory = decoded.OnlyWithFactory
 
 	return &plugin{analyzer: newAnalyzer(cfg)}, nil
+}
+
+func setEach(v flag.Value, key string, values []string) error {
+	for _, s := range values {
+		err := v.Set(s)
+		if err != nil {
+			return fmt.Errorf("%s: %w", key, err)
+		}
+	}
+
+	return nil
 }
 
 func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {

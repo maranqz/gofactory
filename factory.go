@@ -14,6 +14,7 @@ import (
 type config struct {
 	pkgGlobs     globsFlag
 	onlyPkgGlobs bool
+	ignoreTypes  globsFlag
 	zeroValues   bool
 
 	extraFactoryPatterns     regexpsFlag
@@ -26,8 +27,12 @@ const (
 	doc  = "Blocks the creation of structures directly, without a factory."
 	url  = "https://github.com/maranqz/gofactory"
 
+	packageGlobsFlag = "packageGlobs"
+	ignoreTypesFlag  = "ignoreTypes"
+
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
 	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
+	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
 	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
@@ -50,9 +55,11 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer := newAnalyzer(cfg)
 
-	analyzer.Flags.Var(&cfg.pkgGlobs, "packageGlobs", packageGlobsDesc)
+	analyzer.Flags.Var(&cfg.pkgGlobs, packageGlobsFlag, packageGlobsDesc)
 
 	analyzer.Flags.BoolVar(&cfg.onlyPkgGlobs, "packageGlobsOnly", false, onlyPkgGlobsDesc)
+
+	analyzer.Flags.Var(&cfg.ignoreTypes, ignoreTypesFlag, ignoreTypesDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
 
@@ -67,17 +74,20 @@ func NewAnalyzer() *analysis.Analyzer {
 	return analyzer
 }
 
-// newAnalyzer builds the analyzer around cfg; NewAnalyzer and newPlugin
-// share it so Name, Doc, URL, Requires and Run are set in one place.
-// newPlugin fills cfg before the call, NewAnalyzer binds its flags to cfg
-// afterwards.
+// newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
+// newPlugin. newPlugin fills cfg before the call, NewAnalyzer binds its
+// flags to cfg afterwards.
+//
+// Declaring FactTypes makes drivers analyse every dependency; see
+// docs/adr/0004-cross-package-directives-via-facts.md.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name:     name,
-		Doc:      doc,
-		URL:      url,
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
-		Run:      run(cfg),
+		Name:      name,
+		Doc:       doc,
+		URL:       url,
+		Requires:  []*analysis.Analyzer{inspect.Analyzer},
+		Run:       run(cfg),
+		FactTypes: []analysis.Fact{new(ignoredFact)},
 	}
 }
 
@@ -93,6 +103,13 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
+		if err != nil {
+			return nil, err
+		}
+
+		checkDirectives(pass)
 
 		var modulePath string
 		if pass.Module != nil {
@@ -114,7 +131,7 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		v := newDetector(
-			pass, strategy, cfg.zeroValues,
+			pass, strategy, ignoreTypes, cfg.zeroValues,
 			cfg.recognitionPatterns(), cfg.onlyWithFactory,
 		)
 

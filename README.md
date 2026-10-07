@@ -106,6 +106,18 @@ module itself, [tests](testdata/module/siblingfence).
 - `--packageGlobsOnly` – protect exactly the fence packages named by `--packageGlobs`, instead of
 every current-module type, [tests](testdata/module/packageGlobsOnly). A configuration error
 without at least one `--packageGlobs` pattern.
+- `--ignoreTypes` – repeatable; a qualified name glob (`import/path.Name`) for types that may be
+created without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
+For example, `mymod/geo.*` matches every type of package `mymod/geo`, and `mymod/a.Pair` matches
+the generic `Pair` with any type arguments. Type arguments in a glob are not supported, so a single
+instantiation can't be ignored: `mymod/a.Pair[bool, bool]` matches no `Pair`.
+`*` stays within one path segment (it crosses `.` but not `/`) and `**` also crosses `/`:
+`mymod/*` matches `mymod/a.T` but not `mymod/a/b.T`; `mymod/**` matches both.
+Name the type where it is defined: an alias's name does not match, and neither does a bare package
+path.
+Repeat the flag to give several globs: a comma does not separate them. As with `--packageGlobs`, an
+empty glob or one starting with `/` is a configuration error.
+See [Directives](#directives) for the equivalent `//gofactory:ignore` comment.
 - `--zeroValues` – off by default; report a zero value of a protected type as a bypass too, not just a literal,
 conversion or `new`, [tests](testdata/module/zeroValues).
   - A package-level `var x T` is always reported.
@@ -142,10 +154,40 @@ all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPat
 team can adopt the linter gradually, starting from the types that already have one,
 [tests](testdata/module/onlyWithFactory).
 
+### Directives
+
+A `//gofactory:` comment, written in a declaration's doc comment (the comment group directly above
+it) with no space after the slashes (like `//go:build`), marks that declaration for the linter.
+It takes effect in every package and module that imports the declaration, not just the one that
+writes it: gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
+so an importing package's analysis sees them even though it never parses the file that carries the
+comment.
+
+- `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
+  not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
+  protection: nothing in any package needs a factory to obtain a value of it, on any bypass route.
+  It is the directive form of `--ignoreTypes`, [tests](testdata/module/directive).
+
+  ```go
+  //gofactory:ignore
+  type Point struct {
+      X, Y int
+  }
+  ```
+
+`//gofactory:factory` (on a function or method) and `//gofactory:trusted` (on a function, a method,
+or in a package's doc comment) are reserved: they are placement-checked like `ignore` but have no
+effect yet.
+
+An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
+function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
+disable protection.
+
 ### Message format
 
-Every diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix is a public
-contract that does not change. A golangci-lint `linters.exclusions.rules[].text` or
+Every factory-bypass diagnostic starts with the stable prefix `Use factory for pkg.T`; this prefix
+is a public contract that does not change. A diagnostic about an unknown or misplaced
+[directive](#directives) does not carry it. A golangci-lint `linters.exclusions.rules[].text` or
 `severity.rules[].text` regex that matches the prefix without anchoring the end of the message (for
 example `^Use factory for`) keeps matching; one anchored to the end of the old, suffix-less message
 (`^Use factory for pkg\.T$`) stops matching once a factory suffix is appended.
@@ -175,10 +217,13 @@ matches it.
 gofactory can also run inside golangci-lint as a [module plugin](https://golangci-lint.run/docs/plugins/module-plugins/),
 without waiting for it to be merged into golangci-lint itself.
 
+It needs golangci-lint v2.14.0 or newer: directives travel between packages as analysis facts, and
+the fact-cache fixes they rely on landed in v2.13 and v2.14.
+
 Build a custom golangci-lint binary that includes gofactory with a `.custom-gcl.yml`:
 
 ```yaml
-version: v2.12.2
+version: v2.14.0
 plugins:
   - module: github.com/maranqz/gofactory
     import: github.com/maranqz/gofactory
@@ -206,6 +251,8 @@ linters:
           package-globs:
             - "mypkg/internal/**"
           package-globs-only: false
+          ignore-types:
+            - "mypkg.Point"
           zero-values: false
           factory-patterns:
             - "^Make"
@@ -215,6 +262,7 @@ linters:
 
 - `package-globs` – equivalent to `--packageGlobs`.
 - `package-globs-only` – equivalent to `--packageGlobsOnly`.
+- `ignore-types` – equivalent to `--ignoreTypes`.
 - `zero-values` – equivalent to `--zeroValues`.
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.

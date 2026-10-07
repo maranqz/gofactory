@@ -4,7 +4,9 @@ import (
 	"go/ast"
 	"go/types"
 	"regexp"
+	"slices"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -12,9 +14,10 @@ import (
 // syntax, so a literal, conversion, new(T) or, with -zeroValues, a zero
 // value of a protected type is reported however it is spelled.
 type detector struct {
-	pass       *analysis.Pass
-	strategy   blockedStrategy
-	zeroValues bool
+	pass        *analysis.Pass
+	strategy    blockedStrategy
+	ignoreTypes []glob.Glob
+	zeroValues  bool
 
 	factoryPatterns []*regexp.Regexp
 	onlyWithFactory bool
@@ -28,6 +31,7 @@ type detector struct {
 func newDetector(
 	pass *analysis.Pass,
 	strategy blockedStrategy,
+	ignoreTypes []glob.Glob,
 	zeroValues bool,
 	factoryPatterns []*regexp.Regexp,
 	onlyWithFactory bool,
@@ -35,6 +39,7 @@ func newDetector(
 	return &detector{
 		pass:            pass,
 		strategy:        strategy,
+		ignoreTypes:     ignoreTypes,
 		zeroValues:      zeroValues,
 		factoryPatterns: factoryPatterns,
 		onlyWithFactory: onlyWithFactory,
@@ -67,11 +72,30 @@ func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {
 	named, ok := protectedNamed(t)
-	if !ok || !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
+	if !ok || d.isIgnored(named) {
+		return
+	}
+
+	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj()) {
 		return
 	}
 
 	d.report(node, named, suffix)
+}
+
+func (d *detector) isIgnored(named *types.Named) bool {
+	obj := named.Obj()
+
+	var fact ignoredFact
+	if d.pass.ImportObjectFact(obj, &fact) {
+		return true
+	}
+
+	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+
+	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
+		return g.Match(qualifiedName)
+	})
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named, route string) {
