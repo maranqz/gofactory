@@ -273,6 +273,10 @@ func trustedCases() map[string]linterSuiteCase {
 				},
 			},
 		},
+		"trustedFence": {
+			pkgs:     []string{"trustedfence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/trustedtarget"}},
+		},
 	}
 }
 
