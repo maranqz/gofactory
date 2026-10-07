@@ -18,7 +18,9 @@ transitive analysis is deferred to a later ticket (#43, user story 35).
 A second cost: a configuration error, which `run` returns, now fails the analysis of every
 dependency as well. The standalone `gofactory` CLI prints the error once for each dependency without
 imports, among `failed prerequisites` lines for all the others, so one bad setting can produce
-hundreds of lines; `go vet` and golangci-lint still print it once per package. Checking globs while
-flags are parsed would stop the CLI with one message, but `-packageGlobsOnly` without
-`-packageGlobs` can only be caught in `run`, once every flag is set, so we leave that to its own
-ticket.
+hundreds of lines; `go vet` still prints it once per package, and golangci-lint once per run.
+Checking settings while flags are parsed can't avoid this: `-packageGlobsOnly` without
+`-packageGlobs` can only be caught once every flag is set. Reading directives in a separate analyzer
+that takes no settings can: only it would declare `FactTypes` and run on dependencies, while the
+main analyzer, which checks the settings, would run only on the packages being linted. We leave
+that split to its own ticket under #43.
