@@ -2,8 +2,8 @@ package gofactory
 
 import "strings"
 
-// globsFlag collects raw -packageGlobs, -ignoreTypes and -trusted patterns;
-// they are compiled, and an invalid one reported, in run (factory.go).
+// globsFlag collects a glob flag's raw patterns; they are compiled, and an
+// invalid one reported, in run (factory.go).
 type globsFlag struct {
 	patterns []string
 }

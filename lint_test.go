@@ -690,8 +690,8 @@ func configurationErrorCases() map[string]configurationErrorCase {
 
 // TestConfigurationErrors checks that -packageGlobsOnly without any
 // -packageGlobs pattern, and an invalid glob, an empty glob or a glob
-// starting with '/' in -packageGlobs, -ignoreTypes or -trusted, are
-// configuration errors surfaced through both entry points.
+// starting with '/' in any glob flag, are configuration errors surfaced
+// through both entry points.
 func TestConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
