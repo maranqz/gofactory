@@ -290,15 +290,21 @@ importers, unlike a type's `//gofactory:ignore` fact, which every transitive imp
 method, both `checker.exportedFrom` and go vet's `facts.Encode` can hand its fact to more than the
 direct importers — `checker.exportedFrom` over-approximates outright, and `facts.Encode` forwards
 it whenever an importer's export data includes the declaring package; gofactory discards what
-either adds, so every driver agrees on the same direct-importer rule. A package that uses the
-protected type without importing the declaring package directly gets the bare
-`Use factory for pkg.T` message with no suggestion, and
-`--onlyWithFactory` silently does not report it at all — see [False Negative](#false-negative).
+either adds, so every driver agrees on the same direct-importer rule. A package's `_test.go`
+imports count only when its tests are analysed: the standalone CLI, which analyses a package both
+without and with its tests, then prints such a line twice, the first time without the suggestion.
 
-A `//gofactory:factory` directive on a function or method with no protected type among its results
-is reported as a diagnostic, since it would otherwise do nothing while looking like it did
-something. A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`,
-it may simply match nothing relevant.
+A package that uses the protected type without importing the declaring package directly doesn't
+see that factory: it is left out of the message and doesn't count for `--onlyWithFactory`. A type
+whose only factory it is gets the bare `Use factory for pkg.T` message there, or no report at all
+under `--onlyWithFactory` — see [False Negative](#false-negative).
+
+A `//gofactory:factory` directive on a function or method with no result that could ever be
+protected (a named type other than a func type or an interface, as `T` or `*T`) is reported as a
+diagnostic, since it would otherwise do nothing while looking like it did something. Whether a
+result is protected in this module, or fenced, doesn't matter: `func Now() time.Time` is accepted.
+A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`, it may
+simply match nothing relevant.
 
 Creation and reconstitution are the same concept: a function that a repository calls to rebuild an
 aggregate from storage, `order.Restore(id, status, paidAt)`, is just a factory, enabled the same
