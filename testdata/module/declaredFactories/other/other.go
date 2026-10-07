@@ -90,3 +90,11 @@ type inaccessibleRepo struct{}
 func (inaccessibleRepo) Restore() owner.Inaccessible { // want Restore:"gofactory:factory"
 	return owner.Inaccessible{}
 }
+
+// RestoreMixed is owner.Mixed's declared factory, next to its recognised
+// owner.NewMixed.
+//
+//gofactory:factory
+func RestoreMixed() owner.Mixed { // want RestoreMixed:"gofactory:factory"
+	return owner.Mixed{}
+}

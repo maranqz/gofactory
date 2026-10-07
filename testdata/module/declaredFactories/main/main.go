@@ -32,4 +32,5 @@ func main() {
 	_ = owner.Unmarked{}            // want `Use factory for owner.Unmarked$`
 	_ = owner.Inaccessible{}        // want `Use factory for owner.Inaccessible$`
 	_ = owner.RedundantlyDeclared{} // want `Use factory for owner.RedundantlyDeclared \(owner.NewRedundantlyDeclared\)$`
+	_ = owner.Mixed{}               // want `Use factory for owner.Mixed \(owner.NewMixed, other.RestoreMixed\)$`
 }

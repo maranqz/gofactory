@@ -2,7 +2,7 @@
 // own: every factory suggested for them, elsewhere in this test tree, comes
 // from a declared factory living in a different package (other, flagged),
 // except for RedundantlyDeclared, declared where it already matches the
-// default pattern.
+// default pattern, and Mixed, which has a factory of each kind.
 package owner
 
 // Solo's only factory is other.Build, a //gofactory:factory function in
@@ -67,4 +67,13 @@ type RedundantlyDeclared struct{}
 //gofactory:factory
 func NewRedundantlyDeclared() RedundantlyDeclared { // want NewRedundantlyDeclared:"gofactory:factory"
 	return RedundantlyDeclared{}
+}
+
+// Mixed has a factory of each kind: NewMixed, recognised by the default
+// pattern, and other.RestoreMixed, a //gofactory:factory function in another
+// package. A message lists both, NewMixed first.
+type Mixed struct{}
+
+func NewMixed() Mixed {
+	return Mixed{}
 }
