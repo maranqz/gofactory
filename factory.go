@@ -2,6 +2,7 @@
 package gofactory
 
 import (
+	"errors"
 	"go/ast"
 	"regexp"
 
@@ -25,13 +26,22 @@ const (
 	doc  = "Blocks the creation of structures directly, without a factory."
 	url  = "https://github.com/maranqz/gofactory"
 
-	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
-	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
+	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
 	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
+)
+
+// errPackageGlobsOnlyNeedsGlobs is the configuration error for
+// -packageGlobsOnly without any -packageGlobs pattern. Checked in run
+// rather than where each entry point applies its settings, because the
+// flags entry point only knows every -packageGlobs value has been applied
+// once Analyzer.Run executes.
+var errPackageGlobsOnlyNeedsGlobs = errors.New(
+	"packageGlobsOnly requires at least one packageGlobs pattern",
 )
 
 // NewAnalyzer returns a new instance of the linter analyzer.
@@ -73,6 +83,17 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
+		patterns := cfg.pkgGlobs.Value()
+
+		if cfg.onlyPkgGlobs && len(patterns) == 0 {
+			return nil, errPackageGlobsOnlyNeedsGlobs
+		}
+
+		fences, err := newFences(patterns)
+		if err != nil {
+			return nil, err
+		}
+
 		var modulePath string
 		if pass.Module != nil {
 			modulePath = pass.Module.Path
@@ -80,15 +101,14 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		var strategy blockedStrategy = newCurrentModule(modulePath)
 
-		pkgGlobs := cfg.pkgGlobs.Value()
-		if len(pkgGlobs) > 0 {
+		if len(fences) > 0 {
 			defaultStrategy := strategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
-			strategy = newBlockedPkgs(
-				pkgGlobs,
+			strategy = newFencedPkgs(
+				fences,
 				defaultStrategy,
 			)
 		}
