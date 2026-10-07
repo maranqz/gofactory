@@ -481,11 +481,13 @@ func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 				},
 			)
 			if !declared {
-				t.Fatalf(
+				t.Errorf(
 					"ExportObjectFact(%v, %T): fact type not in Analyzer.FactTypes %v; "+
 						"go vet's gob encoder would panic here",
 					obj, fact, pass.Analyzer.FactTypes,
 				)
+
+				return
 			}
 
 			export(obj, fact)
