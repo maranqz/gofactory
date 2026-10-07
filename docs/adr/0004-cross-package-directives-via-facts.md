@@ -14,3 +14,11 @@ The trade-off: declaring `FactTypes` makes `go vet` and golangci-lint analyse th
 full transitive dependency graph, not just its own files, which is slower on a large monorepo. We
 chose correctness-by-default over that cost; `-crossPackageDirectives=false` to opt back out of the
 transitive analysis is deferred to a later ticket (#43, user story 35).
+
+A second cost: a configuration error, which `run` returns, now fails the analysis of every
+dependency as well. The standalone `gofactory` CLI prints the error once for each dependency without
+imports, among `failed prerequisites` lines for all the others, so one bad setting can produce
+hundreds of lines; `go vet` and golangci-lint still print it once per package. Checking globs while
+flags are parsed would stop the CLI with one message, but `-packageGlobsOnly` without
+`-packageGlobs` can only be caught in `run`, once every flag is set, so we leave that to its own
+ticket.
