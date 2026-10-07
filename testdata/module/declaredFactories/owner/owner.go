@@ -1,8 +1,8 @@
 // Package owner holds protected types with no recognised factory of their
 // own: every factory suggested for them, elsewhere in this test tree, comes
-// from a declared factory living in a different package (other, flagged),
-// except for RedundantlyDeclared, declared where it already matches the
-// default pattern, and Mixed, which has a factory of each kind.
+// from a declared factory living in a different package, except for
+// RedundantlyDeclared, declared where it already matches the default
+// pattern, and Mixed, which has a factory of each kind.
 package owner
 
 // Solo's only factory is other.Build, a //gofactory:factory function in

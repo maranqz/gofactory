@@ -1,6 +1,5 @@
-// Package main imports other and flagged directly so their facts reach it,
-// using both declaration forms: a //gofactory:factory directive (other.go)
-// and a -factories glob (flagged.go).
+// Package main imports every package that declares a factory directly, so
+// their facts reach it.
 package main
 
 import (
