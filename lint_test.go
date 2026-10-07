@@ -105,6 +105,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	maps.Copy(cases, fenceLinterSuiteCases())
 	maps.Copy(cases, ignoredTypeCases())
 	maps.Copy(cases, factorySettingCases())
+	maps.Copy(cases, trustedCases())
 
 	return cases
 }
@@ -260,6 +261,24 @@ func factorySettingCases() map[string]linterSuiteCase {
 	}
 }
 
+// trustedCases exercises -trusted, the glob-flag counterpart to the
+// //gofactory:trusted directive effect covered under the "directive" case's
+// trustedfunc/ and trustedpkg/ testdata.
+func trustedCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"trusted": {
+			pkgs: []string{"trusted/..."},
+			settings: caseSettings{
+				trusted: []string{
+					"factory/trusted/pkg",
+					"factory/trusted/funcname.Reconstitute",
+					"factory/trusted/funcname.Repo.Load",
+				},
+			},
+		},
+	}
+}
+
 // TestLinterSuite runs every case through every entry point that populates
 // the shared config: NewAnalyzer configured via Flags.Set, the way a
 // command-line user or go vet driver would, and the golangci-lint plugin
@@ -343,6 +362,7 @@ type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
 	ignoreTypes      []string
+	trusted          []string
 	zeroValues       bool
 
 	factoryPatterns          []string
@@ -384,6 +404,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	for _, g := range s.ignoreTypes {
 		setFlag(t, analyzer, "ignoreTypes", g)
+	}
+
+	for _, g := range s.trusted {
+		setFlag(t, analyzer, "trusted", g)
 	}
 
 	return analyzer
@@ -442,6 +466,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
 		"ignore-types":       s.ignoreTypes,
+		"trusted":            s.trusted,
 		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
@@ -611,17 +636,15 @@ func (r *recordingTesting) Errorf(format string, args ...any) {
 	r.messages = append(r.messages, fmt.Sprintf(format, args...))
 }
 
-// TestConfigurationErrors checks that -packageGlobsOnly without any
-// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
-// starting with '/' in -packageGlobs or -ignoreTypes, are configuration
-// errors surfaced through both entry points.
-func TestConfigurationErrors(t *testing.T) {
-	t.Parallel()
+// configurationErrorCase is one TestConfigurationErrors case: settings that
+// should fail validation, and a substring of the error message they produce.
+type configurationErrorCase struct {
+	settings caseSettings
+	want     string
+}
 
-	tests := map[string]struct {
-		settings caseSettings
-		want     string
-	}{
+func configurationErrorCases() map[string]configurationErrorCase {
+	return map[string]configurationErrorCase{
 		"packageGlobsOnly_without_globs": {
 			settings: caseSettings{packageGlobsOnly: true},
 			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
@@ -650,8 +673,29 @@ func TestConfigurationErrors(t *testing.T) {
 			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
 			want:     "ignoreTypes pattern must not start with '/'",
 		},
+		"invalid_trusted_glob": {
+			settings: caseSettings{trusted: []string{"["}},
+			want:     "unable to compile trusted pattern",
+		},
+		"empty_trusted_glob": {
+			settings: caseSettings{trusted: []string{"  "}},
+			want:     "trusted pattern must not be empty",
+		},
+		"leading_slash_trusted_glob": {
+			settings: caseSettings{trusted: []string{"/factory/trusted/pkg"}},
+			want:     "trusted pattern must not start with '/'",
+		},
 	}
-	for name, tt := range tests {
+}
+
+// TestConfigurationErrors checks that -packageGlobsOnly without any
+// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
+// starting with '/' in -packageGlobs, -ignoreTypes or -trusted, are
+// configuration errors surfaced through both entry points.
+func TestConfigurationErrors(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range configurationErrorCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
