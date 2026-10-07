@@ -2,6 +2,7 @@
 package gofactory
 
 import (
+	"errors"
 	"go/ast"
 	"regexp"
 
@@ -21,22 +22,13 @@ type config struct {
 	onlyWithFactory          bool
 }
 
-// newConfig gives -ignoreTypes '/' as its only glob separator, so '*'
-// crosses '.' but not '/' in a qualified name (import/path.Name).
-func newConfig() *config {
-	return &config{
-		ignoreTypes:              globsFlag{separators: []rune{'/'}},
-		useDefaultFactoryPattern: true,
-	}
-}
-
 const (
 	name = "gofactory"
 	doc  = "Blocks the creation of structures directly, without a factory."
 	url  = "https://github.com/maranqz/gofactory"
 
-	packageGlobsDesc = "list of glob packages, which can create structures without factories inside the glob package"
-	onlyPkgGlobsDesc = "use a factory to initiate a structure for glob packages only"
+	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
+	onlyPkgGlobsDesc = "protect only types in fence packages; requires -packageGlobs"
 	ignoreTypesDesc  = "list of qualified name globs (import/path.Name) for types that may be created without a factory"
 	zeroValuesDesc   = "report zero values of protected types in var declarations and named results"
 
@@ -45,9 +37,18 @@ const (
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
 )
 
+// errPackageGlobsOnlyNeedsGlobs is the configuration error for
+// -packageGlobsOnly without any -packageGlobs pattern. Checked in run
+// rather than where each entry point applies its settings, because the
+// flags entry point only knows every -packageGlobs value has been applied
+// once Analyzer.Run executes.
+var errPackageGlobsOnlyNeedsGlobs = errors.New(
+	"packageGlobsOnly requires at least one packageGlobs pattern",
+)
+
 // NewAnalyzer returns a new instance of the linter analyzer.
 func NewAnalyzer() *analysis.Analyzer {
-	cfg := newConfig()
+	cfg := &config{}
 
 	analyzer := newAnalyzer(cfg)
 
@@ -75,7 +76,7 @@ func NewAnalyzer() *analysis.Analyzer {
 // flags to cfg afterwards.
 //
 // Declaring FactTypes makes drivers analyse every dependency; see
-// docs/adr/0003-cross-package-directives-via-facts.md.
+// docs/adr/0004-cross-package-directives-via-facts.md.
 func newAnalyzer(cfg *config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:      name,
@@ -89,6 +90,22 @@ func newAnalyzer(cfg *config) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
+		patterns := cfg.pkgGlobs.Value()
+
+		if cfg.onlyPkgGlobs && len(patterns) == 0 {
+			return nil, errPackageGlobsOnlyNeedsGlobs
+		}
+
+		fences, err := newFences(patterns)
+		if err != nil {
+			return nil, err
+		}
+
+		ignoreTypes, err := compileIgnoreTypes(cfg.ignoreTypes.Value())
+		if err != nil {
+			return nil, err
+		}
+
 		checkDirectives(pass)
 
 		var modulePath string
@@ -98,21 +115,20 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		var strategy blockedStrategy = newCurrentModule(modulePath)
 
-		pkgGlobs := cfg.pkgGlobs.Value()
-		if len(pkgGlobs) > 0 {
+		if len(fences) > 0 {
 			defaultStrategy := strategy
 			if cfg.onlyPkgGlobs {
 				defaultStrategy = newNilPkg()
 			}
 
-			strategy = newBlockedPkgs(
-				pkgGlobs,
+			strategy = newFencedPkgs(
+				fences,
 				defaultStrategy,
 			)
 		}
 
 		v := newDetector(
-			pass, strategy, cfg.ignoreTypes.Value(), cfg.zeroValues,
+			pass, strategy, ignoreTypes, cfg.zeroValues,
 			cfg.recognitionPatterns(), cfg.onlyWithFactory,
 		)
 

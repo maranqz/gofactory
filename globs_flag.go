@@ -1,36 +1,27 @@
 package gofactory
 
-import (
-	"fmt"
-	"strings"
+import "strings"
 
-	"github.com/gobwas/glob"
-)
-
+// globsFlag collects raw -packageGlobs and -ignoreTypes patterns; they are
+// compiled, and an invalid one reported, in run (factory.go).
 type globsFlag struct {
-	separators  []rune
-	globsString []string
-	globs       []glob.Glob
+	patterns []string
 }
 
 func (g *globsFlag) String() string {
-	return strings.Join(g.globsString, ", ")
+	return strings.Join(g.patterns, ", ")
 }
 
-func (g *globsFlag) Set(globString string) error {
-	globString = strings.TrimSpace(globString)
-
-	compiled, err := glob.Compile(globString, g.separators...)
-	if err != nil {
-		return fmt.Errorf("unable to compile globs %s: %w", globString, err)
-	}
-
-	g.globsString = append(g.globsString, globString)
-	g.globs = append(g.globs, compiled)
+func (g *globsFlag) Set(pattern string) error {
+	g.Append(pattern)
 
 	return nil
 }
 
-func (g *globsFlag) Value() []glob.Glob {
-	return g.globs
+func (g *globsFlag) Append(pattern string) {
+	g.patterns = append(g.patterns, strings.TrimSpace(pattern))
+}
+
+func (g *globsFlag) Value() []string {
+	return g.patterns
 }

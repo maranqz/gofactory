@@ -17,9 +17,7 @@ plus `/`, so a nested module under the same path (its own `go.mod`, but still un
 module's path) counts too. Stdlib and third-party types (`strings.Builder{}`, `sync.WaitGroup{}`,
 `http.Header{}`, `time.Duration(5)`) are silent, and so are a `go.work` sibling module's types —
 their import path is neither your module path nor under it. Bring a sibling module, or any other
-package, into scope with `--packageGlobs='example.com/sibling/**'` (an exact path does not match
-yet). Until fences land, code inside a `--packageGlobs` package may itself bypass any factory, so
-don't reuse this setting when linting the sibling module.
+package, into scope with a fence, `--packageGlobs` (see [Fences](#fences) below).
 
 Running without a module (GOPATH, Bazel's `nogo`, or a list of `.go` files instead of packages)
 falls back to the previous behaviour: every package other than the current one is protected.
@@ -27,6 +25,73 @@ falls back to the previous behaviour: every package other than the current one i
 Within scope, gofactory is **strict by default**: every bypass of a protected type is reported,
 whether or not the type has a factory. See [the ADR](docs/adr/0002-strict-default-and-module-scope.md)
 for why.
+
+## Fences
+
+Each `--packageGlobs` pattern is its own **fence**: the set of packages matching it. If a
+type's package lies in one or more fences, only code inside **all** of those fences may bypass
+that type's factory — several fences no longer disable each other, [tests](testdata/module/twofences).
+A type in no fence gains nothing from fences; module scope alone decides whether it's protected,
+the same as if `--packageGlobs` were never given — except under `--packageGlobsOnly`, where such a
+type is not protected at all. See [the ADR](docs/adr/0003-fence-intersection-rule.md) for why.
+
+Nesting two fences guards the inner one more tightly. With `--packageGlobs='a/**'
+--packageGlobs='a/domain/**'`, `a/domain`'s type lies in both fences, so only code that is itself
+in both — i.e. also under `a/domain/**` — may bypass it. `a/infra`, under `a/**` but not
+`a/domain/**`, cannot bypass `a/domain`'s factory; `a/domain`, under both, can still bypass
+`a/infra`'s, since `a/infra`'s type lies only in the outer fence and `a/domain` satisfies that
+one, [tests](testdata/module/nestedfence).
+
+A fence can name any package, including stdlib and third-party ones that module scope leaves
+unprotected, [tests](testdata/module/stdlibfence).
+
+### Glob syntax
+
+A `--packageGlobs` pattern is gitignore-like: it is compiled with `/` as the path separator and
+matched against both the package path and the path plus `/`. An exact package path therefore
+matches on its own, with no wildcard needed, and `*` does not cross a `/`, so `a/*` matches `a/b`
+but not `a/b/c`; `a/**` matches both. The path-plus-`/` match also means `a/*` and `a/**` match
+`a` itself, not just what's inside it, unlike a `.gitignore` pattern, [tests](testdata/module/globsyntax).
+Unlike `.gitignore`, a leading `/` has no "from the root" meaning — a Go package path never
+starts with `/` — so it is rejected as a configuration error rather than silently matching
+nothing.
+
+### Migrating from pre-fence globs
+
+Before fences, a package matching **any** `--packageGlobs` pattern was exempt from every check,
+for every type, anywhere — this held even for a single pattern: code in that one subtree could
+bypass any factory, not just the factories of types that are themselves in a fence. An exact path
+like `pkg` never matched, `pkg/` matched only `pkg`, `pkg/**` matched `pkg` and its subpackages,
+and `*` crossed `/`.
+
+Under the intersection rule, the factory of a type in fences may be bypassed only by code inside
+all of them, and a type in no fence is checked as if `--packageGlobs` were never given — or, under
+`--packageGlobsOnly`, not protected at all. So a fence no longer exempts its code from checks on
+types outside it, however many `--packageGlobs` patterns you pass. The migration is to put the
+bypassing and the bypassed packages in one fence, e.g.
+`--packageGlobs='{app/infra/**,app/domain/**}'` in place of separate `app/infra/**` and
+`app/domain/**` patterns (gobwas/glob brace syntax), so that code in either package still lies
+inside the same fence as the other's types. `-trusted`, planned in #43, will be the direct
+replacement for "this code may bypass anything, anywhere." Also replace any `*` you relied on
+crossing `/` with `**`. `pkg/` and `pkg/**` still match the same packages as before, and `pkg`
+alone now matches exactly `pkg`.
+
+### Recipe: protecting `go.work` sibling modules
+
+A `go.work` sibling module's types are outside the current module, so they're silent by default.
+Fence the sibling module's path with a trailing `/**` to protect every one of its packages, not
+just its root package:
+
+```
+--packageGlobs='example.com/sibling/**'
+```
+
+This also matches the sibling module's root package itself, since a pattern is matched against
+both the path and the path plus `/` (see [Glob syntax](#glob-syntax) above). Code inside the
+current module is not in that fence, so it is blocked from bypassing any of the sibling's
+factories; code inside the sibling module itself still may bypass any of them, which is looser
+than module scope's per-package strictness — don't reuse this setting when linting the sibling
+module itself, [tests](testdata/module/siblingfence).
 
 ## Usage
 
@@ -36,10 +101,11 @@ for why.
 
 ### Options
 
-- `--packageGlobs` – list of glob packages, which can create structures without factories inside the glob package. 
-By default, types from the current module must come from their factories (see [Protection scope](#protection-scope)), [tests](testdata/module/packageGlobs).
-- `--packageGlobsOnly` – use a factory to initiate a structure for glob packages only, 
-[tests](testdata/module/packageGlobsOnly). Doesn't make sense without `--packageGlobs`.
+- `--packageGlobs` – repeatable; each occurrence is its own fence (see [Fences](#fences)),
+[tests](testdata/module/packageGlobs).
+- `--packageGlobsOnly` – protect exactly the fence packages named by `--packageGlobs`, instead of
+every current-module type, [tests](testdata/module/packageGlobsOnly). A configuration error
+without at least one `--packageGlobs` pattern.
 - `--ignoreTypes` – list of qualified name globs (`import/path.Name`) for types that may be created
 without a factory everywhere, not just inside a fence, [tests](testdata/module/ignoreTypes).
 For example, `mymod/geo.*` matches every type of package `mymod/geo`, and `mymod/a.Pair` matches

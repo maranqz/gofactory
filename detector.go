@@ -1,9 +1,11 @@
 package gofactory
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
 	"regexp"
+	"slices"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
@@ -87,7 +89,28 @@ func (d *detector) isIgnored(named *types.Named) bool {
 		return true
 	}
 
-	return containsMatchGlob(d.ignoreTypes, obj.Pkg().Path()+"."+obj.Name())
+	qualifiedName := obj.Pkg().Path() + "." + obj.Name()
+
+	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
+		return g.Match(qualifiedName)
+	})
+}
+
+// compileIgnoreTypes uses '/' as the only separator, so '*' crosses '.'
+// but not '/' in a qualified name (import/path.Name).
+func compileIgnoreTypes(patterns []string) ([]glob.Glob, error) {
+	globs := make([]glob.Glob, 0, len(patterns))
+
+	for _, pattern := range patterns {
+		compiled, err := glob.Compile(pattern, '/')
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile ignoreTypes pattern %q: %w", pattern, err)
+		}
+
+		globs = append(globs, compiled)
+	}
+
+	return globs, nil
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named, route string) {

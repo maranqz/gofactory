@@ -1,7 +1,6 @@
 package gofactory
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 
@@ -51,13 +50,17 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
-	cfg := newConfig()
+	cfg := &config{useDefaultFactoryPattern: true}
 
-	err = errors.Join(
-		setEach(&cfg.pkgGlobs, "package-globs", decoded.PackageGlobs),
-		setEach(&cfg.ignoreTypes, "ignore-types", decoded.IgnoreTypes),
-		setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns),
-	)
+	for _, g := range decoded.PackageGlobs {
+		cfg.pkgGlobs.Append(g)
+	}
+
+	for _, g := range decoded.IgnoreTypes {
+		cfg.ignoreTypes.Append(g)
+	}
+
+	err = setEach(&cfg.extraFactoryPatterns, "factory-patterns", decoded.FactoryPatterns)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
