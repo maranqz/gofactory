@@ -35,9 +35,12 @@ const (
 	directiveTrusted = "trusted"
 )
 
+// apply is nil for a directive with no effect yet (trusted): applyDirective
+// then stops at the placement check.
 type placement struct {
 	kinds []declKind
 	desc  string
+	apply func(pass *analysis.Pass, comment *ast.Comment, node ast.Node)
 }
 
 func placementOf(name string) (placement, bool) {
@@ -46,11 +49,21 @@ func placementOf(name string) (placement, bool) {
 		return placement{
 			kinds: []declKind{declType},
 			desc:  "a single top-level type definition",
+			apply: func(pass *analysis.Pass, _ *ast.Comment, node ast.Node) {
+				if typeSpec, ok := node.(*ast.TypeSpec); ok {
+					applyIgnore(pass, typeSpec)
+				}
+			},
 		}, true
 	case directiveFactory:
 		return placement{
 			kinds: []declKind{declFunc},
 			desc:  "a function or method",
+			apply: func(pass *analysis.Pass, comment *ast.Comment, node ast.Node) {
+				if funcDecl, ok := node.(*ast.FuncDecl); ok {
+					applyFactory(pass, comment, funcDecl)
+				}
+			},
 		}, true
 	case directiveTrusted:
 		return placement{
@@ -208,15 +221,8 @@ func applyDirective(
 		return
 	}
 
-	switch name {
-	case directiveIgnore:
-		if typeSpec, ok := node.(*ast.TypeSpec); ok {
-			applyIgnore(pass, typeSpec)
-		}
-	case directiveFactory:
-		if funcDecl, ok := node.(*ast.FuncDecl); ok {
-			applyFactory(pass, comment, funcDecl)
-		}
+	if place.apply != nil {
+		place.apply(pass, comment, node)
 	}
 }
 
