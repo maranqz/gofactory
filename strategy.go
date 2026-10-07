@@ -105,7 +105,14 @@ func compileGlobs(flag string, patterns []string) ([]glob.Glob, error) {
 }
 
 func (f fence) contains(pkgPath string) bool {
-	return f.glob.Match(pkgPath) || f.glob.Match(pkgPath+"/")
+	return matchesPackagePath(f.glob, pkgPath)
+}
+
+// matchesPackagePath is tested against both the path and the path plus
+// "/", so an exact path matches without a wildcard, and a trailing "**" or
+// "*" also matches the path itself.
+func matchesPackagePath(g glob.Glob, pkgPath string) bool {
+	return g.Match(pkgPath) || g.Match(pkgPath+"/")
 }
 
 // fencedPkgs applies the intersection rule: a type whose package lies in

@@ -223,12 +223,17 @@ func sortFactories(factories []*types.Func) {
 }
 
 func factoryQualifiedName(factory *types.Func) string {
-	pkgName := factory.Pkg().Name()
+	return qualifiedName(factory.Pkg().Name(), factory)
+}
 
-	recv := receiverNamed(factory)
+// qualifiedName joins pkgPart (a package name or import path, depending on
+// the caller) to function the way a qualified name is written: pkgPart.Name,
+// or pkgPart.Type.Method for a method.
+func qualifiedName(pkgPart string, function *types.Func) string {
+	recv := receiverNamed(function)
 	if recv == nil {
-		return pkgName + "." + factory.Name()
+		return pkgPart + "." + function.Name()
 	}
 
-	return pkgName + "." + recv.Obj().Name() + "." + factory.Name()
+	return pkgPart + "." + recv.Obj().Name() + "." + function.Name()
 }

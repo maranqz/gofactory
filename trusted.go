@@ -45,7 +45,7 @@ func (t trustedCode) isTrusted(pkg *types.Package, site *types.Func) bool {
 
 func (t trustedCode) matchesPackage(pkgPath string) bool {
 	return slices.ContainsFunc(t.globs, func(g glob.Glob) bool {
-		return g.Match(pkgPath) || g.Match(pkgPath+"/")
+		return matchesPackagePath(g, pkgPath)
 	})
 }
 
@@ -57,15 +57,8 @@ func (t trustedCode) matchesFunc(fn *types.Func) bool {
 	})
 }
 
-// import/path.Name, or import/path.Type.Method for a method.
 func qualifiedFuncName(function *types.Func) string {
-	pkgPath := function.Pkg().Path()
-
-	if recv := receiverNamed(function); recv != nil {
-		return pkgPath + "." + recv.Obj().Name() + "." + function.Name()
-	}
-
-	return pkgPath + "." + function.Name()
+	return qualifiedName(function.Pkg().Path(), function)
 }
 
 type trustedStrategy struct {
