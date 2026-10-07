@@ -26,11 +26,12 @@ func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 }
 
 // declaredFactoryIndex indexes every declared factory the current pass can
-// see by AllObjectFacts: those exported by the current package itself
-// (a //gofactory:factory directive or a -factories match applied in run,
-// both before this runs) and those imported from a package the current
-// package directly or transitively imports, the way every other directive
-// propagates (see docs/adr/0004-cross-package-directives-via-facts.md).
+// see by AllObjectFacts: those exported by the current package itself (a
+// //gofactory:factory directive or a -factories match applied in run, both
+// before this runs) and those imported from a package the current package
+// directly imports. Unlike ignoredFact, a factoryFact on a package-level
+// function does not reach a package that only imports it transitively
+// (README.md, Declared factories, Reach).
 func declaredFactoryIndex(pass *analysis.Pass) factoryIndex {
 	index := factoryIndex{}
 

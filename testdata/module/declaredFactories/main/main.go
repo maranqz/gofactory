@@ -1,9 +1,6 @@
-// Package main is the site where every declared factory above is
-// suggested, through both entry points: a //gofactory:factory directive
-// (other.go) and a -factories glob (flagged.go). Importing other and
-// flagged, even just to call one factory from each, is what makes every
-// fact they exported reach this package: a directive propagates to every
-// importer, not just the one symbol used (docs/adr/0004).
+// Package main imports other and flagged directly so their facts reach it,
+// exercising both entry points: a //gofactory:factory directive (other.go)
+// and a -factories glob (flagged.go).
 package main
 
 import (

@@ -155,17 +155,18 @@ team can adopt the linter gradually, starting from the types that already have o
 [tests](testdata/module/onlyWithFactory).
 - `--factories` – repeatable; a qualified function- or method-name glob (`import/path.Func` or
 `import/path.Type.Method`) declaring a factory outside the usual recognition rule,
-[tests](testdata/module/declaredFactories). See [Declared factories](#declared-factories) below, and
-`--onlyWithFactory` above for how a declared factory counts there too.
+[tests](testdata/module/declaredFactories). See [Declared factories](#declared-factories) below,
+including its reach limit.
 
 ### Directives
 
 A `//gofactory:` comment, written in a declaration's doc comment (the comment group directly above
 it) with no space after the slashes (like `//go:build`), marks that declaration for the linter.
-It takes effect in every package and module that imports the declaration, not just the one that
-writes it: gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
-so an importing package's analysis sees them even though it never parses the file that carries the
-comment.
+gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
+so a package that imports the one carrying the directive sees it even though it never parses the
+file with the comment, not just the package that writes it. `//gofactory:ignore` reaches every
+transitive importer this way; `//gofactory:factory` reaches only direct importers of its package
+(see [Declared factories](#declared-factories) below).
 
 - `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
   not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
@@ -210,27 +211,36 @@ func New(id string) *pb.Order {
 A declared factory may itself bypass the factories of the types it is a factory of, inside its own
 body (including a closure it defines, which shares its enclosing top-level declaration's
 permission), the same way a recognised factory may bypass its own type's factory in its owner
-package; it gains no permission over any other type. Elsewhere, calling it is suggested in
-messages the same way a recognised factory is, and it counts for `--onlyWithFactory`, even with
-`--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactories).
+package; it gains no permission over any other type. In a package that imports its package
+directly, calling it is suggested in messages the same way a recognised factory is, and it counts
+for `--onlyWithFactory`, even with `--useDefaultFactoryPattern=false`,
+[tests](testdata/module/declaredFactories).
+
+**Reach.** A declared factory is known only to a package that imports its package directly. The
+fact that marks it sits on a function object, and go/analysis's fact machinery
+(`checker.exportedFrom`, `facts.Encode`) forwards those only to direct importers, unlike a type's
+`//gofactory:ignore` fact, which every transitive importer sees. A package that uses the protected
+type without importing the declaring package gets the bare `Use factory for pkg.T` message with no
+suggestion, and `--onlyWithFactory` silently does not report it at all — see
+[False Negative](#false-negative).
 
 A `//gofactory:factory` directive on a function or method with no protected type among its results
 is reported as a diagnostic, since it would otherwise do nothing while looking like it did
 something. A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`,
 it may simply match nothing relevant.
 
-Creation and reconstitution are the same concept: a repository method that rebuilds an aggregate
-from storage, `order.Restore(id, state)`, is just a factory, enabled the same way any other
-unusually-named factory is — a `--factoryPatterns=^Restore` pattern if the convention is
-project-wide, or a `//gofactory:factory` directive if `Restore` is just this one repository's name
-for it:
+Creation and reconstitution are the same concept: a function that a repository calls to rebuild an
+aggregate from storage, `order.Restore(id, status, paidAt)`, is just a factory, enabled the same
+way any other unusually-named factory is — a `--factoryPatterns=^Restore` pattern if the convention
+is project-wide, or a `//gofactory:factory` directive if `Restore` is just this one repository's
+name for it:
 
 ```go
 package order
 
 //gofactory:factory
-func Restore(id string, state orderState) *Order {
-    return &Order{id: id, state: state}
+func Restore(id string, status Status, paidAt time.Time) *Order {
+    return &Order{id: id, status: status, paidAt: paidAt}
 }
 ```
 
@@ -439,6 +449,10 @@ actual output. Every case added there must carry such a `// want` comment.
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
    elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
+7. A declared factory (`//gofactory:factory` or `--factories`) is suggested, and counted by
+   `--onlyWithFactory`, only in a package that imports its package directly; a package that reaches
+   the protected type through some other package never sees it,
+   [example](testdata/module/unimplemented/visibility/).
 
 ## TODO
 
