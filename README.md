@@ -107,7 +107,7 @@ Mark it one of three ways:
 - `//gofactory:trusted` in the doc comment of a function or a method trusts that function or
   method, and any closure written inside it.
 - `//gofactory:trusted` in a package's doc comment trusts the whole package: every function,
-  method and package-level var in it, nothing else annotated individually,
+  method and package-level var in it, without marking each one,
   [tests](testdata/module/directive) (`trustedfunc/` and `trustedpkg/`).
 - `--trusted`, a repeatable glob, trusts code by name instead of by directive — a package path or a
   qualified function/method name — to trust a whole subtree at once (e.g.
