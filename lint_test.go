@@ -115,6 +115,17 @@ func TestCrossPackageDirectivesFactTypes(t *testing.T) {
 			})
 	})
 
+	t.Run("explicit_true", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(true)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared")
+				}
+			})
+	})
+
 	t.Run("disabled", func(t *testing.T) {
 		t.Parallel()
 
