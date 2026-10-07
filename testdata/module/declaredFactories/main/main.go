@@ -27,6 +27,7 @@ func main() {
 	_ = owner.Globbed{}             // want `Use factory for owner.Globbed \(sub.MakeGlobbed\)$`
 	_ = owner.Flagged{}             // want `Use factory for owner.Flagged \(flagged.MakeFlagged\)`
 	_ = owner.FlaggedMethod{}       // want `Use factory for owner.FlaggedMethod \(flagged.Box.RestoreFlaggedMethod\)`
+	_ = owner.FlaggedExact{}        // want `Use factory for owner.FlaggedExact \(flagged.Box.RestoreExact\)`
 	_ = owner.NoDirective{}         // want `Use factory for owner.NoDirective$`
 	_ = owner.Unmarked{}            // want `Use factory for owner.Unmarked$`
 	_ = owner.Inaccessible{}        // want `Use factory for owner.Inaccessible$`

@@ -36,6 +36,10 @@ type Flagged struct{}
 // declared through -factories too, over a method this time.
 type FlaggedMethod struct{}
 
+// FlaggedExact's only factory, flagged.Box.RestoreExact, is declared
+// through a -factories glob with no wildcard, receiver type included.
+type FlaggedExact struct{}
+
 // PtrBuilt's declared factory, other.BuildPtr, returns a pointer.
 type PtrBuilt struct{}
 
