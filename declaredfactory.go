@@ -8,8 +8,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// protectedResultTargets is resultTargets filtered to protected kinds only;
-// module scope, fences and ignored types are decided at the site, not here.
+// Module scope, fences and ignored types are decided at the site, not here.
 func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 	var targets []*types.TypeName
 
@@ -23,11 +22,8 @@ func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 }
 
 // declaredFactoryIndex indexes every declared factory the current pass can
-// see: local (the current package's own //gofactory:factory directives and
-// -factories matches, applied in run before this runs; with
-// -crossPackageDirectives=false they export no fact, so local is the only
-// way they reach here) and those imported from a package the current
-// package directly imports (README.md, Declared factories, Reach). The
+// see: local, and those whose fact comes from a package the current package
+// directly imports (README.md, Declared factories, Reach). The
 // directlyImports filter below is load-bearing: x/tools forwards a method's
 // fact past direct importers, always under checker.exportedFrom
 // (golangci-lint copies it), and under go vet's facts.Encode whenever the
@@ -68,10 +64,6 @@ func directlyImports(pkg, other *types.Package) bool {
 	return pkg == other || slices.Contains(pkg.Imports(), other)
 }
 
-// importPathQualifiedName is what a -factories or -trusted glob matches
-// against: import/path.Func or import/path.Type.Method. Unlike
-// factoryQualifiedName (the message suffix), it names the package by import
-// path, not by Pkg().Name() (the package clause).
 func importPathQualifiedName(fn *types.Func) string {
 	return qualifiedName(fn.Pkg().Path(), fn)
 }

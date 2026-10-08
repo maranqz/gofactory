@@ -5,12 +5,10 @@ import (
 	"factory/declaredFactories/owner"
 )
 
-// MakeGlobbed has the same name as sub.MakeGlobbed, one path segment
-// further: factory/declaredFactories/glob/*.MakeGlobbed must not match it,
-// since "*" does not cross "/". It stays undeclared, so owner.Globbed's
-// suggestion below, and in main.go, must list only sub.MakeGlobbed; this
-// package imports sub so that sub's fact reaches it (see the reach limit
-// in README.md, Declared factories).
+// MakeGlobbed has sub.MakeGlobbed's name one path segment further, so the
+// glob that matches sub.MakeGlobbed must not match it: "*" does not cross
+// "/". owner.Globbed's suggestions, here and in main.go, list only
+// sub.MakeGlobbed.
 func MakeGlobbed() owner.Globbed {
 	_ = sub.MakeGlobbed()
 

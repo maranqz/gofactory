@@ -509,8 +509,6 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	return analyzer
 }
 
-// setOptionalBoolFlag mirrors a *bool case setting that must leave the
-// entry point's own default in place when unset, rather than force false.
 func setOptionalBoolFlag(
 	t *testing.T, analyzer *analysis.Analyzer, name string, value *bool,
 ) {

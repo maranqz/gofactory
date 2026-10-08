@@ -151,8 +151,7 @@ func checkGenDeclDirectives(
 }
 
 // node is the declaration the doc comment belongs to: a *ast.TypeSpec for
-// declType/declAlias, a *ast.FuncDecl for declFunc, nil otherwise. It is
-// only consulted by the directives whose placement allows it.
+// declType/declAlias, a *ast.FuncDecl for declFunc, nil otherwise.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,

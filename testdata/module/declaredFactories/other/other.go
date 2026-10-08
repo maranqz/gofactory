@@ -104,10 +104,6 @@ func RestoreMixed() owner.Mixed { // want RestoreMixed:"gofactory:factory"
 	return owner.Mixed{}
 }
 
-// Merge takes owner.Merged itself as a parameter: a recognised factory
-// never would, since the ^New pattern rule excludes that, but a declared
-// factory has no such restriction.
-//
 //gofactory:factory
 func Merge(base owner.Merged) owner.Merged { // want Merge:"gofactory:factory"
 	return base

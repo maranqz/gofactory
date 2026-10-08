@@ -1,7 +1,5 @@
-// Package sub is reached by the "declaredFactories" case's
-// factory/declaredFactories/glob/*.MakeGlobbed glob, whose "*" does not
-// cross the "/" before deep (sub/deep/deep.go has the identical name one
-// path segment further, and must stay unmatched).
+// Package sub's MakeGlobbed is a declared factory through a -factories glob
+// of lint_test.go's "declaredFactories" case, not a directive.
 package sub
 
 import "factory/declaredFactories/owner"
