@@ -171,7 +171,8 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 		// testing and testing/internal/testdeps are fenced so their types
 		// are protected: without this, module scope would leave the
 		// synthesized test main's testing.InternalTest and
-		// testdeps.TestDeps unprotected, and the case would test nothing.
+		// testdeps.TestDeps unprotected, and the synthesized test main
+		// would go unchecked.
 		"generatedFiles": {
 			pkgs: []string{"generatedFiles/..."},
 			settings: caseSettings{
@@ -180,14 +181,9 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 			},
 		},
 
-		// owner's external test package counts as owner's own code with no
-		// fence involved.
 		"externalTestPackage": {
 			pkgs: []string{"externalTestPackage/..."},
 		},
-		// Same as externalTestPackage, but owner is also fenced by its
-		// exact path: owner_test must stay silent even though its own path
-		// (owner's path plus "_test") lies outside that fence.
 		"externalTestPackageFence": {
 			pkgs: []string{"externalTestPackageFence/..."},
 			settings: caseSettings{

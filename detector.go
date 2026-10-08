@@ -31,7 +31,8 @@ type detector struct {
 
 	locallyIgnored map[types.Object]bool
 
-	// The test main go test synthesizes carries this header too.
+	// The test main go test synthesizes carries the
+	// "// Code generated ... DO NOT EDIT." header too.
 	generatedFiles map[*ast.File]bool
 
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
@@ -123,9 +124,6 @@ func isLineDirective(comments []*ast.Comment, idx int) bool {
 	return idx < len(comments) && strings.HasPrefix(comments[idx].Text, "//line ")
 }
 
-// generatedBy extracts the generator name from a single comment's text, in
-// the form go/ast.IsGenerated recognises: "// Code generated <name> DO NOT
-// EDIT.".
 func generatedBy(text string) (string, bool) {
 	const prefix = "// Code generated "
 
@@ -189,9 +187,9 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
 
-// Generated files are pruned in visit before any route runs, instead of
-// being checked here, so the walks skip them, including the field-path
-// walk over a large generated package.
+// Every bypass route reports through here, so the permission policy is
+// applied in one place; visit and checkPackageVars drop generated files
+// before any route runs.
 func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {

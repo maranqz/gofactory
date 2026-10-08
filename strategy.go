@@ -141,10 +141,8 @@ func (s fencedPkgs) IsBlocked(
 	identObj types.Object,
 	currentFn *types.Func,
 ) bool {
-	// Every fence holding identObj's package also holds that package
-	// itself, so the owner is never blocked by the loop below; foo_test is
-	// the one case the loop would get wrong, since its own path lies
-	// outside every fence around foo.
+	// foo_test counts as foo, but its path need not lie in foo's fences,
+	// so this early return keeps the loop below from blocking it.
 	if isOwnerPackage(currentPkg, identObj.Pkg()) {
 		return false
 	}
