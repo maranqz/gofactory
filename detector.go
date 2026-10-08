@@ -11,8 +11,9 @@ import (
 )
 
 // detector resolves bypass routes through the type checker instead of
-// syntax, so a literal, conversion, new(T) or, with -zeroValues, a zero
-// value of a protected type is reported however it is spelled.
+// syntax, so a literal, conversion, new(T), stored untyped constant or,
+// with -zeroValues, a zero value of a protected type is reported however it
+// is spelled.
 type detector struct {
 	pass        *analysis.Pass
 	strategy    blockedStrategy
@@ -70,8 +71,16 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
+		d.checkCompositeElements(node)
 	case *ast.CallExpr:
 		d.checkCall(node)
+		d.checkCallArgs(node)
+	case *ast.GenDecl:
+		d.checkVarDecl(node)
+	case *ast.AssignStmt:
+		d.checkAssign(node)
+	case *ast.ReturnStmt:
+		d.checkStoredConstants(node.Results)
 	case *ast.FuncDecl:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	case *ast.FuncLit:
