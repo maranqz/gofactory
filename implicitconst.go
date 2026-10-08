@@ -58,9 +58,8 @@ func (d *detector) checkCompositeElements(lit *ast.CompositeLit) {
 	}
 }
 
-// checkStoredConstants reports an untyped constant implicitly converted to a
-// protected type: go/types records the conversion's target as the
-// constant's type, so st = 3 records 3 as the type of st.
+// go/types records an implicitly converted constant with its target type:
+// in st = 3, 3 has the type of st.
 func (d *detector) checkStoredConstants(exprs []ast.Expr) {
 	for _, expr := range exprs {
 		if d.isUntypedConstant(expr) {
@@ -94,9 +93,8 @@ func (d *detector) isUntypedConstant(expr ast.Expr) bool {
 	return false
 }
 
-// isUntypedBinary follows the spec: a comparison is always untyped, a shift
-// takes the type of its left operand, and any other operation is typed as
-// soon as one operand is.
+// A comparison is untyped even when its operands are typed; a shift takes
+// the type of its left operand.
 func (d *detector) isUntypedBinary(expr *ast.BinaryExpr) bool {
 	comparisons := []token.Token{
 		token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ,
@@ -112,8 +110,7 @@ func (d *detector) isUntypedBinary(expr *ast.BinaryExpr) bool {
 	return d.isUntypedConstant(expr.X) && d.isUntypedConstant(expr.Y)
 }
 
-// isUntypedBuiltinCall covers the builtins whose result stays untyped for
-// untyped constant arguments; len, cap and unsafe.Sizeof are typed.
+// len, cap and unsafe.Sizeof give typed constants.
 func (d *detector) isUntypedBuiltinCall(call *ast.CallExpr) bool {
 	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
 	if !ok {

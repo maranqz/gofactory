@@ -7,9 +7,9 @@ const (
 	Inactive
 )
 
-// The owner package may store untyped constants in its own type.
 const Closed Status = 3
 
+// The owner package may store an untyped constant in its own type.
 func NewStatus() Status {
 	return 1
 }

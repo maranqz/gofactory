@@ -11,9 +11,9 @@ import (
 )
 
 // detector resolves bypass routes through the type checker instead of
-// syntax, so a literal, conversion, new(T), stored untyped constant or,
-// with -zeroValues, a zero value of a protected type is reported however it
-// is spelled.
+// syntax, so a literal, conversion, new(T), implicit constant conversion
+// or, with -zeroValues, a zero value of a protected type is reported however
+// it is spelled.
 type detector struct {
 	pass        *analysis.Pass
 	strategy    blockedStrategy
