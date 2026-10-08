@@ -1,6 +1,4 @@
-// Package ext holds a protected type bypassed from the other packages
-// under generatedFiles, to show that a bypass in a generated file is
-// skipped and the same bypass in a plain file of the same package is not.
+// Package ext holds the protected type user bypasses.
 package ext
 
 type Struct struct{}

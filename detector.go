@@ -31,9 +31,7 @@ type detector struct {
 
 	locallyIgnored map[types.Object]bool
 
-	// generatedFiles holds every file of pass.Files carrying the standard
-	// "Code generated ... DO NOT EDIT." header, so a bypass written there,
-	// including in the test main go test synthesizes, is never reported.
+	// The test main go test synthesizes carries this header too.
 	generatedFiles map[*ast.File]bool
 
 	// currentFn is the FuncDecl enclosing the checked node, nil at package

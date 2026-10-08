@@ -1,5 +1,4 @@
-// package owner_test is the external test package of owner: it counts as
-// owner's own code, so the bypass below is silent.
+// owner_test counts as owner's own code, so the bypass below is silent.
 package owner_test
 
 import (

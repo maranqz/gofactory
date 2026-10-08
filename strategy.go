@@ -53,9 +53,8 @@ func (anotherPkg) IsBlocked(
 }
 
 // isOwnerPackage reports whether currentPkg is pkg itself or pkg's external
-// test package: go/packages (and so analysistest and go vet) gives that
-// package the synthetic path pkg.Path()+"_test", so foo_test counts as
-// foo's own code and may bypass its factories the same way.
+// test package: the go command gives that external test package the import
+// path pkg.Path()+"_test" (cmd/go/internal/load/test.go:233).
 func isOwnerPackage(currentPkg, pkg *types.Package) bool {
 	return currentPkg.Path() == pkg.Path() || currentPkg.Path() == pkg.Path()+"_test"
 }
