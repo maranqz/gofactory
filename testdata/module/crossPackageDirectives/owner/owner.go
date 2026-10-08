@@ -4,9 +4,7 @@
 // only by the case's -ignoreTypes setting; Misplaced puts the directive
 // where it does not belong, to show directive validation still runs with
 // the setting false. Declared carries a //gofactory:factory whose fact
-// likewise no longer reaches the importer, but Restore still has the
-// permission to bypass Declared's own factory here, in the package that
-// declares it.
+// likewise no longer reaches the importer.
 package owner
 
 //gofactory:ignore

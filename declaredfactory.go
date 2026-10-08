@@ -76,10 +76,8 @@ func importPathQualifiedName(fn *types.Func) string {
 	return qualifiedName(fn.Pkg().Path(), fn)
 }
 
-// exportFlagFactories applies -factories to every top-level function and
-// method of the current package, returning every match for
-// declaredFactoryIndex. Unlike the directive, a match with no protected type
-// among its results is skipped silently, not reported.
+// Unlike the directive, a match with no protected type among its results is
+// skipped silently, not reported.
 func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) []*types.Func {
 	if len(globs) == 0 {
 		return nil
@@ -93,16 +91,28 @@ func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) []*types.Func {
 		}
 	})
 
+	// A setting needs no fact to reach a direct importer, so a match there
+	// survives -crossPackageDirectives=false, which only stops directives.
+	for _, imported := range pass.Pkg.Imports() {
+		walkPackageFuncs(imported, func(fn *types.Func, _ *types.TypeName) {
+			if isFlagFactory(globs, fn) {
+				matched = append(matched, fn)
+			}
+		})
+	}
+
 	return matched
+}
+
+func isFlagFactory(globs []glob.Glob, fn *types.Func) bool {
+	return matchesAnyGlob(globs, importPathQualifiedName(fn)) &&
+		len(protectedResultTargets(fn.Signature())) > 0
 }
 
 func exportFlagFactory(
 	pass *analysis.Pass, globs []glob.Glob, factory *types.Func,
 ) bool {
-	name := importPathQualifiedName(factory)
-	targets := protectedResultTargets(factory.Signature())
-
-	if !matchesAnyGlob(globs, name) || len(targets) == 0 {
+	if !isFlagFactory(globs, factory) {
 		return false
 	}
 

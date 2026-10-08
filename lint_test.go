@@ -254,6 +254,7 @@ func ignoredTypeCases() map[string]linterSuiteCase {
 			settings: caseSettings{
 				crossPackageDirectives: new(false),
 				ignoreTypes:            []string{"factory/crossPackageDirectives/owner.GlobIgnored"},
+				factories:              []string{"factory/crossPackageDirectives/wrap.Load"},
 			},
 		},
 

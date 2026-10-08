@@ -230,8 +230,9 @@ export data), and golangci-lint no longer runs gofactory on them (it still parse
 them from source if another enabled linter uses facts). `go vet` runs the tool on, and type-checks,
 every dependency either way, so there the setting saves only gofactory's own pass.
 `//gofactory:ignore` and `//gofactory:factory` still take effect in the package that declares them,
-and settings such as `--ignoreTypes` and `--packageGlobs` still apply everywhere; only propagation
-to importers is turned off, [tests](testdata/module/crossPackageDirectives).
+and settings such as `--ignoreTypes` and `--packageGlobs` still apply everywhere, as does a
+`--factories` match within its usual [reach](#declared-factories); only propagation of directives to
+importers is turned off, [tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 
