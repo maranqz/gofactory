@@ -68,12 +68,12 @@ func directlyImports(pkg, other *types.Package) bool {
 	return pkg == other || slices.Contains(pkg.Imports(), other)
 }
 
-// declaredFactoryQualifiedName is what a -factories glob matches against:
-// import/path.Func or import/path.Type.Method. Unlike factoryQualifiedName
-// (the message suffix), it names the package by import path, not by
-// Pkg().Name() (the package clause).
-func declaredFactoryQualifiedName(factory *types.Func) string {
-	return qualifiedName(factory.Pkg().Path(), factory)
+// importPathQualifiedName is what a -factories or -trusted glob matches
+// against: import/path.Func or import/path.Type.Method. Unlike
+// factoryQualifiedName (the message suffix), it names the package by import
+// path, not by Pkg().Name() (the package clause).
+func importPathQualifiedName(fn *types.Func) string {
+	return qualifiedName(fn.Pkg().Path(), fn)
 }
 
 // exportFlagFactories applies -factories to every top-level function and
@@ -99,7 +99,7 @@ func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) []*types.Func {
 func exportFlagFactory(
 	pass *analysis.Pass, globs []glob.Glob, factory *types.Func,
 ) bool {
-	name := declaredFactoryQualifiedName(factory)
+	name := importPathQualifiedName(factory)
 	targets := protectedResultTargets(factory.Signature())
 
 	if !matchesAnyGlob(globs, name) || len(targets) == 0 {

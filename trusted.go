@@ -51,11 +51,7 @@ func (t trustedCode) matchesPackage(pkgPath string) bool {
 }
 
 func (t trustedCode) matchesFunc(fn *types.Func) bool {
-	name := qualifiedName(fn.Pkg().Path(), fn)
-
-	return slices.ContainsFunc(t.globs, func(g glob.Glob) bool {
-		return g.Match(name)
-	})
+	return matchesAnyGlob(t.globs, importPathQualifiedName(fn))
 }
 
 type trustedStrategy struct {
