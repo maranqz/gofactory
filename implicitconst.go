@@ -36,11 +36,8 @@ func (d *detector) checkArgConstants(call *ast.CallExpr) {
 		return
 	}
 
-	if ident, ok := fun.(*ast.Ident); ok {
-		if builtin, ok := d.pass.TypesInfo.Uses[ident].(*types.Builtin); ok &&
-			builtin.Name() != "append" {
-			return
-		}
+	if name := d.builtinName(call); name != "" && name != "append" {
+		return
 	}
 
 	d.checkStoredConstants(call.Args)
@@ -112,17 +109,7 @@ func (d *detector) isUntypedBinary(expr *ast.BinaryExpr) bool {
 
 // len, cap and unsafe.Sizeof give typed constants.
 func (d *detector) isUntypedBuiltinCall(call *ast.CallExpr) bool {
-	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
-	if !ok {
-		return false
-	}
-
-	builtin, ok := d.pass.TypesInfo.Uses[ident].(*types.Builtin)
-	if !ok {
-		return false
-	}
-
-	switch builtin.Name() {
+	switch d.builtinName(call) {
 	case "min", "max", "complex", "real", "imag":
 	default:
 		return false
@@ -135,6 +122,20 @@ func (d *detector) isUntypedBuiltinCall(call *ast.CallExpr) bool {
 	}
 
 	return true
+}
+
+func (d *detector) builtinName(call *ast.CallExpr) string {
+	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
+	if !ok {
+		return ""
+	}
+
+	builtin, ok := d.pass.TypesInfo.Uses[ident].(*types.Builtin)
+	if !ok {
+		return ""
+	}
+
+	return builtin.Name()
 }
 
 func isUntypedConstObject(obj types.Object) bool {
