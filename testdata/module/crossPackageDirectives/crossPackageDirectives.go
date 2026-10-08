@@ -5,14 +5,22 @@
 // owner.GlobIgnored across the package boundary. Load's own
 // //gofactory:trusted, declared and used in this package, still exempts it:
 // that directive never crosses a package boundary, so the setting does not
-// touch it.
+// touch it. Of owner.Declared's declared factories, only wrap.Load, matched
+// by the case's -factories setting, still reaches here: the
+// //gofactory:factory directives on owner.Restore and wrap.Make do not.
 package crossPackageDirectives
 
-import "factory/crossPackageDirectives/owner"
+import (
+	"factory/crossPackageDirectives/owner"
+	"factory/crossPackageDirectives/wrap"
+)
+
+var _ = wrap.Make
 
 func Use() {
 	_ = owner.Ignored{} // want `Use factory for owner.Ignored \(owner.NewIgnored\)`
 	_ = owner.GlobIgnored{}
+	_ = owner.Declared{} // want `Use factory for owner.Declared \(wrap.Load\)`
 }
 
 //gofactory:trusted

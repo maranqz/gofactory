@@ -151,6 +151,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	maps.Copy(cases, fenceLinterSuiteCases())
 	maps.Copy(cases, ignoredTypeCases())
 	maps.Copy(cases, factorySettingCases())
+	maps.Copy(cases, declaredFactoryCases())
 	maps.Copy(cases, trustedCases())
 
 	return cases
@@ -253,6 +254,7 @@ func ignoredTypeCases() map[string]linterSuiteCase {
 			settings: caseSettings{
 				crossPackageDirectives: new(false),
 				ignoreTypes:            []string{"factory/crossPackageDirectives/owner.GlobIgnored"},
+				factories:              []string{"factory/crossPackageDirectives/wrap.Load"},
 			},
 		},
 
@@ -311,6 +313,37 @@ func factorySettingCases() map[string]linterSuiteCase {
 				factoryPatterns:          []string{factoryPatternMake},
 				useDefaultFactoryPattern: new(false),
 			},
+		},
+	}
+}
+
+func declaredFactoryCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"declaredFactories": {
+			pkgs: []string{"declaredFactories/..."},
+			settings: caseSettings{
+				factories: []string{
+					"factory/declaredFactories/flagged.MakeFlagged",
+					"factory/declaredFactories/flagged.*FlaggedMethod",
+					"factory/declaredFactories/flagged.Box.RestoreExact",
+					"factory/declaredFactories/glob/*.MakeGlobbed",
+				},
+			},
+		},
+		"declaredFactoriesOnlyWithFactory": {
+			pkgs: []string{"declaredFactoriesOnlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"declaredFactoriesZeroValues": {
+			pkgs:     []string{"declaredFactoriesZeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"declaredFactoriesFence": {
+			pkgs:     []string{"declaredFactoriesFence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/declaredFactoriesFence/owner/**"}},
 		},
 	}
 }
@@ -425,6 +458,7 @@ type caseSettings struct {
 	useDefaultFactoryPattern *bool
 	onlyWithFactory          bool
 
+	factories              []string
 	crossPackageDirectives *bool
 }
 
@@ -448,9 +482,7 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		setFlag(t, analyzer, "factoryPatterns", p)
 	}
 
-	if s.useDefaultFactoryPattern != nil {
-		setFlag(t, analyzer, "useDefaultFactoryPattern", strconv.FormatBool(*s.useDefaultFactoryPattern))
-	}
+	setOptionalBoolFlag(t, analyzer, "useDefaultFactoryPattern", s.useDefaultFactoryPattern)
 
 	if s.onlyWithFactory {
 		setFlag(t, analyzer, "onlyWithFactory", "true")
@@ -464,15 +496,27 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		setFlag(t, analyzer, "ignoreTypes", g)
 	}
 
-	if s.crossPackageDirectives != nil {
-		setFlag(t, analyzer, "crossPackageDirectives", strconv.FormatBool(*s.crossPackageDirectives))
+	for _, g := range s.factories {
+		setFlag(t, analyzer, "factories", g)
 	}
+
+	setOptionalBoolFlag(t, analyzer, "crossPackageDirectives", s.crossPackageDirectives)
 
 	for _, g := range s.trusted {
 		setFlag(t, analyzer, "trusted", g)
 	}
 
 	return analyzer
+}
+
+func setOptionalBoolFlag(
+	t *testing.T, analyzer *analysis.Analyzer, name string, value *bool,
+) {
+	t.Helper()
+
+	if value != nil {
+		setFlag(t, analyzer, name, strconv.FormatBool(*value))
+	}
 }
 
 func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
@@ -555,6 +599,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"zero-values":        s.zeroValues,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
+		"factories":          s.factories,
 	}
 	if s.useDefaultFactoryPattern != nil {
 		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
@@ -759,6 +804,18 @@ func configurationErrorCases() map[string]configurationErrorCase {
 		"leading_slash_ignoreTypes_glob": {
 			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
 			want:     "ignoreTypes pattern must not start with '/'",
+		},
+		"invalid_factories_glob": {
+			settings: caseSettings{factories: []string{"["}},
+			want:     "unable to compile factories pattern",
+		},
+		"empty_factories_glob": {
+			settings: caseSettings{factories: []string{"  "}},
+			want:     "factories pattern must not be empty",
+		},
+		"leading_slash_factories_glob": {
+			settings: caseSettings{factories: []string{"/factory/declaredFactories/flagged.MakeFlagged"}},
+			want:     "factories pattern must not start with '/'",
 		},
 		"invalid_trusted_glob": {
 			settings: caseSettings{trusted: []string{"["}},

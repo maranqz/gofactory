@@ -16,6 +16,8 @@ const directivePrefix = "//gofactory:"
 
 const misplacedDirectiveFormat = "%s%s must be in the doc comment of %s"
 
+const noProtectedResultFormat = "%s%s must have a protected type among %s's results"
+
 type declKind int
 
 const (
@@ -26,7 +28,6 @@ const (
 	declPackage
 )
 
-// factory is placement-checked but has no effect.
 const (
 	directiveIgnore  = "ignore"
 	directiveFactory = "factory"
@@ -60,12 +61,14 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-// With -crossPackageDirectives=false, applyIgnore exports no ignoredFact,
-// so ignored is the only way isIgnored (as detector.locallyIgnored) sees
-// this package's own //gofactory:ignore.
+// With -crossPackageDirectives=false, applyIgnore and applyFactory export no
+// fact, so ignored and factories are the only way isIgnored (as
+// detector.locallyIgnored) and declaredFactoryIndex see this package's own
+// //gofactory:ignore and //gofactory:factory.
 type directiveState struct {
-	ignored map[types.Object]bool
-	trust   *trustInfo
+	ignored   map[types.Object]bool
+	factories []*types.Func
+	trust     *trustInfo
 }
 
 func checkDirectives(pass *analysis.Pass) *directiveState {
@@ -147,8 +150,8 @@ func checkGenDeclDirectives(
 	}
 }
 
-// node is *ast.TypeSpec for declType and declAlias, *ast.FuncDecl for
-// declFunc, nil otherwise.
+// node is the declaration the doc comment belongs to: a *ast.TypeSpec for
+// declType/declAlias, a *ast.FuncDecl for declFunc, nil otherwise.
 func processDoc(
 	pass *analysis.Pass,
 	consumed map[*ast.CommentGroup]bool,
@@ -231,6 +234,10 @@ func applyDirective(
 		if typeSpec, ok := node.(*ast.TypeSpec); ok {
 			applyIgnore(pass, typeSpec, state.ignored)
 		}
+	case directiveFactory:
+		if funcDecl, ok := node.(*ast.FuncDecl); ok {
+			applyFactory(pass, comment, funcDecl, state)
+		}
 	case directiveTrusted:
 		applyTrusted(pass, state.trust, kind, node)
 	}
@@ -247,13 +254,29 @@ func applyIgnore(
 	}
 
 	ignored[obj] = true
+	exportFact(pass, obj, &ignoredFact{})
+}
 
-	// Exporting a fact while Analyzer.FactTypes is empty panics under go vet,
-	// whose gob encoder registers only declared fact types. Importing one is
-	// a plain lookup in every driver, so isIgnored needs no such check.
-	if len(pass.Analyzer.FactTypes) > 0 {
-		pass.ExportObjectFact(obj, &ignoredFact{})
+func applyFactory(
+	pass *analysis.Pass, comment *ast.Comment, funcDecl *ast.FuncDecl,
+	state *directiveState,
+) {
+	factory, ok := pass.TypesInfo.ObjectOf(funcDecl.Name).(*types.Func)
+	if !ok {
+		return
 	}
+
+	if len(protectedResultTargets(factory.Signature())) == 0 {
+		pass.Reportf(
+			comment.Pos(), noProtectedResultFormat,
+			directivePrefix, directiveFactory, factory.Name(),
+		)
+
+		return
+	}
+
+	state.factories = append(state.factories, factory)
+	exportFact(pass, factory, &factoryFact{})
 }
 
 func applyTrusted(

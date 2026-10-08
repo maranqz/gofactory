@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"regexp"
 
+	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -21,6 +22,15 @@ type config struct {
 	extraFactoryPatterns     regexpsFlag
 	useDefaultFactoryPattern bool
 	onlyWithFactory          bool
+
+	factoryGlobs globsFlag
+}
+
+type compiledGlobs struct {
+	fences       []fence
+	ignoreTypes  []glob.Glob
+	factoryGlobs []glob.Glob
+	trustedGlobs []glob.Glob
 }
 
 const (
@@ -30,6 +40,7 @@ const (
 
 	packageGlobsFlag = "packageGlobs"
 	ignoreTypesFlag  = "ignoreTypes"
+	factoriesFlag    = "factories"
 	trustedFlag      = "trusted"
 
 	packageGlobsDesc = "package glob, repeatable; each is a fence: a type in fences may be bypassed only by code inside all of them"
@@ -41,9 +52,10 @@ const (
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
+	factoriesDesc                = "qualified function/method-name glob (import/path.Func or import/path.Type.Method), repeatable; a match is a declared factory of each protected type among its results"
 
-	crossPackageDirectivesDesc = "propagate //gofactory:ignore to importing packages and modules; " +
-		"false limits it to its own package and skips analysing dependencies: " +
+	crossPackageDirectivesDesc = "propagate //gofactory:ignore and //gofactory:factory to importing packages and modules; " +
+		"false limits them to their own package and skips analysing dependencies: " +
 		"a large speed-up for the standalone command, at most a small one under go vet, " +
 		"which type-checks them anyway"
 )
@@ -81,6 +93,8 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
+	analyzer.Flags.Var(&cfg.factoryGlobs, factoriesFlag, factoriesDesc)
+
 	analyzer.Flags.Var(
 		newCrossPackageDirectivesFlag(analyzer), "crossPackageDirectives", crossPackageDirectivesDesc,
 	)
@@ -103,7 +117,7 @@ func factTypesFor(enabled bool) []analysis.Fact {
 		return nil
 	}
 
-	return []analysis.Fact{new(ignoredFact)}
+	return []analysis.Fact{new(ignoredFact), new(factoryFact)}
 }
 
 // newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
@@ -129,34 +143,20 @@ func newAnalyzer(cfg *config, opts ...analyzerOption) *analysis.Analyzer {
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 	return func(pass *analysis.Pass) (any, error) {
-		patterns := cfg.pkgGlobs.Value()
-
-		if cfg.onlyPkgGlobs && len(patterns) == 0 {
-			return nil, errPackageGlobsOnlyNeedsGlobs
-		}
-
-		fences, err := newFences(patterns)
-		if err != nil {
-			return nil, err
-		}
-
-		ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
-		if err != nil {
-			return nil, err
-		}
-
-		trustedGlobs, err := compileGlobs(trustedFlag, cfg.trusted.Value())
+		compiled, err := cfg.compile()
 		if err != nil {
 			return nil, err
 		}
 
 		state := checkDirectives(pass)
-		trusted := newTrustedCode(trustedGlobs, state.trust)
-		strategy := buildStrategy(cfg, pass, fences, trusted)
+		trusted := newTrustedCode(compiled.trustedGlobs, state.trust)
+		strategy := buildStrategy(cfg, pass, compiled.fences, trusted)
 
 		v := newDetector(
-			pass, strategy, ignoreTypes, cfg.zeroValues,
-			cfg.recognitionPatterns(), cfg.onlyWithFactory, state.ignored,
+			pass, strategy, compiled.ignoreTypes, cfg.zeroValues,
+			cfg.recognitionPatterns(), cfg.onlyWithFactory,
+			declaredFactoryIndex(pass, state.factories, compiled.factoryGlobs),
+			state.ignored,
 		)
 
 		for _, file := range pass.Files {
@@ -173,6 +173,41 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 
 		return nil, nil
 	}
+}
+
+func (cfg *config) compile() (compiledGlobs, error) {
+	patterns := cfg.pkgGlobs.Value()
+
+	if cfg.onlyPkgGlobs && len(patterns) == 0 {
+		return compiledGlobs{}, errPackageGlobsOnlyNeedsGlobs
+	}
+
+	fences, err := newFences(patterns)
+	if err != nil {
+		return compiledGlobs{}, err
+	}
+
+	ignoreTypes, err := compileGlobs(ignoreTypesFlag, cfg.ignoreTypes.Value())
+	if err != nil {
+		return compiledGlobs{}, err
+	}
+
+	factoryGlobs, err := compileGlobs(factoriesFlag, cfg.factoryGlobs.Value())
+	if err != nil {
+		return compiledGlobs{}, err
+	}
+
+	trustedGlobs, err := compileGlobs(trustedFlag, cfg.trusted.Value())
+	if err != nil {
+		return compiledGlobs{}, err
+	}
+
+	return compiledGlobs{
+		fences:       fences,
+		ignoreTypes:  ignoreTypes,
+		factoryGlobs: factoryGlobs,
+		trustedGlobs: trustedGlobs,
+	}, nil
 }
 
 // trustedStrategy must stay outermost: no strategy it wraps checks trust

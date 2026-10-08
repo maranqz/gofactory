@@ -3,7 +3,8 @@
 // longer reaches the importer; GlobIgnored has no directive and is exempted
 // only by the case's -ignoreTypes setting; Misplaced puts the directive
 // where it does not belong, to show directive validation still runs with
-// the setting false.
+// the setting false. Restore's //gofactory:factory likewise no longer
+// reaches the importer.
 package owner
 
 //gofactory:ignore
@@ -17,3 +18,10 @@ type GlobIgnored struct{}
 
 //gofactory:ignore // want `//gofactory:ignore must be in the doc comment of a single top-level type definition`
 func Misplaced() {}
+
+type Declared struct{}
+
+//gofactory:factory
+func Restore() Declared {
+	return Declared{}
+}

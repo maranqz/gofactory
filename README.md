@@ -97,10 +97,13 @@ module itself, [tests](testdata/module/siblingfence).
 
 Infrastructure code, such as a repository reconstituting an aggregate from storage, legitimately
 needs to bypass a protected type's factory: a factory shaped for fresh input usually can't accept a
-persisted row, field by field, the way reconstitution needs to. Trusted code may bypass any
-protected type through every route, in every mode — module scope, fences, `--onlyWithFactory` and
-`--zeroValues` included. It is the permission policy's first check, so a mode added later respects
-it automatically, without needing its own trusted check.
+persisted row, field by field, the way reconstitution needs to. If the domain package can offer a
+factory that takes a persisted row instead, such as `order.Restore`, declare it rather than trusting
+the repository; see [Declared factories](#declared-factories) and its [reconstitution
+recipe](#recipe-reconstitution-through-a-factory). When no such factory fits, trusted code may
+bypass any protected type through every route, in every mode — module scope, fences,
+`--onlyWithFactory` and `--zeroValues` included. Trust is checked before any mode, so a mode added
+later respects it automatically.
 
 Mark it one of three ways:
 
@@ -203,29 +206,44 @@ all, no factory is ever recognised, [tests](testdata/module/useDefaultFactoryPat
 - `--onlyWithFactory` – report only types that have a factory accessible from the reported site, so a
 team can adopt the linter gradually, starting from the types that already have one,
 [tests](testdata/module/onlyWithFactory).
+- `--factories` – repeatable; a qualified function- or method-name glob (`import/path.Func` or
+`import/path.Type.Method`) declaring a factory outside the usual recognition rule,
+[tests](testdata/module/declaredFactories). See [Declared factories](#declared-factories) below,
+including its reach limit.
+`*` stays within one path segment: as in `--ignoreTypes`, it crosses `.` but not `/`, so
+`mymod/order.*` also matches a method of any type in `mymod/order`. `**` also crosses `/`.
+Repeat the flag to give several globs: a comma does not separate them. An empty glob, or one
+starting with `/`, is a configuration error.
 - `--trusted` – repeatable; a package-path glob (matched like `--packageGlobs`, see [Glob
 syntax](#glob-syntax)) or a qualified function- or method-name glob (`import/path.Name`,
 `import/path.Type.Method`, matched like `--ignoreTypes`) for code that may bypass any protected
 type's factory through any route, in every mode, [tests](testdata/module/trusted). See [Trusted
 code](#trusted-code) for the equivalent `//gofactory:trusted` directive and a reconstitution
 recipe.
-- `--crossPackageDirectives` – propagate `//gofactory:ignore` to importing packages and modules,
-`true` by default; see [Directives](#directives) below for what that means (`//gofactory:trusted`
-never crosses a package boundary, so this setting does not concern it). Set to `false` on a large
-monorepo to trade that off for less analysis of dependencies: with it off, the analyzer declares no
-`FactTypes`, so the standalone `gofactory` command no longer parses, type-checks and analyses
-dependencies from source (the `go` command still compiles them for their export data), and
-golangci-lint no longer runs gofactory on them (it still parses and type-checks them from source if
-another enabled linter uses facts). `go vet` runs the tool on, and type-checks, every dependency
-either way, so there the setting saves only gofactory's own pass. `//gofactory:ignore` still takes
-effect in the package that declares it, and settings such as `--ignoreTypes` and `--packageGlobs`
-still apply everywhere; only propagation to importers is turned off,
-[tests](testdata/module/crossPackageDirectives).
+- `--crossPackageDirectives` – propagate `//gofactory:ignore` and `//gofactory:factory` to importing
+packages and modules, `true` by default; see [Directives](#directives) below for what that means
+(`//gofactory:trusted` never crosses a package boundary, so this setting does not concern it). Set
+to `false` on a large monorepo to trade that off for less analysis of dependencies: with it off, the
+analyzer declares no `FactTypes`, so the standalone `gofactory` command no longer parses,
+type-checks and analyses dependencies from source (the `go` command still compiles them for their
+export data), and golangci-lint no longer runs gofactory on them (it still parses and type-checks
+them from source if another enabled linter uses facts). `go vet` runs the tool on, and type-checks,
+every dependency either way, so there the setting saves only gofactory's own pass.
+`//gofactory:ignore` and `//gofactory:factory` still take effect in the package that declares them,
+and settings such as `--ignoreTypes` and `--packageGlobs` still apply everywhere, as does a
+`--factories` match within its usual [reach](#declared-factories); only propagation of directives to
+importers is turned off, [tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 
 A `//gofactory:` comment, written in a declaration's doc comment (the comment group directly above
 it) with no space after the slashes (like `//go:build`), marks that declaration for the linter.
+gofactory exports directives as [analysis facts](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact),
+so a package that imports the one carrying the directive sees it even though it never parses the
+file with the comment, not just the package that writes it. `//gofactory:ignore` reaches every
+transitive importer this way; `//gofactory:factory` reaches only direct importers of its package
+(see [Declared factories](#declared-factories) below). `//gofactory:trusted` needs no fact; see
+below.
 
 - `//gofactory:ignore`, in the doc comment of a single top-level type definition (not an alias,
   not a trailing comment, not above a `type ( … )` group of several types), takes that type out of
@@ -243,17 +261,92 @@ it) with no space after the slashes (like `//go:build`), marks that declaration 
   }
   ```
 
+- `//gofactory:factory`, in the doc comment of a function or a method, declares it a factory. See
+  [Declared factories](#declared-factories) below for its reach, which `--crossPackageDirectives=false`
+  limits the same way it does `//gofactory:ignore`'s.
+
 - `//gofactory:trusted`, in the doc comment of a function, a method or a package, trusts that
   declaration — see [Trusted code](#trusted-code). Unlike `ignore`, its effect never crosses a
   package boundary: it describes who may bypass a factory, not which type is exempt, and who is
   always decided inside the package being linted, so it needs no fact.
 
-`//gofactory:factory` (on a function or method) is reserved: it is placement-checked like `ignore`
-and `trusted` but has no effect yet.
-
 An unknown directive name, or a known one in the wrong place (for example `//gofactory:ignore` on a
 function or an alias), is reported as a diagnostic at the comment, so a typo does not silently
 disable protection.
+
+### Declared factories
+
+A function or a method is a factory of a type whether or not it is recognised by name pattern in
+that type's owner package: mark it with a `//gofactory:factory` doc comment, or match it with a
+`--factories` glob, and it becomes a factory of every protected type among its results (`T` or
+`*T`; an `error` result is just ignored, not disqualifying), wherever it lives. This is how a
+package that wraps generated code, say `pb`, can provide the factory for `pb.Order` from outside
+`pb` itself, something the owner-package-only recognition rule can't do:
+
+```go
+package order
+
+//gofactory:factory
+func New(id string) *pb.Order {
+    return &pb.Order{Id: id}
+}
+```
+
+A declared factory may itself bypass the factories of the types it is a factory of, inside its own
+body (including a closure it defines, which shares its enclosing top-level declaration's
+permission), the same way a recognised factory may bypass its own type's factory in its owner
+package; it gains no permission over any other type. This holds even when the type lies in a
+fence (see [Fences](#fences)) that the factory's package is outside of,
+[tests](testdata/module/declaredFactoriesFence): a declared factory is a statement about that
+function, independent of where it lives. In a package that imports its package directly, calling
+it is suggested in messages the same way a recognised factory is,
+[tests](testdata/module/declaredFactories). There it also counts for `--onlyWithFactory`, even
+with `--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactoriesOnlyWithFactory).
+
+**Reach.** A declared factory is known only to a package that imports its package directly, for a
+function and a method alike. A `--factories` glob needs no fact: every package matches it against
+its own functions and methods and those of the packages it imports directly. A
+`//gofactory:factory` directive travels as a fact on a function object, and go/analysis's fact
+machinery (`checker.exportedFrom`, `facts.Encode`) forwards a function's fact only to direct
+importers, unlike a type's `//gofactory:ignore` fact, which every transitive importer sees. For a
+method, both `checker.exportedFrom` and go vet's `facts.Encode` can hand its fact to more than the
+direct importers — `checker.exportedFrom` over-approximates outright, and `facts.Encode` forwards
+it whenever an importer's export data includes the declaring package; gofactory discards what
+either adds, so every driver agrees on the same direct-importer rule. A package's `_test.go`
+imports count only when its tests are analysed: the standalone CLI, which analyses a package both
+without and with its tests, then prints such a line twice, the first time without the suggestion.
+
+A package that uses the protected type without importing the declaring package directly doesn't
+see that factory: it is left out of the message and doesn't count for `--onlyWithFactory`. A type
+whose only factory it is gets the bare `Use factory for pkg.T` message there, or no report at all
+under `--onlyWithFactory` — see [False Negative](#false-negative).
+
+A `//gofactory:factory` directive on a function or method with no result that could ever be
+protected (a named type other than a func type or an interface, as `T` or `*T`) is reported as a
+diagnostic, since it would otherwise do nothing while looking like it did something. Whether a
+result is protected in this module, or fenced, doesn't matter: `func Now() time.Time` is accepted.
+A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`, it may
+simply match nothing relevant.
+
+### Recipe: reconstitution through a factory
+
+Creation and reconstitution are the same concept: a function that a repository calls to rebuild an
+aggregate from storage, `order.Restore(id, status, paidAt)`, is just a factory, enabled the same
+way any other unusually-named factory is — a `--factoryPatterns=^Restore` pattern if the convention
+is project-wide, or a `//gofactory:factory` directive if `Restore` is just this one repository's
+name for it:
+
+```go
+package order
+
+//gofactory:factory
+func Restore(id string, status Status, paidAt time.Time) *Order {
+    return &Order{id: id, status: status, paidAt: paidAt}
+}
+```
+
+When no such factory fits — the repository needs a bypass that a factory shaped for fresh input
+couldn't offer — trust the repository instead; see [Trusted code](#trusted-code).
 
 ### Message format
 
@@ -332,6 +425,8 @@ linters:
             - "^Make"
           use-default-factory-pattern: true
           only-with-factory: false
+          factories:
+            - "mymod/order.Restore"
           cross-package-directives: true
 ```
 
@@ -343,6 +438,7 @@ linters:
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
 - `only-with-factory` – equivalent to `--onlyWithFactory`.
+- `factories` – equivalent to `--factories`.
 - `cross-package-directives` – equivalent to `--crossPackageDirectives`.
 
 ## Example
@@ -462,6 +558,10 @@ actual output. Every case added there must carry such a `// want` comment.
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
    elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
+7. A declared factory (`//gofactory:factory` or `--factories`) is suggested, and counted by
+   `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
+   the declaring package only through another package, or not at all, never sees it,
+   [example](testdata/module/unimplemented/visibility/).
 
 ## TODO
 

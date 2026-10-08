@@ -23,6 +23,7 @@ type detector struct {
 	onlyWithFactory bool
 
 	factories map[*types.Package]factoryIndex
+	declared  factoryIndex
 	suffixes  map[*types.TypeName]string
 
 	fieldPathCache map[types.Type][]fieldPath
@@ -41,6 +42,7 @@ func newDetector(
 	zeroValues bool,
 	factoryPatterns []*regexp.Regexp,
 	onlyWithFactory bool,
+	declared factoryIndex,
 	locallyIgnored map[types.Object]bool,
 ) *detector {
 	return &detector{
@@ -51,6 +53,7 @@ func newDetector(
 		factoryPatterns: factoryPatterns,
 		onlyWithFactory: onlyWithFactory,
 		factories:       map[*types.Package]factoryIndex{},
+		declared:        declared,
 		suffixes:        map[*types.TypeName]string{},
 		fieldPathCache:  map[types.Type][]fieldPath{},
 		locallyIgnored:  locallyIgnored,
@@ -105,6 +108,10 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
+	if slices.Contains(d.declared[named.Obj()], d.currentFn) {
+		return
+	}
+
 	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn) {
 		return
 	}
@@ -126,9 +133,7 @@ func (d *detector) isIgnored(named *types.Named) bool {
 
 	name := obj.Pkg().Path() + "." + obj.Name()
 
-	return slices.ContainsFunc(d.ignoreTypes, func(g glob.Glob) bool {
-		return g.Match(name)
-	})
+	return matchesAnyGlob(d.ignoreTypes, name)
 }
 
 func (d *detector) report(pos ast.Node, named *types.Named, route string) {
@@ -157,7 +162,15 @@ func (d *detector) factorySuffix(target *types.TypeName) string {
 		d.factories[target.Pkg()] = index
 	}
 
-	suffix := factorySuffix(d.pass.Pkg, index[target])
+	// A recognised factory may also be declared; skip adding it twice.
+	factories := append([]*types.Func{}, index[target]...)
+	for _, fn := range d.declared[target] {
+		if !slices.Contains(factories, fn) {
+			factories = append(factories, fn)
+		}
+	}
+
+	suffix := factorySuffix(d.pass.Pkg, factories)
 	d.suffixes[target] = suffix
 
 	return suffix

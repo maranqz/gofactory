@@ -39,6 +39,8 @@ type settings struct {
 	UseDefaultFactoryPattern *bool    `json:"use-default-factory-pattern"`
 	OnlyWithFactory          bool     `json:"only-with-factory"`
 
+	Factories []string `json:"factories"`
+
 	// CrossPackageDirectives is a pointer for the same reason as
 	// UseDefaultFactoryPattern: an absent key must keep FactTypes declared,
 	// while an explicit false must remove it.
@@ -64,6 +66,10 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 
 	for _, g := range decoded.IgnoreTypes {
 		cfg.ignoreTypes.Append(g)
+	}
+
+	for _, g := range decoded.Factories {
+		cfg.factoryGlobs.Append(g)
 	}
 
 	for _, g := range decoded.Trusted {
