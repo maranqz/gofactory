@@ -69,8 +69,8 @@ func walkPackageFuncs(
 // Aliases are skipped: under GODEBUG=gotypesalias=0 an alias's Type() is
 // the aliased *types.Named itself, so walking through it would visit the
 // aliased type's methods under the wrong receiver (indexFactories), and
-// ExportObjectFact panics on a method belonging to another package
-// (exportFlagFactories).
+// methods of a package that need not be a direct import
+// (factoryGlobMatches).
 func walkMethods(
 	receiver *types.TypeName, visit func(fn *types.Func, receiver *types.TypeName),
 ) {

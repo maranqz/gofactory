@@ -304,8 +304,10 @@ it is suggested in messages the same way a recognised factory is,
 with `--useDefaultFactoryPattern=false`, [tests](testdata/module/declaredFactoriesOnlyWithFactory).
 
 **Reach.** A declared factory is known only to a package that imports its package directly, for a
-function and a method alike. The fact that marks it sits on a function object, and go/analysis's
-fact machinery (`checker.exportedFrom`, `facts.Encode`) forwards a function's fact only to direct
+function and a method alike. A `--factories` glob needs no fact: every package matches it against
+its own functions and methods and those of the packages it imports directly. A
+`//gofactory:factory` directive travels as a fact on a function object, and go/analysis's fact
+machinery (`checker.exportedFrom`, `facts.Encode`) forwards a function's fact only to direct
 importers, unlike a type's `//gofactory:ignore` fact, which every transitive importer sees. For a
 method, both `checker.exportedFrom` and go vet's `facts.Encode` can hand its fact to more than the
 direct importers — `checker.exportedFrom` over-approximates outright, and `facts.Encode` forwards

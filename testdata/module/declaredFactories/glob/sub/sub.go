@@ -4,6 +4,6 @@ package sub
 
 import "factory/declaredFactories/owner"
 
-func MakeGlobbed() owner.Globbed { // want MakeGlobbed:"gofactory:factory"
+func MakeGlobbed() owner.Globbed {
 	return owner.Globbed{}
 }

@@ -1,5 +1,6 @@
-// Package wrap declares factories of another package's type, so with
-// cross-package facts off only the local list lets them bypass it here.
+// Package wrap declares factories of another package's type, one by
+// directive and one by -factories glob; with cross-package facts off, both
+// may still bypass it here, where they are declared.
 package wrap
 
 import "factory/crossPackageDirectives/owner"

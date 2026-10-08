@@ -5,16 +5,16 @@ package flagged
 
 import "factory/declaredFactories/owner"
 
-func MakeFlagged() owner.Flagged { // want MakeFlagged:"gofactory:factory"
+func MakeFlagged() owner.Flagged {
 	return owner.Flagged{}
 }
 
 type Box struct{}
 
-func (Box) RestoreFlaggedMethod() owner.FlaggedMethod { // want RestoreFlaggedMethod:"gofactory:factory"
+func (Box) RestoreFlaggedMethod() owner.FlaggedMethod {
 	return owner.FlaggedMethod{}
 }
 
-func (Box) RestoreExact() owner.FlaggedExact { // want RestoreExact:"gofactory:factory"
+func (Box) RestoreExact() owner.FlaggedExact {
 	return owner.FlaggedExact{}
 }

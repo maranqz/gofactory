@@ -22,22 +22,24 @@ func protectedResultTargets(sig *types.Signature) []*types.TypeName {
 }
 
 // declaredFactoryIndex indexes every declared factory the current pass can
-// see: local, and those whose fact comes from a package the current package
-// directly imports (README.md, Declared factories, Reach). The
-// directlyImports filter below is load-bearing: x/tools forwards a method's
-// fact past direct importers, always under checker.exportedFrom
+// see: local, -factories matches, and those whose fact comes from a package
+// the current package directly imports (README.md, Declared factories,
+// Reach). The directlyImports filter below is load-bearing: x/tools forwards
+// a method's fact past direct importers, always under checker.exportedFrom
 // (golangci-lint copies it), and under go vet's facts.Encode whenever the
 // method's package is in an importer's export data; without the filter, a
 // method's reach would depend on the driver and on the API in between.
 func declaredFactoryIndex(
-	pass *analysis.Pass, local []*types.Func,
+	pass *analysis.Pass, local []*types.Func, globs []glob.Glob,
 ) factoryIndex {
 	index := factoryIndex{}
 
 	for _, factory := range local {
-		for _, target := range protectedResultTargets(factory.Signature()) {
-			index[target] = append(index[target], factory)
-		}
+		index.addDeclared(factory)
+	}
+
+	for _, factory := range factoryGlobMatches(pass.Pkg, globs) {
+		index.addDeclared(factory)
 	}
 
 	for _, of := range pass.AllObjectFacts() {
@@ -50,14 +52,18 @@ func declaredFactoryIndex(
 			continue
 		}
 
-		for _, target := range protectedResultTargets(factory.Signature()) {
-			if !slices.Contains(index[target], factory) {
-				index[target] = append(index[target], factory)
-			}
-		}
+		index.addDeclared(factory)
 	}
 
 	return index
+}
+
+func (index factoryIndex) addDeclared(factory *types.Func) {
+	for _, target := range protectedResultTargets(factory.Signature()) {
+		if !slices.Contains(index[target], factory) {
+			index[target] = append(index[target], factory)
+		}
+	}
 }
 
 func directlyImports(pkg, other *types.Package) bool {
@@ -68,47 +74,24 @@ func importPathQualifiedName(fn *types.Func) string {
 	return qualifiedName(fn.Pkg().Path(), fn)
 }
 
+// A -factories match needs no fact: each package matches the globs against
+// its own functions and methods and its direct imports', facts on or off.
 // Unlike the directive, a match with no protected type among its results is
-// skipped silently, not reported.
-func exportFlagFactories(pass *analysis.Pass, globs []glob.Glob) []*types.Func {
+// not an error.
+func factoryGlobMatches(pkg *types.Package, globs []glob.Glob) []*types.Func {
 	if len(globs) == 0 {
 		return nil
 	}
 
 	var matched []*types.Func
 
-	walkPackageFuncs(pass.Pkg, func(fn *types.Func, _ *types.TypeName) {
-		if exportFlagFactory(pass, globs, fn) {
-			matched = append(matched, fn)
-		}
-	})
-
-	// A setting needs no fact to reach a direct importer, so a match there
-	// survives -crossPackageDirectives=false, which only stops directives.
-	for _, imported := range pass.Pkg.Imports() {
-		walkPackageFuncs(imported, func(fn *types.Func, _ *types.TypeName) {
-			if isFlagFactory(globs, fn) {
+	for _, searched := range append([]*types.Package{pkg}, pkg.Imports()...) {
+		walkPackageFuncs(searched, func(fn *types.Func, _ *types.TypeName) {
+			if matchesAnyGlob(globs, importPathQualifiedName(fn)) {
 				matched = append(matched, fn)
 			}
 		})
 	}
 
 	return matched
-}
-
-func isFlagFactory(globs []glob.Glob, fn *types.Func) bool {
-	return matchesAnyGlob(globs, importPathQualifiedName(fn)) &&
-		len(protectedResultTargets(fn.Signature())) > 0
-}
-
-func exportFlagFactory(
-	pass *analysis.Pass, globs []glob.Glob, factory *types.Func,
-) bool {
-	if !isFlagFactory(globs, factory) {
-		return false
-	}
-
-	exportFact(pass, factory, &factoryFact{})
-
-	return true
 }

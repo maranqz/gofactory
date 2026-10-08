@@ -4,7 +4,6 @@ package gofactory
 import (
 	"errors"
 	"go/ast"
-	"go/types"
 	"regexp"
 
 	"github.com/gobwas/glob"
@@ -150,19 +149,14 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 		}
 
 		state := checkDirectives(pass)
-		flagFactories := exportFlagFactories(pass, compiled.factoryGlobs)
-
-		local := make([]*types.Func, 0, len(state.factories)+len(flagFactories))
-		local = append(local, state.factories...)
-		local = append(local, flagFactories...)
-
 		trusted := newTrustedCode(compiled.trustedGlobs, state.trust)
 		strategy := buildStrategy(cfg, pass, compiled.fences, trusted)
 
 		v := newDetector(
 			pass, strategy, compiled.ignoreTypes, cfg.zeroValues,
 			cfg.recognitionPatterns(), cfg.onlyWithFactory,
-			declaredFactoryIndex(pass, local), state.ignored,
+			declaredFactoryIndex(pass, state.factories, compiled.factoryGlobs),
+			state.ignored,
 		)
 
 		for _, file := range pass.Files {
