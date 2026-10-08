@@ -569,8 +569,8 @@ actual output. Every case added there must carry such a `// want` comment.
    `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
    the declaring package only through another package, or not at all, never sees it,
    [example](testdata/module/unimplemented/visibility/).
-8. Untyped constant stored by a channel send or as a map index key, `ch <- 3` or `m[3] = v`,
-   [example](testdata/module/unimplemented/constant.go).
+8. Untyped constant stored by a channel send, as a map index key or by a range assignment,
+   `ch <- 3`, `m[3] = v` or `for st = range 3`, [example](testdata/module/unimplemented/constant.go).
 
 ## TODO
 
