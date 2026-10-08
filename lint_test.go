@@ -176,6 +176,7 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 			pkgs: []string{"generatedFiles/..."},
 			settings: caseSettings{
 				packageGlobs: []string{"testing", "testing/internal/testdeps"},
+				zeroValues:   true,
 			},
 		},
 

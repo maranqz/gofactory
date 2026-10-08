@@ -7,3 +7,5 @@ import "factory/generatedFiles/ext"
 func GeneratedBypass() {
 	_ = ext.Struct{}
 }
+
+var GeneratedZero ext.Struct
