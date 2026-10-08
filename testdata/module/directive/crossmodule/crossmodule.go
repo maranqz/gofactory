@@ -1,8 +1,10 @@
-// Package crossmodule checks that //gofactory:ignore propagates across a
-// module boundary, not just a package boundary: nestedmodule and sibling
-// are each their own module in go.work, and their Ignored type must stay
-// silent here on every bypass route. sibling is outside the current module,
-// so the test case fences it in to make its types protected at all.
+// Package crossmodule checks that //gofactory:ignore and //gofactory:factory
+// propagate across a module boundary, not just a package boundary:
+// nestedmodule and sibling are each their own module in go.work, and their
+// Ignored type must stay silent here on every bypass route, while
+// sibling's Declared is suggested through sibling.Restore. sibling is
+// outside the current module, so the test case fences it in to make its
+// types protected at all.
 package crossmodule
 
 import (
@@ -33,4 +35,6 @@ func Sibling() {
 	_ = new(sibling.Ignored)
 	_ = sibling.Ignored(struct{}{})
 	_ = []sibling.Ignored{{}}
+
+	_ = sibling.Declared{} // want `Use factory for sibling.Declared \(sibling.Restore\)`
 }
