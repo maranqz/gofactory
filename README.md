@@ -209,6 +209,18 @@ syntax](#glob-syntax)) or a qualified function- or method-name glob (`import/pat
 type's factory through any route, in every mode, [tests](testdata/module/trusted). See [Trusted
 code](#trusted-code) for the equivalent `//gofactory:trusted` directive and a reconstitution
 recipe.
+- `--crossPackageDirectives` – propagate `//gofactory:ignore` to importing packages and modules,
+`true` by default; see [Directives](#directives) below for what that means (`//gofactory:trusted`
+never crosses a package boundary, so this setting does not concern it). Set to `false` on a large
+monorepo to trade that off for less analysis of dependencies: with it off, the analyzer declares no
+`FactTypes`, so the standalone `gofactory` command no longer parses, type-checks and analyses
+dependencies from source (the `go` command still compiles them for their export data), and
+golangci-lint no longer runs gofactory on them (it still parses and type-checks them from source if
+another enabled linter uses facts). `go vet` runs the tool on, and type-checks, every dependency
+either way, so there the setting saves only gofactory's own pass. `//gofactory:ignore` still takes
+effect in the package that declares it, and settings such as `--ignoreTypes` and `--packageGlobs`
+still apply everywhere; only propagation to importers is turned off,
+[tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 
@@ -222,7 +234,7 @@ it) with no space after the slashes (like `//go:build`), marks that declaration 
   in every package and module that imports the type, not just the one that writes it: gofactory
   exports it as an [analysis fact](https://pkg.go.dev/golang.org/x/tools/go/analysis#Fact), so an
   importing package's analysis sees it even though it never parses the file that carries the
-  comment.
+  comment, unless `--crossPackageDirectives=false` turns that propagation off.
 
   ```go
   //gofactory:ignore
@@ -320,6 +332,7 @@ linters:
             - "^Make"
           use-default-factory-pattern: true
           only-with-factory: false
+          cross-package-directives: true
 ```
 
 - `package-globs` – equivalent to `--packageGlobs`.
@@ -330,6 +343,7 @@ linters:
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
 - `only-with-factory` – equivalent to `--onlyWithFactory`.
+- `cross-package-directives` – equivalent to `--crossPackageDirectives`.
 
 ## Example
 

@@ -41,6 +41,11 @@ const (
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
 	onlyWithFactoryDesc          = "report only types that have a factory accessible from the reported site"
+
+	crossPackageDirectivesDesc = "propagate //gofactory:ignore to importing packages and modules; " +
+		"false limits it to its own package and skips analysing dependencies: " +
+		"a large speed-up for the standalone command, at most a small one under go vet, " +
+		"which type-checks them anyway"
 )
 
 // errPackageGlobsOnlyNeedsGlobs is the configuration error for
@@ -76,24 +81,50 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	analyzer.Flags.BoolVar(&cfg.onlyWithFactory, "onlyWithFactory", false, onlyWithFactoryDesc)
 
+	analyzer.Flags.Var(
+		newCrossPackageDirectivesFlag(analyzer), "crossPackageDirectives", crossPackageDirectivesDesc,
+	)
+
 	return analyzer
 }
 
-// newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
-// newPlugin. newPlugin fills cfg before the call, NewAnalyzer binds its
-// flags to cfg afterwards.
-//
-// Declaring FactTypes makes drivers analyse every dependency; see
+type analyzerOption func(*analysis.Analyzer)
+
+func withCrossPackageDirectives(enabled bool) analyzerOption {
+	return func(a *analysis.Analyzer) {
+		a.FactTypes = factTypesFor(enabled)
+	}
+}
+
+// Declaring any FactTypes makes drivers analyse every dependency; see
 // docs/adr/0004-cross-package-directives-via-facts.md.
-func newAnalyzer(cfg *config) *analysis.Analyzer {
-	return &analysis.Analyzer{
+func factTypesFor(enabled bool) []analysis.Fact {
+	if !enabled {
+		return nil
+	}
+
+	return []analysis.Fact{new(ignoredFact)}
+}
+
+// newAnalyzer builds the analyzer around cfg for both NewAnalyzer and
+// newPlugin. newPlugin fills cfg and picks opts before the call;
+// NewAnalyzer binds its flags afterwards, to cfg except for
+// -crossPackageDirectives, which sets the analyzer's FactTypes.
+func newAnalyzer(cfg *config, opts ...analyzerOption) *analysis.Analyzer {
+	analyzer := &analysis.Analyzer{
 		Name:      name,
 		Doc:       doc,
 		URL:       url,
 		Requires:  []*analysis.Analyzer{inspect.Analyzer},
 		Run:       run(cfg),
-		FactTypes: []analysis.Fact{new(ignoredFact)},
+		FactTypes: factTypesFor(true),
 	}
+
+	for _, opt := range opts {
+		opt(analyzer)
+	}
+
+	return analyzer
 }
 
 func run(cfg *config) func(pass *analysis.Pass) (any, error) {
@@ -119,13 +150,13 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			return nil, err
 		}
 
-		trust := checkDirectives(pass)
-		trusted := newTrustedCode(trustedGlobs, trust)
+		state := checkDirectives(pass)
+		trusted := newTrustedCode(trustedGlobs, state.trust)
 		strategy := buildStrategy(cfg, pass, fences, trusted)
 
 		v := newDetector(
 			pass, strategy, ignoreTypes, cfg.zeroValues,
-			cfg.recognitionPatterns(), cfg.onlyWithFactory,
+			cfg.recognitionPatterns(), cfg.onlyWithFactory, state.ignored,
 		)
 
 		for _, file := range pass.Files {

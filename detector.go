@@ -27,6 +27,8 @@ type detector struct {
 
 	fieldPathCache map[types.Type][]fieldPath
 
+	locallyIgnored map[types.Object]bool
+
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
@@ -39,6 +41,7 @@ func newDetector(
 	zeroValues bool,
 	factoryPatterns []*regexp.Regexp,
 	onlyWithFactory bool,
+	locallyIgnored map[types.Object]bool,
 ) *detector {
 	return &detector{
 		pass:            pass,
@@ -50,6 +53,7 @@ func newDetector(
 		factories:       map[*types.Package]factoryIndex{},
 		suffixes:        map[*types.TypeName]string{},
 		fieldPathCache:  map[types.Type][]fieldPath{},
+		locallyIgnored:  locallyIgnored,
 	}
 }
 
@@ -110,6 +114,10 @@ func (d *detector) reportProtectedSuffix(
 
 func (d *detector) isIgnored(named *types.Named) bool {
 	obj := named.Obj()
+
+	if d.locallyIgnored[obj] {
+		return true
+	}
 
 	var fact ignoredFact
 	if d.pass.ImportObjectFact(obj, &fact) {

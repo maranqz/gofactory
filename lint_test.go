@@ -2,9 +2,11 @@ package gofactory_test
 
 import (
 	"fmt"
+	"go/types"
 	"maps"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -90,6 +92,50 @@ func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	if err == nil {
 		t.Fatal("got no error, want one")
 	}
+}
+
+// TestCrossPackageDirectivesFactTypes checks Analyzer.FactTypes directly,
+// through both entry points: declared by default, so directives propagate
+// across packages, and empty under -crossPackageDirectives=false, so
+// drivers stop analysing dependencies for them (see
+// docs/adr/0004-cross-package-directives-via-facts.md).
+// TestLinterSuite's "crossPackageDirectivesOff" case checks the resulting
+// behaviour; this test checks the field drivers actually read.
+func TestCrossPackageDirectivesFactTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared by default")
+				}
+			})
+	})
+
+	t.Run("explicit_true", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(true)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared")
+				}
+			})
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(false)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) != 0 {
+					t.Fatalf("FactTypes is %v, want empty", analyzer.FactTypes)
+				}
+			})
+	})
 }
 
 const factoryPatternMake = "^Make"
@@ -199,6 +245,14 @@ func ignoredTypeCases() map[string]linterSuiteCase {
 			settings: caseSettings{
 				packageGlobs: []string{"sibling/**"},
 				zeroValues:   true,
+			},
+		},
+
+		"crossPackageDirectivesOff": {
+			pkgs: []string{"crossPackageDirectives/..."},
+			settings: caseSettings{
+				crossPackageDirectives: new(false),
+				ignoreTypes:            []string{"factory/crossPackageDirectives/owner.GlobIgnored"},
 			},
 		},
 
@@ -370,6 +424,8 @@ type caseSettings struct {
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
 	onlyWithFactory          bool
+
+	crossPackageDirectives *bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -408,6 +464,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		setFlag(t, analyzer, "ignoreTypes", g)
 	}
 
+	if s.crossPackageDirectives != nil {
+		setFlag(t, analyzer, "crossPackageDirectives", strconv.FormatBool(*s.crossPackageDirectives))
+	}
+
 	for _, g := range s.trusted {
 		setFlag(t, analyzer, "trusted", g)
 	}
@@ -428,7 +488,9 @@ func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
 // unitchecker before Go 1.27 fills it: Path, Version and GoVersion without
 // Main, and nil without a module. analysistest sets Main on every module it
 // loads and never passes nil, so only this entry point catches code relying
-// on either.
+// on either. It also wraps Pass.ExportObjectFact to fail on a fact type
+// absent from Analyzer.FactTypes: go vet's gob encoder panics there instead,
+// since it only registers the types FactTypes declares.
 func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	t.Helper()
 
@@ -445,6 +507,27 @@ func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 				Version:   pass.Module.Version,
 				GoVersion: pass.Module.GoVersion,
 			}
+		}
+
+		export := vetPass.ExportObjectFact
+		vetPass.ExportObjectFact = func(obj types.Object, fact analysis.Fact) {
+			declared := slices.ContainsFunc(
+				pass.Analyzer.FactTypes,
+				func(f analysis.Fact) bool {
+					return reflect.TypeOf(f) == reflect.TypeOf(fact)
+				},
+			)
+			if !declared {
+				t.Errorf(
+					"ExportObjectFact(%v, %T): fact type not in Analyzer.FactTypes %v; "+
+						"go vet's gob encoder would panic here",
+					obj, fact, pass.Analyzer.FactTypes,
+				)
+
+				return
+			}
+
+			export(obj, fact)
 		}
 
 		return run(&vetPass)
@@ -475,6 +558,10 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	}
 	if s.useDefaultFactoryPattern != nil {
 		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
+	}
+
+	if s.crossPackageDirectives != nil {
+		rawSettings["cross-package-directives"] = *s.crossPackageDirectives
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)

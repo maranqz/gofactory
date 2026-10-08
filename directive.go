@@ -60,25 +60,36 @@ func placementOf(name string) (placement, bool) {
 	}
 }
 
-func checkDirectives(pass *analysis.Pass) *trustInfo {
-	trust := newTrustInfo()
+// With -crossPackageDirectives=false, applyIgnore exports no ignoredFact,
+// so ignored is the only way isIgnored (as detector.locallyIgnored) sees
+// this package's own //gofactory:ignore.
+type directiveState struct {
+	ignored map[types.Object]bool
+	trust   *trustInfo
+}
 
-	for _, file := range pass.Files {
-		checkFileDirectives(pass, file, trust)
+func checkDirectives(pass *analysis.Pass) *directiveState {
+	state := &directiveState{
+		ignored: make(map[types.Object]bool),
+		trust:   newTrustInfo(),
 	}
 
-	return trust
+	for _, file := range pass.Files {
+		checkFileDirectives(pass, file, state)
+	}
+
+	return state
 }
 
 func checkFileDirectives(
-	pass *analysis.Pass, file *ast.File, trust *trustInfo,
+	pass *analysis.Pass, file *ast.File, state *directiveState,
 ) {
 	consumed := make(map[*ast.CommentGroup]bool)
 
-	processDoc(pass, consumed, file.Doc, declPackage, nil, trust)
+	processDoc(pass, consumed, file.Doc, declPackage, nil, state)
 
 	for _, decl := range file.Decls {
-		checkDeclDirectives(pass, decl, consumed, trust)
+		checkDeclDirectives(pass, decl, consumed, state)
 	}
 
 	for _, cg := range file.Comments {
@@ -86,7 +97,7 @@ func checkFileDirectives(
 			continue
 		}
 
-		processDoc(pass, consumed, cg, declOther, nil, trust)
+		processDoc(pass, consumed, cg, declOther, nil, state)
 	}
 }
 
@@ -94,13 +105,13 @@ func checkDeclDirectives(
 	pass *analysis.Pass,
 	decl ast.Decl,
 	consumed map[*ast.CommentGroup]bool,
-	trust *trustInfo,
+	state *directiveState,
 ) {
 	switch d := decl.(type) {
 	case *ast.GenDecl:
-		checkGenDeclDirectives(pass, d, consumed, trust)
+		checkGenDeclDirectives(pass, d, consumed, state)
 	case *ast.FuncDecl:
-		processDoc(pass, consumed, d.Doc, declFunc, d, trust)
+		processDoc(pass, consumed, d.Doc, declFunc, d, state)
 	}
 }
 
@@ -108,7 +119,7 @@ func checkGenDeclDirectives(
 	pass *analysis.Pass,
 	decl *ast.GenDecl,
 	consumed map[*ast.CommentGroup]bool,
-	trust *trustInfo,
+	state *directiveState,
 ) {
 	if decl.Tok != token.TYPE {
 		return // the file-wide sweep reports these as misplaced
@@ -129,10 +140,10 @@ func checkGenDeclDirectives(
 		}
 
 		if len(decl.Specs) == 1 {
-			processDoc(pass, consumed, decl.Doc, kind, typeSpec, trust)
+			processDoc(pass, consumed, decl.Doc, kind, typeSpec, state)
 		}
 
-		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec, trust)
+		processDoc(pass, consumed, typeSpec.Doc, kind, typeSpec, state)
 	}
 }
 
@@ -144,7 +155,7 @@ func processDoc(
 	doc *ast.CommentGroup,
 	kind declKind,
 	node ast.Node,
-	trust *trustInfo,
+	state *directiveState,
 ) {
 	if doc == nil {
 		return
@@ -158,7 +169,7 @@ func processDoc(
 			continue
 		}
 
-		applyDirective(pass, comment, name, kind, node, trust)
+		applyDirective(pass, comment, name, kind, node, state)
 	}
 }
 
@@ -183,7 +194,7 @@ func applyDirective(
 	name string,
 	kind declKind,
 	node ast.Node,
-	trust *trustInfo,
+	state *directiveState,
 ) {
 	place, known := placementOf(name)
 	if !known {
@@ -218,20 +229,31 @@ func applyDirective(
 	switch name {
 	case directiveIgnore:
 		if typeSpec, ok := node.(*ast.TypeSpec); ok {
-			applyIgnore(pass, typeSpec)
+			applyIgnore(pass, typeSpec, state.ignored)
 		}
 	case directiveTrusted:
-		applyTrusted(pass, trust, kind, node)
+		applyTrusted(pass, state.trust, kind, node)
 	}
 }
 
-func applyIgnore(pass *analysis.Pass, typeSpec *ast.TypeSpec) {
+func applyIgnore(
+	pass *analysis.Pass,
+	typeSpec *ast.TypeSpec,
+	ignored map[types.Object]bool,
+) {
 	obj := pass.TypesInfo.ObjectOf(typeSpec.Name)
 	if obj == nil {
 		return
 	}
 
-	pass.ExportObjectFact(obj, &ignoredFact{})
+	ignored[obj] = true
+
+	// Exporting a fact while Analyzer.FactTypes is empty panics under go vet,
+	// whose gob encoder registers only declared fact types. Importing one is
+	// a plain lookup in every driver, so isIgnored needs no such check.
+	if len(pass.Analyzer.FactTypes) > 0 {
+		pass.ExportObjectFact(obj, &ignoredFact{})
+	}
 }
 
 func applyTrusted(
