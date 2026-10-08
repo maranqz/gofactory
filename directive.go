@@ -255,13 +255,7 @@ func applyIgnore(
 	}
 
 	ignored[obj] = true
-
-	// Exporting a fact while Analyzer.FactTypes is empty panics under go vet,
-	// whose gob encoder registers only declared fact types. Importing one is
-	// a plain lookup in every driver, so isIgnored needs no such check.
-	if len(pass.Analyzer.FactTypes) > 0 {
-		pass.ExportObjectFact(obj, &ignoredFact{})
-	}
+	exportFact(pass, obj, &ignoredFact{})
 }
 
 func applyFactory(
@@ -283,11 +277,7 @@ func applyFactory(
 	}
 
 	state.factories = append(state.factories, factory)
-
-	// See applyIgnore's comment on the same check.
-	if len(pass.Analyzer.FactTypes) > 0 {
-		pass.ExportObjectFact(factory, &factoryFact{})
-	}
+	exportFact(pass, factory, &factoryFact{})
 }
 
 func applyTrusted(

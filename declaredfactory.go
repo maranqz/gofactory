@@ -106,10 +106,7 @@ func exportFlagFactory(
 		return false
 	}
 
-	// See applyIgnore's comment on the same check.
-	if len(pass.Analyzer.FactTypes) > 0 {
-		pass.ExportObjectFact(factory, &factoryFact{})
-	}
+	exportFact(pass, factory, &factoryFact{})
 
 	return true
 }
