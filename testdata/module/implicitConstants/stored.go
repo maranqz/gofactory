@@ -31,9 +31,12 @@ func Assignment() {
 
 	st, ok := 3, true // want `Use factory for nested.Status`
 
-	var f nested.Flag = 1 < 2 // want `Use factory for nested.Flag`
+	var f nested.Flag = 1 < 2                          // want `Use factory for nested.Flag`
+	var g nested.Flag = nested.Active == nested.Closed // want `Use factory for nested.Flag`
 
-	_, _, _ = st, ok, f
+	st = real(3) // want `Use factory for nested.Status`
+
+	_, _, _, _ = st, ok, f, g
 }
 
 func store(nested.Status) {}

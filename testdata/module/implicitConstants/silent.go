@@ -23,6 +23,7 @@ func Arithmetic(st nested.Status) {
 	st = nested.Active + 1
 	st = nested.Active << 1
 	st = max(nested.Active, 2)
+	st = -nested.Active
 
 	_ = st
 }
@@ -33,6 +34,8 @@ func TypedConstant() nested.Status {
 	var st nested.Status = nested.Active
 
 	store(nested.Closed)
+
+	st = Const
 
 	_ = st
 
