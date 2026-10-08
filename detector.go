@@ -181,8 +181,9 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
 
-// Every bypass route reports through here, so the permission policy is
-// applied in one place.
+// Generated files are pruned in visit before any route runs, instead of
+// being checked here, so the walks skip them, including the field-path
+// walk over a large generated package.
 func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {
