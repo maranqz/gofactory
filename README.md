@@ -97,10 +97,13 @@ module itself, [tests](testdata/module/siblingfence).
 
 Infrastructure code, such as a repository reconstituting an aggregate from storage, legitimately
 needs to bypass a protected type's factory: a factory shaped for fresh input usually can't accept a
-persisted row, field by field, the way reconstitution needs to. Trusted code may bypass any
-protected type through every route, in every mode — module scope, fences, `--onlyWithFactory` and
-`--zeroValues` included. It is the permission policy's first check, so a mode added later respects
-it automatically, without needing its own trusted check.
+persisted row, field by field, the way reconstitution needs to. If the domain package can offer a
+factory that takes a persisted row instead, such as `order.Restore`, declare it rather than trusting
+the repository; see [Declared factories](#declared-factories) and its [reconstitution
+recipe](#recipe-reconstitution-through-a-factory). When no such factory fits, trusted code may
+bypass any protected type through every route, in every mode — module scope, fences,
+`--onlyWithFactory` and `--zeroValues` included. Trust is checked before any mode, so a mode added
+later respects it automatically.
 
 Mark it one of three ways:
 
@@ -217,18 +220,18 @@ syntax](#glob-syntax)) or a qualified function- or method-name glob (`import/pat
 type's factory through any route, in every mode, [tests](testdata/module/trusted). See [Trusted
 code](#trusted-code) for the equivalent `//gofactory:trusted` directive and a reconstitution
 recipe.
-- `--crossPackageDirectives` – propagate `//gofactory:ignore` to importing packages and modules,
-`true` by default; see [Directives](#directives) below for what that means (`//gofactory:trusted`
-never crosses a package boundary, so this setting does not concern it). Set to `false` on a large
-monorepo to trade that off for less analysis of dependencies: with it off, the analyzer declares no
-`FactTypes`, so the standalone `gofactory` command no longer parses, type-checks and analyses
-dependencies from source (the `go` command still compiles them for their export data), and
-golangci-lint no longer runs gofactory on them (it still parses and type-checks them from source if
-another enabled linter uses facts). `go vet` runs the tool on, and type-checks, every dependency
-either way, so there the setting saves only gofactory's own pass. `//gofactory:ignore` still takes
-effect in the package that declares it, and settings such as `--ignoreTypes` and `--packageGlobs`
-still apply everywhere; only propagation to importers is turned off,
-[tests](testdata/module/crossPackageDirectives).
+- `--crossPackageDirectives` – propagate `//gofactory:ignore` and `//gofactory:factory` to importing
+packages and modules, `true` by default; see [Directives](#directives) below for what that means
+(`//gofactory:trusted` never crosses a package boundary, so this setting does not concern it). Set
+to `false` on a large monorepo to trade that off for less analysis of dependencies: with it off, the
+analyzer declares no `FactTypes`, so the standalone `gofactory` command no longer parses,
+type-checks and analyses dependencies from source (the `go` command still compiles them for their
+export data), and golangci-lint no longer runs gofactory on them (it still parses and type-checks
+them from source if another enabled linter uses facts). `go vet` runs the tool on, and type-checks,
+every dependency either way, so there the setting saves only gofactory's own pass.
+`//gofactory:ignore` and `//gofactory:factory` still take effect in the package that declares them,
+and settings such as `--ignoreTypes` and `--packageGlobs` still apply everywhere; only propagation
+to importers is turned off, [tests](testdata/module/crossPackageDirectives).
 
 ### Directives
 
@@ -258,7 +261,8 @@ below.
   ```
 
 - `//gofactory:factory`, in the doc comment of a function or a method, declares it a factory. See
-  [Declared factories](#declared-factories) below.
+  [Declared factories](#declared-factories) below for its reach, which `--crossPackageDirectives=false`
+  limits the same way it does `//gofactory:ignore`'s.
 
 - `//gofactory:trusted`, in the doc comment of a function, a method or a package, trusts that
   declaration — see [Trusted code](#trusted-code). Unlike `ignore`, its effect never crosses a
@@ -321,6 +325,8 @@ result is protected in this module, or fenced, doesn't matter: `func Now() time.
 A `--factories` glob that matches such a function is not an error: like `--ignoreTypes`, it may
 simply match nothing relevant.
 
+### Recipe: reconstitution through a factory
+
 Creation and reconstitution are the same concept: a function that a repository calls to rebuild an
 aggregate from storage, `order.Restore(id, status, paidAt)`, is just a factory, enabled the same
 way any other unusually-named factory is — a `--factoryPatterns=^Restore` pattern if the convention
@@ -335,6 +341,9 @@ func Restore(id string, status Status, paidAt time.Time) *Order {
     return &Order{id: id, status: status, paidAt: paidAt}
 }
 ```
+
+When no such factory fits — the repository needs a bypass that a factory shaped for fresh input
+couldn't offer — trust the repository instead; see [Trusted code](#trusted-code).
 
 ### Message format
 
