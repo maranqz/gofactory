@@ -94,24 +94,6 @@ func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
 	return fn
 }
 
-// declaredFactoryTargets is the permission to bypass a declared factory's
-// own target types inside its body, including a closure's, since
-// topLevelFunc resolves a closure to its enclosing declaration.
-func (d *detector) declaredFactoryTargets(
-	factory *types.Func,
-) []*types.TypeName {
-	if factory == nil {
-		return nil
-	}
-
-	var fact factoryFact
-	if !d.pass.ImportObjectFact(factory, &fact) {
-		return nil
-	}
-
-	return protectedResultTargets(factory.Signature())
-}
-
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
@@ -126,7 +108,7 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
-	if slices.Contains(d.declaredFactoryTargets(d.currentFn), named.Obj()) {
+	if slices.Contains(d.declared[named.Obj()], d.currentFn) {
 		return
 	}
 
