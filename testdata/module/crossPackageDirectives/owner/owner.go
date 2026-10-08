@@ -3,8 +3,8 @@
 // longer reaches the importer; GlobIgnored has no directive and is exempted
 // only by the case's -ignoreTypes setting; Misplaced puts the directive
 // where it does not belong, to show directive validation still runs with
-// the setting false. Declared carries a //gofactory:factory whose fact
-// likewise no longer reaches the importer.
+// the setting false. Restore's //gofactory:factory likewise no longer
+// reaches the importer.
 package owner
 
 //gofactory:ignore
