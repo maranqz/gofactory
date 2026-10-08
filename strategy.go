@@ -49,7 +49,15 @@ func (anotherPkg) IsBlocked(
 	identObj types.Object,
 	_ *types.Func,
 ) bool {
-	return currentPkg.Path() != identObj.Pkg().Path()
+	return !isOwnerPackage(currentPkg, identObj.Pkg())
+}
+
+// isOwnerPackage reports whether currentPkg is pkg itself or pkg's external
+// test package: go/packages (and so analysistest and go vet) gives that
+// package the synthetic path pkg.Path()+"_test", so foo_test counts as
+// foo's own code and may bypass its factories the same way.
+func isOwnerPackage(currentPkg, pkg *types.Package) bool {
+	return currentPkg.Path() == pkg.Path() || currentPkg.Path() == pkg.Path()+"_test"
 }
 
 // fence is one -packageGlobs pattern: the set of packages matching its
