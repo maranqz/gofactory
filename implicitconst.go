@@ -7,7 +7,7 @@ import (
 	"slices"
 )
 
-func (d *detector) checkVarDecl(decl *ast.GenDecl) {
+func (d *detector) checkVarConstants(decl *ast.GenDecl) {
 	if decl.Tok != token.VAR {
 		return
 	}
@@ -19,18 +19,18 @@ func (d *detector) checkVarDecl(decl *ast.GenDecl) {
 	}
 }
 
-// checkAssign leaves op-assignments such as st += 1 to arithmetic, which is
-// not a storing position.
-func (d *detector) checkAssign(assign *ast.AssignStmt) {
+// checkAssignedConstants leaves op-assignments such as st += 1 to
+// arithmetic, which is not a storing position.
+func (d *detector) checkAssignedConstants(assign *ast.AssignStmt) {
 	if assign.Tok == token.ASSIGN || assign.Tok == token.DEFINE {
 		d.checkStoredConstants(assign.Rhs)
 	}
 }
 
-// checkCallArgs skips conversions, which the conversion route reports, and
-// every builtin but append: the others (min, max, delete, ...) do not store
-// their arguments.
-func (d *detector) checkCallArgs(call *ast.CallExpr) {
+// checkArgConstants skips conversions, which the conversion route reports,
+// and every builtin but append: the others (min, max, delete, ...) do not
+// store their arguments.
+func (d *detector) checkArgConstants(call *ast.CallExpr) {
 	fun := ast.Unparen(call.Fun)
 	if d.pass.TypesInfo.Types[fun].IsType() {
 		return
@@ -46,7 +46,7 @@ func (d *detector) checkCallArgs(call *ast.CallExpr) {
 	d.checkStoredConstants(call.Args)
 }
 
-func (d *detector) checkCompositeElements(lit *ast.CompositeLit) {
+func (d *detector) checkElementConstants(lit *ast.CompositeLit) {
 	for _, elt := range lit.Elts {
 		if kv, ok := elt.(*ast.KeyValueExpr); ok {
 			d.checkStoredConstants([]ast.Expr{kv.Key, kv.Value})

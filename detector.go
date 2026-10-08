@@ -71,14 +71,14 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
-		d.checkCompositeElements(node)
+		d.checkElementConstants(node)
 	case *ast.CallExpr:
 		d.checkCall(node)
-		d.checkCallArgs(node)
+		d.checkArgConstants(node)
 	case *ast.GenDecl:
-		d.checkVarDecl(node)
+		d.checkVarConstants(node)
 	case *ast.AssignStmt:
-		d.checkAssign(node)
+		d.checkAssignedConstants(node)
 	case *ast.ReturnStmt:
 		d.checkStoredConstants(node.Results)
 	case *ast.FuncDecl:
