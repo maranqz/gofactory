@@ -21,6 +21,8 @@ func Arithmetic(st nested.Status) {
 	st += 1
 	st++
 	st = nested.Active + 1
+	st = nested.Active << 1
+	st = max(nested.Active, 2)
 
 	_ = st
 }

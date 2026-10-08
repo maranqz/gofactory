@@ -9,6 +9,10 @@ const (
 
 const Closed Status = 3
 
+const Three = 3
+
+type Flag bool
+
 // The owner package may store an untyped constant in its own type.
 func NewStatus() Status {
 	return 1

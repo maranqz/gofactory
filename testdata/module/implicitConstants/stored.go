@@ -2,7 +2,10 @@ package implicitConstants
 
 import "factory/implicitConstants/nested"
 
-const untyped = 3
+const (
+	untyped      = 3
+	shift   uint = 2
+)
 
 func VarDeclaration() {
 	var st nested.Status = 3 // want `Use factory for nested.Status \(nested.NewStatus\)`
@@ -22,7 +25,15 @@ func Assignment() {
 	st = -1      // want `Use factory for nested.Status`
 	st = 1 + 2   // want `Use factory for nested.Status`
 
-	_ = st
+	st = 1 << shift   // want `Use factory for nested.Status`
+	st = min(1, 2)    // want `Use factory for nested.Status`
+	st = nested.Three // want `Use factory for nested.Status`
+
+	st, ok := 3, true // want `Use factory for nested.Status`
+
+	var f nested.Flag = 1 < 2 // want `Use factory for nested.Flag`
+
+	_, _, _ = st, ok, f
 }
 
 func store(nested.Status) {}
