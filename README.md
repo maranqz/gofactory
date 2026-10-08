@@ -26,6 +26,13 @@ Within scope, gofactory is **strict by default**: every bypass of a protected ty
 whether or not the type has a factory. See [the ADR](docs/adr/0002-strict-default-and-module-scope.md)
 for why.
 
+An untyped constant implicitly converted to a protected type is a bypass too, reported where it is
+stored: a `var` declaration or assignment (`var st ext.Status = 3`, `st = 3`), a call argument
+(`f(3)`, `append(s, 3)`), a `return` and a composite literal element (`[]ext.Status{3}`). Using one
+is not: comparisons (`st == 3`), `case 3:`, arithmetic (`st + 1`, `st += 1`) and `const`
+declarations stay silent, and so does a typed constant such as `ext.Active`. An explicit conversion
+`ext.Status(3)` is reported once, as a conversion, [tests](testdata/module/implicitConstants).
+
 ## Fences
 
 Each `--packageGlobs` pattern is its own **fence**: the set of packages matching it. If a
@@ -562,6 +569,8 @@ actual output. Every case added there must carry such a `// want` comment.
    `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
    the declaring package only through another package, or not at all, never sees it,
    [example](testdata/module/unimplemented/visibility/).
+8. Untyped constant stored by a channel send or as a map index key, `ch <- 3` or `m[3] = v`,
+   [example](testdata/module/unimplemented/constant.go).
 
 ## TODO
 
