@@ -178,6 +178,21 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 			},
 		},
 
+		// owner's external test package counts as owner's own code with no
+		// fence involved.
+		"externalTestPackage": {
+			pkgs: []string{"externalTestPackage/..."},
+		},
+		// Same as externalTestPackage, but owner is also fenced by its
+		// exact path: owner_test must stay silent even though its own path
+		// (owner's path plus "_test") lies outside that fence.
+		"externalTestPackageFence": {
+			pkgs: []string{"externalTestPackageFence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/externalTestPackageFence/owner"},
+			},
+		},
+
 		"zeroValues": {
 			pkgs:     []string{"zeroValues/..."},
 			settings: caseSettings{zeroValues: true},

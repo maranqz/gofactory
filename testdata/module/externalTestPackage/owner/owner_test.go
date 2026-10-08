@@ -5,7 +5,7 @@ package owner_test
 import (
 	"testing"
 
-	"factory/generatedFiles/owner"
+	"factory/externalTestPackage/owner"
 )
 
 func TestBypass(t *testing.T) {
