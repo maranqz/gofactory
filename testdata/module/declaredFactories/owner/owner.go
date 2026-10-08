@@ -77,3 +77,8 @@ type Mixed struct{}
 func NewMixed() Mixed {
 	return Mixed{}
 }
+
+// Merged's declared factory, other.Merge, takes Merged itself as a
+// parameter: unlike a recognised factory, a declared factory has no rule
+// against taking its own target type.
+type Merged struct{}
