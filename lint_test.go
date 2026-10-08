@@ -168,6 +168,16 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
 
+		// Fencing testing.InternalTest and testdeps.TestDeps makes them
+		// protected everywhere outside the testing tree, so a synthesized
+		// test main would be reported without the generated-file skip.
+		"generatedFiles": {
+			pkgs: []string{"generatedFiles/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"testing", "testing/internal/testdeps"},
+			},
+		},
+
 		"zeroValues": {
 			pkgs:     []string{"zeroValues/..."},
 			settings: caseSettings{zeroValues: true},

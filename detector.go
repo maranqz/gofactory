@@ -30,6 +30,11 @@ type detector struct {
 
 	locallyIgnored map[types.Object]bool
 
+	// generatedFiles holds every file of pass.Files carrying the standard
+	// "Code generated ... DO NOT EDIT." header, so a bypass written there,
+	// including in the test main go test synthesizes, is never reported.
+	generatedFiles map[*ast.File]bool
+
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
@@ -45,6 +50,14 @@ func newDetector(
 	declared factoryIndex,
 	locallyIgnored map[types.Object]bool,
 ) *detector {
+	generatedFiles := map[*ast.File]bool{}
+
+	for _, file := range pass.Files {
+		if ast.IsGenerated(file) {
+			generatedFiles[file] = true
+		}
+	}
+
 	return &detector{
 		pass:            pass,
 		strategy:        strategy,
@@ -57,12 +70,17 @@ func newDetector(
 		suffixes:        map[*types.TypeName]string{},
 		fieldPathCache:  map[types.Type][]fieldPath{},
 		locallyIgnored:  locallyIgnored,
+		generatedFiles:  generatedFiles,
 	}
 }
 
 func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	if !push {
 		return true
+	}
+
+	if file, ok := stack[0].(*ast.File); ok && d.generatedFiles[file] {
+		return false
 	}
 
 	d.currentFn = d.topLevelFunc(stack)
