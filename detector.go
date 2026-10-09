@@ -156,7 +156,12 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	}
 
 	d.currentFn = d.topLevelFunc(stack)
+	d.check(node)
 
+	return true
+}
+
+func (d *detector) check(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -175,8 +180,6 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
-
-	return true
 }
 
 // stack[0] is the *ast.File, so stack[1] is the top-level declaration
