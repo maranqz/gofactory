@@ -196,8 +196,8 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 
 		// cgoFile/user/cgo.go only builds where cgo is enabled; it is
 		// excluded from the package otherwise, the way a build-tag
-		// mismatch would be, so this case only bites in such an
-		// environment.
+		// mismatch would be, so this case only bites where cgo is
+		// enabled.
 		"cgoFile": {
 			pkgs: []string{"cgoFile/..."},
 		},
