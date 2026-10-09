@@ -111,10 +111,10 @@ By default, a package may bypass the factory of its own exported or unexported t
 its own code — that is what "owner package" means throughout this README.
 
 Package `foo`'s external test package `foo_test` counts as owner package `foo`, so tests can build
-fixtures, [tests](testdata/module/externalTestPackage), even though `foo_test`'s path lies outside
-`foo`'s fences, [tests](testdata/module/externalTestPackageFence). A regular package that merely sits at `foo_test`'s
-import path does not count, even one declared `package foo_test`: only a package built from
-`_test.go` files alone is an external test package.
+fixtures, [tests](testdata/module/externalTestPackage), even where `foo_test`'s path lies outside
+`foo`'s fences, [tests](testdata/module/externalTestPackageFence). A regular package that merely
+sits at `foo_test`'s import path does not count, even one declared `package foo_test`: only a
+package built from `_test.go` files alone is an external test package.
 
 `--ownPackage` (off by default) tightens the owner package's freedom for exported types: inside the
 owner package, the factory of an **exported** protected type may then be bypassed only inside a
