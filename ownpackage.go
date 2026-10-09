@@ -2,9 +2,8 @@ package gofactory
 
 import "go/types"
 
-// ownPackageStrategy restricts T's owner package to producers when
-// -ownPackage is enabled, a const declaration excepted. wrapped never
-// blocks a same-package site, so the producer branch need not ask it.
+// wrapped never blocks a same-package site, so the producer branch need
+// not ask it.
 type ownPackageStrategy struct {
 	wrapped   blockedStrategy
 	protected func(pkgPath string) bool
