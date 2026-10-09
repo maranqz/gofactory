@@ -28,8 +28,8 @@ func StatusImplicitConstNonProducerIsReported() {
 	_ = st
 }
 
-// StatusConstDeclIsSilent: the implicit-constant route never looks inside
-// a const declaration, in any package.
+// StatusConstDeclIsSilent: a typed const's value is not a storing
+// position for the implicit-constant route, in any package.
 func StatusConstDeclIsSilent() {
 	const st Status = 3
 
