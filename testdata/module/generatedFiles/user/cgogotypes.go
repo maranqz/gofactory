@@ -4,6 +4,10 @@ package user
 
 import "factory/generatedFiles/ext"
 
+// The directive stands in for the //go:linkname lines of a real
+// _cgo_gotypes.go: a comment after cmd/cgo's header that is not //line
+// must not make this file count as cmd/cgo's copy of a source file.
+//
 //go:noinline
 func CgoGotypesBypass() {
 	_ = ext.Struct{}
