@@ -153,6 +153,7 @@ func linterSuiteCases() map[string]linterSuiteCase {
 	maps.Copy(cases, factorySettingCases())
 	maps.Copy(cases, declaredFactoryCases())
 	maps.Copy(cases, trustedCases())
+	maps.Copy(cases, ownPackageCases())
 
 	return cases
 }
@@ -381,6 +382,27 @@ func declaredFactoryCases() map[string]linterSuiteCase {
 	}
 }
 
+func ownPackageCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"ownPackage": {
+			pkgs:     []string{"ownPackage/..."},
+			settings: caseSettings{ownPackage: true},
+		},
+		"ownPackagePackageGlobsOnly": {
+			pkgs: []string{"ownPackagePackageGlobsOnly/..."},
+			settings: caseSettings{
+				ownPackage:       true,
+				packageGlobsOnly: true,
+				packageGlobs:     []string{"factory/ownPackagePackageGlobsOnly/protected/**"},
+			},
+		},
+		"ownPackageZeroValues": {
+			pkgs:     []string{"ownPackageZeroValues/..."},
+			settings: caseSettings{ownPackage: true, zeroValues: true},
+		},
+	}
+}
+
 func trustedCases() map[string]linterSuiteCase {
 	return map[string]linterSuiteCase{
 		"trusted": {
@@ -486,6 +508,7 @@ type caseSettings struct {
 	ignoreTypes      []string
 	trusted          []string
 	zeroValues       bool
+	ownPackage       bool
 
 	factoryPatterns          []string
 	useDefaultFactoryPattern *bool
@@ -523,6 +546,10 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 
 	if s.zeroValues {
 		setFlag(t, analyzer, "zeroValues", "true")
+	}
+
+	if s.ownPackage {
+		setFlag(t, analyzer, "ownPackage", "true")
 	}
 
 	for _, g := range s.ignoreTypes {
@@ -630,6 +657,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 		"ignore-types":       s.ignoreTypes,
 		"trusted":            s.trusted,
 		"zero-values":        s.zeroValues,
+		"own-package":        s.ownPackage,
 		"factory-patterns":   s.factoryPatterns,
 		"only-with-factory":  s.onlyWithFactory,
 		"factories":          s.factories,

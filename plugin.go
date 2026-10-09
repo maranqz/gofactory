@@ -34,6 +34,7 @@ type settings struct {
 	IgnoreTypes      []string `json:"ignore-types"`
 	Trusted          []string `json:"trusted"`
 	ZeroValues       bool     `json:"zero-values"`
+	OwnPackage       bool     `json:"own-package"`
 
 	FactoryPatterns          []string `json:"factory-patterns"`
 	UseDefaultFactoryPattern *bool    `json:"use-default-factory-pattern"`
@@ -83,6 +84,7 @@ func newPlugin(rawSettings any) (register.LinterPlugin, error) {
 
 	cfg.onlyPkgGlobs = decoded.PackageGlobsOnly
 	cfg.zeroValues = decoded.ZeroValues
+	cfg.ownPackage = decoded.OwnPackage
 
 	if decoded.UseDefaultFactoryPattern != nil {
 		cfg.useDefaultFactoryPattern = *decoded.UseDefaultFactoryPattern

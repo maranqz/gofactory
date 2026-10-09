@@ -22,12 +22,8 @@ func newCurrentModule(path string, externalTest bool) currentModule {
 	return currentModule{path: path, externalTest: externalTest}
 }
 
-func (c currentModule) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-	currentFn *types.Func,
-) bool {
-	if !newAnotherPkg(c.externalTest).IsBlocked(currentPkg, identObj, currentFn) {
+func (c currentModule) IsBlocked(loc site, target *types.Named) bool {
+	if !newAnotherPkg(c.externalTest).IsBlocked(loc, target) {
 		return false
 	}
 
@@ -35,7 +31,7 @@ func (c currentModule) IsBlocked(
 		return true
 	}
 
-	return belongsToModule(identObj.Pkg().Path(), c.path)
+	return belongsToModule(target.Obj().Pkg().Path(), c.path)
 }
 
 func belongsToModule(pkgPath, modulePath string) bool {

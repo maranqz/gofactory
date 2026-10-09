@@ -18,6 +18,7 @@ type config struct {
 	ignoreTypes  globsFlag
 	trusted      globsFlag
 	zeroValues   bool
+	ownPackage   bool
 
 	extraFactoryPatterns     regexpsFlag
 	useDefaultFactoryPattern bool
@@ -48,6 +49,7 @@ const (
 	ignoreTypesDesc  = "qualified type-name glob (import/path.Name), repeatable; a matching type may be created without a factory"
 	trustedDesc      = "package-path or qualified function/method-name glob, repeatable; matching code may bypass any protected type's factory through any route"
 	zeroValuesDesc   = "report zero values of protected types in var declarations, named results and unset fields of literals and new(T)"
+	ownPackageDesc   = "restrict an exported protected type's owner package to producers: a bypass is allowed only in a top-level function or method whose results include the type, directly, as *T, as a named interface it implements, or inside a slice, array, map, chan, iter.Seq or iter.Seq2"
 
 	factoryPatternsDesc          = "extra factory-name regex, appended to the default ^New pattern (repeatable)"
 	useDefaultFactoryPatternDesc = "recognise the default ^New factory-name pattern"
@@ -84,6 +86,8 @@ func NewAnalyzer() *analysis.Analyzer {
 	analyzer.Flags.Var(&cfg.trusted, trustedFlag, trustedDesc)
 
 	analyzer.Flags.BoolVar(&cfg.zeroValues, "zeroValues", false, zeroValuesDesc)
+
+	analyzer.Flags.BoolVar(&cfg.ownPackage, "ownPackage", false, ownPackageDesc)
 
 	analyzer.Flags.Var(&cfg.extraFactoryPatterns, "factoryPatterns", factoryPatternsDesc)
 
@@ -234,6 +238,17 @@ func buildStrategy(
 		}
 
 		strategy = newFencedPkgs(fences, defaultStrategy, externalTest)
+	}
+
+	if cfg.ownPackage {
+		protected := func(string) bool { return true }
+		if cfg.onlyPkgGlobs {
+			protected = func(pkgPath string) bool {
+				return anyFenceContains(fences, pkgPath)
+			}
+		}
+
+		strategy = newOwnPackageStrategy(strategy, protected)
 	}
 
 	return newTrustedStrategy(trusted, strategy)

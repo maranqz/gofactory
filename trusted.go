@@ -65,12 +65,10 @@ func newTrustedStrategy(
 	return trustedStrategy{trusted: trusted, wrapped: wrapped}
 }
 
-func (s trustedStrategy) IsBlocked(
-	currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
-) bool {
-	if s.trusted.isTrusted(currentPkg, currentFn) {
+func (s trustedStrategy) IsBlocked(loc site, target *types.Named) bool {
+	if s.trusted.isTrusted(loc.pkg, loc.fn) {
 		return false
 	}
 
-	return s.wrapped.IsBlocked(currentPkg, identObj, currentFn)
+	return s.wrapped.IsBlocked(loc, target)
 }

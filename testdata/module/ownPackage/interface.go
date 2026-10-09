@@ -1,0 +1,44 @@
+package ownPackage
+
+type Lender interface {
+	Limit() int
+}
+
+func (Loan) Limit() int { return 0 }
+
+func LoanAsLenderIsSilent() Lender {
+	return Loan{}
+}
+
+// LoanAsAnyIsReported: any unaliases to an unnamed interface{}, so it never
+// makes a producer.
+func LoanAsAnyIsReported() any {
+	return Loan{} // want `Use factory for ownPackage.Loan`
+}
+
+func LoanAsEmptyInterfaceIsReported() interface{} {
+	return Loan{} // want `Use factory for ownPackage.Loan`
+}
+
+// Marker is a named interface with no methods. Unlike any and interface{},
+// which are unnamed, Marker is a named type, and every type — Loan
+// included — trivially implements it, so returning it still makes a
+// producer.
+type Marker interface{}
+
+func LoanAsMarkerIsSilent() Marker {
+	return Loan{}
+}
+
+type Box[T any] struct{ v T }
+
+func (b Box[T]) Get() T { return b.v }
+
+type IntGetter interface{ Get() int }
+
+// ProducerAsGenericInstantiationIsSilent: the interface check must use the
+// instantiation actually built, Box[int], not the uninstantiated Box —
+// go/types documents types.Implements as unspecified for the latter.
+func ProducerAsGenericInstantiationIsSilent() IntGetter {
+	return Box[int]{}
+}
