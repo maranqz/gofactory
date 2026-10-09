@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 
 	"github.com/gobwas/glob"
@@ -21,11 +22,18 @@ var errEmptyGlobPattern = errors.New("pattern must not be empty")
 // and silently match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
-// currentFn is nil at package scope (a package-level var, for instance).
+// site is where a candidate bypass was written. fn is the enclosing
+// top-level function, so a closure counts as its declaration; nil at
+// package scope.
+type site struct {
+	pkg         *types.Package
+	fn          *types.Func
+	inTestFile  bool
+	inConstDecl bool
+}
+
 type blockedStrategy interface {
-	IsBlocked(
-		currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
-	) bool
+	IsBlocked(loc site, target *types.Named) bool
 }
 
 type nilPkg struct{}
@@ -34,7 +42,7 @@ func newNilPkg() nilPkg {
 	return nilPkg{}
 }
 
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object, _ *types.Func) bool {
+func (nilPkg) IsBlocked(_ site, _ *types.Named) bool {
 	return false
 }
 
@@ -44,12 +52,8 @@ func newAnotherPkg() anotherPkg {
 	return anotherPkg{}
 }
 
-func (anotherPkg) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-	_ *types.Func,
-) bool {
-	return currentPkg.Path() != identObj.Pkg().Path()
+func (anotherPkg) IsBlocked(loc site, target *types.Named) bool {
+	return loc.pkg.Path() != target.Obj().Pkg().Path()
 }
 
 // fence is one -packageGlobs pattern: the set of packages matching its
@@ -110,6 +114,12 @@ func matchesPackagePath(g glob.Glob, pkgPath string) bool {
 	return g.Match(pkgPath) || g.Match(pkgPath+"/")
 }
 
+func anyFenceContains(fences []fence, pkgPath string) bool {
+	return slices.ContainsFunc(fences, func(f fence) bool {
+		return f.contains(pkgPath)
+	})
+}
+
 // fencedPkgs applies the intersection rule: a type whose package lies in
 // one or more fences may be bypassed only by code inside every one of
 // those fences. A type in no fence gains nothing from fences and falls
@@ -129,12 +139,8 @@ func newFencedPkgs(
 	}
 }
 
-func (s fencedPkgs) IsBlocked(
-	currentPkg *types.Package,
-	identObj types.Object,
-	currentFn *types.Func,
-) bool {
-	identPkgPath := identObj.Pkg().Path()
+func (s fencedPkgs) IsBlocked(loc site, target *types.Named) bool {
+	identPkgPath := target.Obj().Pkg().Path()
 
 	inAnyFence := false
 
@@ -145,13 +151,13 @@ func (s fencedPkgs) IsBlocked(
 
 		inAnyFence = true
 
-		if !candidate.contains(currentPkg.Path()) {
+		if !candidate.contains(loc.pkg.Path()) {
 			return true
 		}
 	}
 
 	if !inAnyFence {
-		return s.defaultStrategy.IsBlocked(currentPkg, identObj, currentFn)
+		return s.defaultStrategy.IsBlocked(loc, target)
 	}
 
 	return false

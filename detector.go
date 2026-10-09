@@ -2,9 +2,11 @@ package gofactory
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
@@ -34,6 +36,8 @@ type detector struct {
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
+
+	inConstDecl bool
 }
 
 func newDetector(
@@ -67,6 +71,7 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	}
 
 	d.currentFn = d.topLevelFunc(stack)
+	d.inConstDecl = inConstDecl(stack)
 
 	switch node := node.(type) {
 	case *ast.CompositeLit:
@@ -103,6 +108,14 @@ func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
 	return fn
 }
 
+func inConstDecl(stack []ast.Node) bool {
+	return slices.ContainsFunc(stack, func(n ast.Node) bool {
+		decl, ok := n.(*ast.GenDecl)
+
+		return ok && decl.Tok == token.CONST
+	})
+}
+
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
 	d.reportProtectedSuffix(node, t, "")
 }
@@ -121,7 +134,13 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
-	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn) {
+	loc := site{
+		pkg:         d.pass.Pkg,
+		fn:          d.currentFn,
+		inTestFile:  strings.HasSuffix(d.pass.Fset.Position(node.Pos()).Filename, "_test.go"),
+		inConstDecl: d.inConstDecl,
+	}
+	if !d.strategy.IsBlocked(loc, named) {
 		return
 	}
 
