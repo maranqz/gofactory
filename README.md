@@ -560,8 +560,8 @@ actual output. Every case added there must carry such a `// want` comment.
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
 3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
-4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
-5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
+4. Conversion of an untyped non-constant expression, explicit or implicit, `nested.MyInt(1 << n)`, `nested.Flag(a == b)` or `var f nested.Flag = a == b`, [example](testdata/module/unimplemented/untyped.go).
+5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }` or `func F[T nested.MyInt]() T { return 3 }`, [example](testdata/module/unimplemented/typeparam.go).
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
    elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
