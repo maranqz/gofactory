@@ -9,3 +9,15 @@ func GeneratedBypass() {
 }
 
 var GeneratedZero ext.Struct
+
+func GeneratedRoutes() {
+	_ = ext.Struct(struct{}{})
+	_ = new(ext.Struct)
+
+	var local ext.Struct
+
+	_ = local
+}
+
+//gofactory:bogus // want `unknown directive "//gofactory:bogus"`
+type GeneratedDirective struct{}
