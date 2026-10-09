@@ -4,7 +4,6 @@ func DirectResultIsSilent() Loan {
 	return Loan{}
 }
 
-// PointerResultIsSilent: *Loan counts the same as Loan.
 func PointerResultIsSilent() *Loan {
 	return &Loan{}
 }

@@ -9,5 +9,5 @@ type Loan struct {
 }
 
 // Status is this package's exported protected int-based type, for the
-// conversion and implicit-constant routes a struct can't exercise.
+// implicit-constant route a struct can't exercise.
 type Status int

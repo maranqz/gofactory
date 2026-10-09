@@ -3,13 +3,8 @@ package gofactory
 import "go/types"
 
 // ownPackageStrategy restricts T's owner package to producers when
-// -ownPackage is enabled: there, the factory of an exported, package-scope
-// protected type may be bypassed only inside a producer (see isProducer),
-// a const declaration excepted. wrapped never blocks a same-package site,
-// so the producer branch need not ask it; it is asked instead whenever the
-// site lies outside T's owner package, in a _test.go file, or in a package
-// that protected reports as unprotected (under -packageGlobsOnly, a
-// package outside every fence).
+// -ownPackage is enabled, a const declaration excepted. wrapped never
+// blocks a same-package site, so the producer branch need not ask it.
 type ownPackageStrategy struct {
 	wrapped   blockedStrategy
 	protected func(pkgPath string) bool
