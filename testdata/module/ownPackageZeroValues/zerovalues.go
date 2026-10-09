@@ -16,10 +16,8 @@ func NonProducerVarIsReported() int {
 	return l.Amount // want `Use factory for ownPackageZeroValues.Loan: zero value`
 }
 
-func ProducerVarIsSilent() Loan {
+func ProducerZeroValueIsSilent() Loan {
 	var l Loan
-
-	l = Loan{}
 
 	return l
 }
