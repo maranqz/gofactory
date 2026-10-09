@@ -239,7 +239,14 @@ func buildStrategy(
 	}
 
 	if cfg.ownPackage {
-		strategy = newOwnPackageStrategy(strategy)
+		protected := func(string) bool { return true }
+		if cfg.onlyPkgGlobs {
+			protected = func(pkgPath string) bool {
+				return anyFenceContains(fences, pkgPath)
+			}
+		}
+
+		strategy = newOwnPackageStrategy(strategy, protected)
 	}
 
 	return newTrustedStrategy(trusted, strategy)

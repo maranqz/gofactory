@@ -9,3 +9,7 @@ import "factory/ownPackage"
 func ExternalTestFixtureIsReported() {
 	_ = ownPackage.Loan{} // want `Use factory for ownPackage.Loan`
 }
+
+// ExternalConstConversionIsReported: the owner package's const exemption
+// does not reach an importer's own const declaration.
+const ExternalConstConversionIsReported = ownPackage.Status(2) // want `Use factory for ownPackage.Status`

@@ -3,32 +3,43 @@ package gofactory
 import "go/types"
 
 // ownPackageStrategy restricts T's owner package to producers when
-// -ownPackage is enabled: there, the factory of an exported protected type
-// may be bypassed only inside a producer (see isProducer). It defers to
-// wrapped, the ordinary same-package rule that already resolves to "not
-// blocked" for a same-package site, whenever the site is not T's owner
-// package, T is unexported, or the site is a _test.go file: a foo_test
-// external test file is itself always a _test.go file, so this exemption
-// is also how foo_test counts as owner foo for -ownPackage's purposes.
+// -ownPackage is enabled: there, the factory of an exported, package-scope
+// protected type may be bypassed only inside a producer (see isProducer),
+// a const declaration excepted. wrapped never blocks a same-package site,
+// so the producer branch need not ask it; it is asked instead whenever the
+// site lies outside T's owner package, in a _test.go file, or in a package
+// that protected reports as unprotected (under -packageGlobsOnly, a
+// package outside every fence).
 type ownPackageStrategy struct {
-	wrapped blockedStrategy
+	wrapped   blockedStrategy
+	protected func(pkgPath string) bool
 }
 
-func newOwnPackageStrategy(wrapped blockedStrategy) ownPackageStrategy {
-	return ownPackageStrategy{wrapped: wrapped}
+func newOwnPackageStrategy(
+	wrapped blockedStrategy, protected func(pkgPath string) bool,
+) ownPackageStrategy {
+	return ownPackageStrategy{wrapped: wrapped, protected: protected}
 }
 
-func (s ownPackageStrategy) IsBlocked(
-	currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
-	inTestFile bool,
-) bool {
-	inOwnerPackage := currentPkg.Path() == identObj.Pkg().Path()
+func (s ownPackageStrategy) IsBlocked(loc site, target *types.TypeName) bool {
+	inOwnerPackage := loc.pkg.Path() == target.Pkg().Path()
 
-	if inTestFile || !identObj.Exported() || !inOwnerPackage {
-		return s.wrapped.IsBlocked(currentPkg, identObj, currentFn, inTestFile)
+	if loc.inTestFile || !inOwnerPackage ||
+		!exportedAtPackageScope(target) || !s.protected(target.Pkg().Path()) {
+		return s.wrapped.IsBlocked(loc, target)
 	}
 
-	target, ok := identObj.(*types.TypeName)
+	if loc.inConstDecl {
+		return false
+	}
 
-	return !ok || currentFn == nil || !isProducer(currentFn, target)
+	return loc.fn == nil || !isProducer(loc.fn, target)
+}
+
+// exportedAtPackageScope reports whether target is exported at package
+// scope. types.Object.Exported looks only at capitalisation, so a
+// capitalised type declared inside a function body would otherwise count,
+// although Go exports only package-scope identifiers.
+func exportedAtPackageScope(target *types.TypeName) bool {
+	return target.Exported() && target.Parent() == target.Pkg().Scope()
 }

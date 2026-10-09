@@ -1,9 +1,17 @@
 package ownPackage
 
-// loan is unexported: -ownPackage restricts only exported protected types,
-// so loan stays as free to build as it always was, producer or not.
 type loan struct{}
 
 func NonProducerUnexportedIsSilent() {
 	_ = loan{}
+}
+
+// NonProducerLocalTypeIsSilent: LocalResponse is capitalised but declared
+// inside a function body, so Go does not export it — only a package-scope
+// identifier is exported. No producer could ever name it in a signature,
+// so it is unaffected by -ownPackage the same as an unexported type.
+func NonProducerLocalTypeIsSilent() {
+	type LocalResponse struct{}
+
+	_ = LocalResponse{}
 }
