@@ -20,16 +20,10 @@ func (d *detector) checkCall(call *ast.CallExpr) {
 	d.checkConversion(call)
 }
 
-// checkNew reports new(T) and returns true when call is a call to the
-// builtin new, so the caller does not also try to treat it as a conversion.
+// checkNew returns true when call is a call to the builtin new, so the
+// caller does not also try to treat it as a conversion.
 func (d *detector) checkNew(call *ast.CallExpr) bool {
-	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
-	if !ok {
-		return false
-	}
-
-	builtin, ok := d.pass.TypesInfo.ObjectOf(ident).(*types.Builtin)
-	if !ok || builtin.Name() != "new" {
+	if d.builtinName(call) != "new" {
 		return false
 	}
 
@@ -42,6 +36,10 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 	// new(*T) allocates a nil *T and builds no T, so argTV.Type is passed
 	// as-is rather than through pointee.
 	d.reportProtected(call, argTV.Type)
+
+	if d.zeroValues {
+		d.reportUnsetFields(call, argTV.Type, nil)
+	}
 
 	return true
 }

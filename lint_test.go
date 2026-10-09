@@ -1,8 +1,15 @@
 package gofactory_test
 
 import (
+	"fmt"
+	"go/types"
+	"maps"
 	"net/url"
 	"path/filepath"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -15,6 +22,11 @@ import (
 // register.Plugin, which golangci-lint would use as the plugin key in its
 // own configuration.
 const pluginName = "gofactory"
+
+// siblingModulePath is the go.work sibling test module: its directory name
+// under moduleRoot, its own module path and import path are all this
+// string; siblingModulePath+"/**" fences it and its subpackages.
+const siblingModulePath = "sibling"
 
 // TestAnalyzerURL checks that both entry points produce an Analyzer.URL
 // that parses as an absolute URL: golangci-lint fails to load an analyzer
@@ -39,15 +51,17 @@ func assertAbsoluteURL(t *testing.T, entryPoint, raw string) {
 	}
 }
 
-// TestPluginRejectsBadSettings checks that the plugin fails on settings it
-// cannot apply instead of silently ignoring them: a key spelled like the
-// flag rather than in kebab-case, and a glob that does not compile.
+// TestPluginRejectsBadSettings checks that the plugin fails on a settings
+// key spelled like the flag rather than in kebab-case, and on an invalid
+// factory-name regex, instead of silently ignoring them. An invalid glob is
+// a configuration error too, but only once run executes (see run in
+// factory.go): TestConfigurationErrors covers it through both entry points.
 func TestPluginRejectsBadSettings(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]map[string]any{
-		"flag spelling": {"packageGlobs": []string{"factory/**"}},
-		"invalid glob":  {"package-globs": []string{"["}},
+		"flag_spelling":           {"packageGlobs": []string{"factory/**"}},
+		"invalid_factory_pattern": {"factory-patterns": []string{"("}},
 	}
 	for name, rawSettings := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -66,25 +80,116 @@ func TestPluginRejectsBadSettings(t *testing.T) {
 	}
 }
 
-// TestLinterSuite runs every case through both entry points that populate
-// the shared config: NewAnalyzer configured via Flags.Set, the way a
-// command-line user or go vet driver would, and the golangci-lint plugin
-// constructor configured via kebab-case settings.
-func TestLinterSuite(t *testing.T) {
+// TestFlagsRejectBadFactoryPattern checks that NewAnalyzer's factoryPatterns
+// flag fails on an invalid regex, the flags-entry-point counterpart to
+// TestPluginRejectsBadSettings's "invalid_factory_pattern" plugin-side case.
+func TestFlagsRejectBadFactoryPattern(t *testing.T) {
 	t.Parallel()
 
-	root := moduleRoot()
+	analyzer := gofactory.NewAnalyzer()
 
-	tests := map[string]struct {
-		pkgs     []string
-		settings caseSettings
-	}{
-		"simple":  {pkgs: []string{"simple/..."}},
-		"casting": {pkgs: []string{"casting/..."}},
-		"generic": {pkgs: []string{"generic/..."}},
+	err := analyzer.Flags.Set("factoryPatterns", "(")
+	if err == nil {
+		t.Fatal("got no error, want one")
+	}
+}
+
+// TestCrossPackageDirectivesFactTypes checks Analyzer.FactTypes directly,
+// through both entry points: declared by default, so directives propagate
+// across packages, and empty under -crossPackageDirectives=false, so
+// drivers stop analysing dependencies for them (see
+// docs/adr/0004-cross-package-directives-via-facts.md).
+// TestLinterSuite's "crossPackageDirectivesOff" case checks the resulting
+// behaviour; this test checks the field drivers actually read.
+func TestCrossPackageDirectivesFactTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared by default")
+				}
+			})
+	})
+
+	t.Run("explicit_true", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(true)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) == 0 {
+					t.Fatal("FactTypes is empty, want ignoredFact declared")
+				}
+			})
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		t.Parallel()
+
+		forEachEntryPoint(t, caseSettings{crossPackageDirectives: new(false)},
+			func(t *testing.T, analyzer *analysis.Analyzer) {
+				if len(analyzer.FactTypes) != 0 {
+					t.Fatalf("FactTypes is %v, want empty", analyzer.FactTypes)
+				}
+			})
+	})
+}
+
+const factoryPatternMake = "^Make"
+
+type linterSuiteCase struct {
+	pkgs     []string
+	settings caseSettings
+}
+
+func linterSuiteCases() map[string]linterSuiteCase {
+	cases := baseLinterSuiteCases()
+
+	maps.Copy(cases, fenceLinterSuiteCases())
+	maps.Copy(cases, ignoredTypeCases())
+	maps.Copy(cases, factorySettingCases())
+	maps.Copy(cases, declaredFactoryCases())
+	maps.Copy(cases, trustedCases())
+	maps.Copy(cases, ownPackageCases())
+
+	return cases
+}
+
+func baseLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"simple":    {pkgs: []string{"simple/..."}},
+		"casting":   {pkgs: []string{"casting/..."}},
+		"generic":   {pkgs: []string{"generic/..."}},
+		"factories": {pkgs: []string{"factories/..."}},
+
+		"implicitConstants": {pkgs: []string{"implicitConstants/..."}},
 
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
+		"stdlib": {pkgs: []string{"stdlib/..."}},
+
+		"zeroValues": {
+			pkgs:     []string{"zeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"zeroValuesOff": {
+			pkgs: []string{"zeroValuesOff/..."},
+		},
+		"zeroValuesFences": {
+			pkgs: []string{"zeroValuesFences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/zeroValuesFences/blocked/**"},
+				zeroValues:   true,
+			},
+		},
+	}
+}
+
+func fenceLinterSuiteCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
 		"packageGlobs": {
 			pkgs: []string{"packageGlobs/..."},
 			settings: caseSettings{
@@ -98,8 +203,206 @@ func TestLinterSuite(t *testing.T) {
 				packageGlobsOnly: true,
 			},
 		},
+		"twoFences": {
+			pkgs: []string{"twofences/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/twofences/a/**",
+					"factory/twofences/b/**",
+				},
+			},
+		},
+		"nestedFence": {
+			pkgs: []string{"nestedfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{
+					"factory/nestedfence/*/a/**",
+					"factory/nestedfence/*/a/domain/**",
+				},
+			},
+		},
+		"globSyntax": {
+			pkgs: []string{"globsyntax/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/globsyntax/*"},
+			},
+		},
+		"stdlibFence": {
+			pkgs: []string{"stdlibfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"strings"},
+			},
+		},
+		"siblingFence": {
+			pkgs: []string{"siblingfence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{siblingModulePath + "/**"},
+			},
+		},
 	}
-	for name, tt := range tests {
+}
+
+func ignoredTypeCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"directive": {
+			pkgs: []string{"directive/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"sibling/**"},
+				zeroValues:   true,
+			},
+		},
+
+		"crossPackageDirectivesOff": {
+			pkgs: []string{"crossPackageDirectives/..."},
+			settings: caseSettings{
+				crossPackageDirectives: new(false),
+				ignoreTypes:            []string{"factory/crossPackageDirectives/owner.GlobIgnored"},
+				factories:              []string{"factory/crossPackageDirectives/wrap.Load"},
+			},
+		},
+
+		"ignoreTypes": {
+			pkgs: []string{"ignoreTypes/main/..."},
+			settings: caseSettings{
+				ignoreTypes: []string{
+					"factory/ignoreTypes/exact.Struct",
+					"factory/ignoreTypes/generic.Pair",
+					"factory/ignoreTypes/glob/*",
+				},
+				zeroValues: true,
+			},
+		},
+	}
+}
+
+func factorySettingCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"factoryPatterns": {
+			pkgs: []string{"factoryPatterns/..."},
+			settings: caseSettings{
+				factoryPatterns: []string{factoryPatternMake},
+			},
+		},
+		"useDefaultFactoryPattern": {
+			pkgs: []string{"useDefaultFactoryPattern/..."},
+			settings: caseSettings{
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"replaceFactoryPattern": {
+			pkgs: []string{"replaceFactoryPattern/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{factoryPatternMake, "^Restore"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"newFirstWithoutDefault": {
+			pkgs: []string{"newFirstWithoutDefault/..."},
+			settings: caseSettings{
+				factoryPatterns:          []string{"Both$"},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"onlyWithFactory": {
+			pkgs: []string{"onlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory: true,
+			},
+		},
+		"onlyWithFactoryPatterns": {
+			pkgs: []string{"onlyWithFactoryPatterns/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				factoryPatterns:          []string{factoryPatternMake},
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+	}
+}
+
+func declaredFactoryCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"declaredFactories": {
+			pkgs: []string{"declaredFactories/..."},
+			settings: caseSettings{
+				factories: []string{
+					"factory/declaredFactories/flagged.MakeFlagged",
+					"factory/declaredFactories/flagged.*FlaggedMethod",
+					"factory/declaredFactories/flagged.Box.RestoreExact",
+					"factory/declaredFactories/glob/*.MakeGlobbed",
+				},
+			},
+		},
+		"declaredFactoriesOnlyWithFactory": {
+			pkgs: []string{"declaredFactoriesOnlyWithFactory/..."},
+			settings: caseSettings{
+				onlyWithFactory:          true,
+				useDefaultFactoryPattern: new(false),
+			},
+		},
+		"declaredFactoriesZeroValues": {
+			pkgs:     []string{"declaredFactoriesZeroValues/..."},
+			settings: caseSettings{zeroValues: true},
+		},
+		"declaredFactoriesFence": {
+			pkgs:     []string{"declaredFactoriesFence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/declaredFactoriesFence/owner/**"}},
+		},
+	}
+}
+
+func ownPackageCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"ownPackage": {
+			pkgs:     []string{"ownPackage/..."},
+			settings: caseSettings{ownPackage: true},
+		},
+		"ownPackagePackageGlobsOnly": {
+			pkgs: []string{"ownPackagePackageGlobsOnly/..."},
+			settings: caseSettings{
+				ownPackage:       true,
+				packageGlobsOnly: true,
+				packageGlobs:     []string{"factory/ownPackagePackageGlobsOnly/protected/**"},
+			},
+		},
+		"ownPackageZeroValues": {
+			pkgs:     []string{"ownPackageZeroValues/..."},
+			settings: caseSettings{ownPackage: true, zeroValues: true},
+		},
+	}
+}
+
+func trustedCases() map[string]linterSuiteCase {
+	return map[string]linterSuiteCase{
+		"trusted": {
+			pkgs: []string{"trusted/..."},
+			settings: caseSettings{
+				trusted: []string{
+					"factory/trusted/pkg",
+					"factory/trusted/funcname.Reconstitute",
+					"factory/trusted/funcname.Repo.Load",
+					"factory/trusted/funcname.Repo.LoadAsPtr",
+				},
+			},
+		},
+		"trustedFence": {
+			pkgs:     []string{"trustedfence/..."},
+			settings: caseSettings{packageGlobs: []string{"factory/trustedtarget"}},
+		},
+	}
+}
+
+// TestLinterSuite runs every case through every entry point that populates
+// the shared config: NewAnalyzer configured via Flags.Set, the way a
+// command-line user or go vet driver would, and the golangci-lint plugin
+// constructor configured via kebab-case settings. The flags analyzer also
+// runs with Pass.Module shaped the way go vet passes it (unitcheckerAnalyzer).
+func TestLinterSuite(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot()
+
+	for name, tt := range linterSuiteCases() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -117,8 +420,32 @@ func TestLinterSuite(t *testing.T) {
 	}
 }
 
-// forEachEntryPoint runs check as a "flags" and a "plugin" parallel subtest,
-// each with an analyzer built from settings through that entry point.
+// TestZeroValuesInDeclarationOrder checks the order of one function's
+// zero-value diagnostics, which want comments ignore: the CLI prints them
+// in the order they are reported.
+func TestZeroValuesInDeclarationOrder(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(moduleRoot(), "zeroValuesOrder")
+
+	forEachEntryPoint(t, caseSettings{zeroValues: true},
+		func(t *testing.T, analyzer *analysis.Analyzer) {
+			var lines []int
+
+			for _, res := range analysistest.Run(t, moduleRoot(), analyzer, dir) {
+				for _, diag := range res.Action.Diagnostics {
+					pos := res.Action.Package.Fset.Position(diag.Pos)
+					lines = append(lines, pos.Line)
+				}
+			}
+
+			// first, second and third are read on lines 12, 11 and 10.
+			if want := []int{12, 11, 10}; !slices.Equal(lines, want) {
+				t.Errorf("diagnostics on lines %v, want %v", lines, want)
+			}
+		})
+}
+
 func forEachEntryPoint(
 	t *testing.T,
 	settings caseSettings,
@@ -127,8 +454,9 @@ func forEachEntryPoint(
 	t.Helper()
 
 	entryPoints := map[string]func(*testing.T, caseSettings) *analysis.Analyzer{
-		"flags":  flagsAnalyzer,
-		"plugin": pluginAnalyzer,
+		"flags":       flagsAnalyzer,
+		"plugin":      pluginAnalyzer,
+		"unitchecker": unitcheckerAnalyzer,
 	}
 	for name, build := range entryPoints {
 		t.Run(name, func(t *testing.T) {
@@ -141,9 +469,22 @@ func forEachEntryPoint(
 
 // caseSettings is one case's configuration, applied through either entry
 // point: Flags.Set for NewAnalyzer, kebab-case settings for the plugin.
+// useDefaultFactoryPattern is a pointer so a case can leave it unset
+// (the true default on both entry points) rather than force false.
 type caseSettings struct {
 	packageGlobs     []string
 	packageGlobsOnly bool
+	ignoreTypes      []string
+	trusted          []string
+	zeroValues       bool
+	ownPackage       bool
+
+	factoryPatterns          []string
+	useDefaultFactoryPattern *bool
+	onlyWithFactory          bool
+
+	factories              []string
+	crossPackageDirectives *bool
 }
 
 // flagsAnalyzer builds the analyzer through NewAnalyzer, configured via
@@ -155,17 +496,114 @@ func flagsAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	analyzer := gofactory.NewAnalyzer()
 
 	for _, g := range s.packageGlobs {
-		err := analyzer.Flags.Set("packageGlobs", g)
-		if err != nil {
-			t.Fatal(err)
-		}
+		setFlag(t, analyzer, "packageGlobs", g)
 	}
 
 	if s.packageGlobsOnly {
-		err := analyzer.Flags.Set("packageGlobsOnly", "true")
-		if err != nil {
-			t.Fatal(err)
+		setFlag(t, analyzer, "packageGlobsOnly", "true")
+	}
+
+	for _, p := range s.factoryPatterns {
+		setFlag(t, analyzer, "factoryPatterns", p)
+	}
+
+	setOptionalBoolFlag(t, analyzer, "useDefaultFactoryPattern", s.useDefaultFactoryPattern)
+
+	if s.onlyWithFactory {
+		setFlag(t, analyzer, "onlyWithFactory", "true")
+	}
+
+	if s.zeroValues {
+		setFlag(t, analyzer, "zeroValues", "true")
+	}
+
+	if s.ownPackage {
+		setFlag(t, analyzer, "ownPackage", "true")
+	}
+
+	for _, g := range s.ignoreTypes {
+		setFlag(t, analyzer, "ignoreTypes", g)
+	}
+
+	for _, g := range s.factories {
+		setFlag(t, analyzer, "factories", g)
+	}
+
+	setOptionalBoolFlag(t, analyzer, "crossPackageDirectives", s.crossPackageDirectives)
+
+	for _, g := range s.trusted {
+		setFlag(t, analyzer, "trusted", g)
+	}
+
+	return analyzer
+}
+
+func setOptionalBoolFlag(
+	t *testing.T, analyzer *analysis.Analyzer, name string, value *bool,
+) {
+	t.Helper()
+
+	if value != nil {
+		setFlag(t, analyzer, name, strconv.FormatBool(*value))
+	}
+}
+
+func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
+	t.Helper()
+
+	err := analyzer.Flags.Set(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// unitcheckerAnalyzer is flagsAnalyzer handed Pass.Module the way go vet's
+// unitchecker before Go 1.27 fills it: Path, Version and GoVersion without
+// Main, and nil without a module. analysistest sets Main on every module it
+// loads and never passes nil, so only this entry point catches code relying
+// on either. It also wraps Pass.ExportObjectFact to fail on a fact type
+// absent from Analyzer.FactTypes: go vet's gob encoder panics there instead,
+// since it only registers the types FactTypes declares.
+func unitcheckerAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
+	t.Helper()
+
+	analyzer := flagsAnalyzer(t, s)
+	run := analyzer.Run
+
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		vetPass := *pass
+		vetPass.Module = nil
+
+		if pass.Module != nil && pass.Module.Path != "" {
+			vetPass.Module = &analysis.Module{
+				Path:      pass.Module.Path,
+				Version:   pass.Module.Version,
+				GoVersion: pass.Module.GoVersion,
+			}
 		}
+
+		export := vetPass.ExportObjectFact
+		vetPass.ExportObjectFact = func(obj types.Object, fact analysis.Fact) {
+			declared := slices.ContainsFunc(
+				pass.Analyzer.FactTypes,
+				func(f analysis.Fact) bool {
+					return reflect.TypeOf(f) == reflect.TypeOf(fact)
+				},
+			)
+			if !declared {
+				t.Errorf(
+					"ExportObjectFact(%v, %T): fact type not in Analyzer.FactTypes %v; "+
+						"go vet's gob encoder would panic here",
+					obj, fact, pass.Analyzer.FactTypes,
+				)
+
+				return
+			}
+
+			export(obj, fact)
+		}
+
+		return run(&vetPass)
 	}
 
 	return analyzer
@@ -185,6 +623,20 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 	rawSettings := map[string]any{
 		"package-globs":      s.packageGlobs,
 		"package-globs-only": s.packageGlobsOnly,
+		"ignore-types":       s.ignoreTypes,
+		"trusted":            s.trusted,
+		"zero-values":        s.zeroValues,
+		"own-package":        s.ownPackage,
+		"factory-patterns":   s.factoryPatterns,
+		"only-with-factory":  s.onlyWithFactory,
+		"factories":          s.factories,
+	}
+	if s.useDefaultFactoryPattern != nil {
+		rawSettings["use-default-factory-pattern"] = *s.useDefaultFactoryPattern
+	}
+
+	if s.crossPackageDirectives != nil {
+		rawSettings["cross-package-directives"] = *s.crossPackageDirectives
 	}
 
 	linterPlugin, err := newPlugin(rawSettings)
@@ -208,7 +660,7 @@ func pluginAnalyzer(t *testing.T, s caseSettings) *analysis.Analyzer {
 const testdataGoVersion = "1.26"
 
 // TestTestdataRoots pins down how analysistest loads the two testdata roots,
-// which later cases rely on; it runs through both entry points. Module mode in
+// which later cases rely on; it runs through every entry point. Module mode in
 // analysistest is undocumented (x/tools v0.50.0, analysistest.loadPackages):
 //
 //   - A root holding a go.mod is loaded with GO111MODULE=on, GOPROXY=off and,
@@ -224,6 +676,9 @@ const testdataGoVersion = "1.26"
 //
 // Other drivers differ: go vet's unitchecker before Go 1.27 fills only Path,
 // Version and GoVersion, and leaves Pass.Module nil without a module.
+//
+// The want comments in workspace/ and nomodule/ also pin the current-module
+// rule and the no-module fallback; no other test runs those packages.
 func TestTestdataRoots(t *testing.T) {
 	t.Parallel()
 
@@ -236,7 +691,7 @@ func TestTestdataRoots(t *testing.T) {
 			root: moduleRoot(),
 			pkgs: []string{
 				filepath.Join(moduleRoot(), "workspace"),
-				filepath.Join(moduleRoot(), "sibling"),
+				filepath.Join(moduleRoot(), siblingModulePath),
 				filepath.Join(moduleRoot(), "nestedmodule"),
 			},
 			modules: map[string]analysis.Module{
@@ -245,8 +700,8 @@ func TestTestdataRoots(t *testing.T) {
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
-				"sibling": {
-					Path:      "sibling",
+				siblingModulePath: {
+					Path:      siblingModulePath,
 					Main:      true,
 					GoVersion: testdataGoVersion,
 				},
@@ -321,8 +776,8 @@ func assertModules(
 }
 
 // moduleRoot is the module-mode testdata root: module "factory" (go 1.26)
-// with a go.work that also uses the sibling module "sibling" and the nested
-// module "factory/nestedmodule".
+// with a go.work that also uses the sibling modules "sibling" and
+// "factoryext" and the nested module "factory/nestedmodule".
 func moduleRoot() string {
 	return filepath.Join(analysistest.TestData(), "module")
 }
@@ -330,4 +785,112 @@ func moduleRoot() string {
 // gopathRoot is the GOPATH-style testdata root, for runs without a module.
 func gopathRoot() string {
 	return filepath.Join(analysistest.TestData(), "gopath")
+}
+
+// recordingTesting implements analysistest.Testing's only method, Errorf,
+// to record messages instead of failing the test: analysistest.Run
+// reports a configuration error returned from run through exactly this
+// method, so a recording double lets TestConfigurationErrors assert the
+// message without the recorded failure also failing the outer test.
+type recordingTesting struct {
+	messages []string
+}
+
+func (r *recordingTesting) Errorf(format string, args ...any) {
+	r.messages = append(r.messages, fmt.Sprintf(format, args...))
+}
+
+type configurationErrorCase struct {
+	settings caseSettings
+	want     string // substring of the error
+}
+
+func configurationErrorCases() map[string]configurationErrorCase {
+	return map[string]configurationErrorCase{
+		"packageGlobsOnly_without_globs": {
+			settings: caseSettings{packageGlobsOnly: true},
+			want:     "packageGlobsOnly requires at least one packageGlobs pattern",
+		},
+		"invalid_glob": {
+			settings: caseSettings{packageGlobs: []string{"["}},
+			want:     "unable to compile packageGlobs pattern",
+		},
+		"empty_glob": {
+			settings: caseSettings{packageGlobs: []string{"  "}},
+			want:     "packageGlobs pattern must not be empty",
+		},
+		"leading_slash_glob": {
+			settings: caseSettings{packageGlobs: []string{"/sibling/**"}},
+			want:     "packageGlobs pattern must not start with '/'",
+		},
+		"invalid_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"["}},
+			want:     "unable to compile ignoreTypes pattern",
+		},
+		"empty_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"  "}},
+			want:     "ignoreTypes pattern must not be empty",
+		},
+		"leading_slash_ignoreTypes_glob": {
+			settings: caseSettings{ignoreTypes: []string{"/factory/ignoreTypes/exact.Struct"}},
+			want:     "ignoreTypes pattern must not start with '/'",
+		},
+		"invalid_factories_glob": {
+			settings: caseSettings{factories: []string{"["}},
+			want:     "unable to compile factories pattern",
+		},
+		"empty_factories_glob": {
+			settings: caseSettings{factories: []string{"  "}},
+			want:     "factories pattern must not be empty",
+		},
+		"leading_slash_factories_glob": {
+			settings: caseSettings{factories: []string{"/factory/declaredFactories/flagged.MakeFlagged"}},
+			want:     "factories pattern must not start with '/'",
+		},
+		"invalid_trusted_glob": {
+			settings: caseSettings{trusted: []string{"["}},
+			want:     "unable to compile trusted pattern",
+		},
+		"empty_trusted_glob": {
+			settings: caseSettings{trusted: []string{"  "}},
+			want:     "trusted pattern must not be empty",
+		},
+		"leading_slash_trusted_glob": {
+			settings: caseSettings{trusted: []string{"/factory/trusted/pkg"}},
+			want:     "trusted pattern must not start with '/'",
+		},
+	}
+}
+
+// TestConfigurationErrors checks that -packageGlobsOnly without any
+// -packageGlobs pattern, and an invalid glob, an empty glob or a glob
+// starting with '/' in any glob flag, are configuration errors surfaced
+// through both entry points.
+func TestConfigurationErrors(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range configurationErrorCases() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			forEachEntryPoint(t, tt.settings,
+				func(t *testing.T, analyzer *analysis.Analyzer) {
+					rec := &recordingTesting{}
+					// The root package imports nothing: FactTypes runs the
+					// analyzer on every dependency first, and analysistest
+					// reports a root whose dependency failed only as "failed
+					// prerequisites", without the dependency's error.
+					analysistest.Run(rec, moduleRoot(), analyzer, moduleRoot())
+
+					if len(rec.messages) == 0 {
+						t.Fatalf("got no configuration error, want one containing %q", tt.want)
+					}
+
+					got := strings.Join(rec.messages, "\n")
+					if !strings.Contains(got, tt.want) {
+						t.Fatalf("got errors %q, want one containing %q", got, tt.want)
+					}
+				})
+		})
+	}
 }
