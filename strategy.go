@@ -61,17 +61,14 @@ func (anotherPkg) IsBlocked(loc site, target *types.Named) bool {
 // isOwnerPackage reports whether loc.pkg is pkg itself or pkg's external
 // test package. The go command gives that external test package the import
 // path pkg.Path()+"_test" (TestPackagesAndErrors in
-// cmd/go/internal/load/test.go), and go/build requires its package clause to
-// be pkg.Name()+"_test", whatever pkg's directory is called. A regular
-// package can have that same path and name, and production code could
-// import it; only its files tell it apart, as a regular package never has
-// a _test.go file, so loc.testOnly must say whether loc.pkg was built
-// only from _test.go files.
+// cmd/go/internal/load/test.go). A regular package can have that same path,
+// and production code could import it; only its files tell it apart: every
+// build of a regular package includes its non-test files, while an external
+// test package is built from _test.go files alone. loc.testOnly says
+// whether loc.pkg was.
 func isOwnerPackage(loc site, pkg *types.Package) bool {
 	return loc.pkg.Path() == pkg.Path() ||
-		(loc.testOnly &&
-			loc.pkg.Path() == pkg.Path()+"_test" &&
-			loc.pkg.Name() == pkg.Name()+"_test")
+		(loc.testOnly && loc.pkg.Path() == pkg.Path()+"_test")
 }
 
 func isTestOnly(pass *analysis.Pass) bool {
