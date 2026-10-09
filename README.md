@@ -100,6 +100,36 @@ factories; code inside the sibling module itself still may bypass any of them, w
 than module scope's per-package strictness — don't reuse this setting when linting the sibling
 module itself, [tests](testdata/module/siblingfence).
 
+## Owner package
+
+By default, a package may bypass the factory of its own exported or unexported types anywhere in
+its own code — that is what "owner package" means throughout this README. `--ownPackage` (off by
+default) tightens that for exported types: inside the owner package, the factory of an **exported**
+protected type may then be bypassed only inside a **producer** — a top-level function or method
+whose results include:
+
+- the type itself, `T`, or `*T`;
+- a named interface `T` implements — not `any` or `interface{}`, which unalias to an unnamed
+  interface and so never qualify, but a user-declared named interface does, even an empty one,
+  since every type trivially implements it;
+- a container holding `T` at any depth: a slice, an array, a map key or value, a `chan`, or an
+  `iter.Seq`/`iter.Seq2`.
+
+A method of a value object that returns the same type, a wither such as `func (o Order) Paid()
+Order`, is a producer by the same `T` rule; so is a method of some other type that returns `T`, and
+a function whose only connection to `T` is a parameter is not. A closure is judged by its enclosing
+top-level declaration, not by its own signature, so a helper closure written inside a producer may
+still bypass, while one written inside a non-producer is reported even if the closure itself
+returns `T`. Every bypass route is checked — literal, conversion, `new` and implicit constant
+conversion alike — except a `const` declaration, which no mode ever checks. A `_test.go` file is
+exempt, so test code can still build fixtures directly; this does not reach across a package
+boundary, so the external test package (`foo_test`) is checked under the ordinary module-scope and
+fence rules like any other importer, the same whether `--ownPackage` is on or off. An unexported
+protected type is unaffected: outside code could never name it anyway, so the owner-package rule
+for it stays as unrestricted as it always was. `--ownPackage` and fences are independent rules: a
+fence still decides who outside the owner package may bypass a type's factory, unchanged by this
+setting, [tests](testdata/module/ownPackage).
+
 ## Trusted code
 
 Infrastructure code, such as a repository reconstituting an aggregate from storage, legitimately
@@ -109,8 +139,8 @@ factory that takes a persisted row instead, such as `order.Restore`, declare it 
 the repository; see [Declared factories](#declared-factories) and its [reconstitution
 recipe](#recipe-reconstitution-through-a-factory). When no such factory fits, trusted code may
 bypass any protected type through every route, in every mode — module scope, fences,
-`--onlyWithFactory` and `--zeroValues` included. Trust is checked before any mode, so a mode added
-later respects it automatically.
+`--onlyWithFactory`, `--zeroValues` and `--ownPackage` included. Trust is checked before any mode,
+so a mode added later respects it automatically.
 
 Mark it one of three ways:
 
@@ -204,6 +234,8 @@ conversion or `new`, [tests](testdata/module/zeroValues).
     map, chan or array are not followed, and an array element in a field path is deferred like every other array,
     pending fill analysis. Field-path analysis uses a per-type cache, benchmarked by `BenchmarkFieldPaths`.
   - Goes through the same owner-package and fences policy as every other route.
+- `--ownPackage` – off by default; restrict an exported protected type's owner package to
+producers — see [Owner package](#owner-package), [tests](testdata/module/ownPackage).
 - `--factoryPatterns` – extra factory-name regex, appended to the default `^New` pattern; repeatable,
 e.g. `--factoryPatterns=^Make --factoryPatterns=^Restore`, [tests](testdata/module/factoryPatterns).
 - `--useDefaultFactoryPattern` – recognise the default `^New` pattern, `true` by default; set to
@@ -428,6 +460,7 @@ linters:
           trusted:
             - "mypkg/infra/**"
           zero-values: false
+          own-package: false
           factory-patterns:
             - "^Make"
           use-default-factory-pattern: true
@@ -442,6 +475,7 @@ linters:
 - `ignore-types` – equivalent to `--ignoreTypes`.
 - `trusted` – equivalent to `--trusted`.
 - `zero-values` – equivalent to `--zeroValues`.
+- `own-package` – equivalent to `--ownPackage`.
 - `factory-patterns` – equivalent to `--factoryPatterns`.
 - `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
 - `only-with-factory` – equivalent to `--onlyWithFactory`.
