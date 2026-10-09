@@ -10,3 +10,12 @@ func UntypedNonConstant(a, b int, n uint) {
 	_ = nested.Flag(a == b)  // want `Use factory for nested.Flag`
 	_ = nested.MyInt(1 << n) // want `Use factory for nested.MyInt`
 }
+
+// An untyped non-constant value stored in a protected type is not an
+// implicit constant conversion, since it has no Value.
+func UntypedNonConstantStored(a, b int, n uint) {
+	var f nested.Flag = a == b  // want `Use factory for nested.Flag`
+	var i nested.MyInt = 1 << n // want `Use factory for nested.MyInt`
+
+	_, _ = f, i
+}

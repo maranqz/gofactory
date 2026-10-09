@@ -26,6 +26,13 @@ Within scope, gofactory is **strict by default**: every bypass of a protected ty
 whether or not the type has a factory. See [the ADR](docs/adr/0002-strict-default-and-module-scope.md)
 for why.
 
+An untyped constant implicitly converted to a protected type is a bypass too, reported where it is
+stored: a `var` declaration or assignment (`var st ext.Status = 3`, `st = 3`), a call argument
+(`f(3)`, `append(s, 3)`), a `return` and a composite literal element (`[]ext.Status{3}`). Using one
+is not: comparisons (`st == 3`), `case 3:`, arithmetic (`st + 1`, `st += 1`) and `const`
+declarations stay silent, and so does a typed constant such as `ext.Active`. An explicit conversion
+`ext.Status(3)` is reported once, as a conversion, [tests](testdata/module/implicitConstants).
+
 ## Fences
 
 Each `--packageGlobs` pattern is its own **fence**: the set of packages matching it. If a
@@ -553,8 +560,8 @@ actual output. Every case added there must carry such a `// want` comment.
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
 2. Local initialization, [example](testdata/module/unimplemented/local/).
 3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
-4. Conversion of an untyped non-constant expression, `nested.MyInt(1 << n)` or `nested.Flag(a == b)`, [example](testdata/module/unimplemented/untyped.go).
-5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }`, [example](testdata/module/unimplemented/typeparam.go).
+4. Conversion of an untyped non-constant expression, explicit or implicit, `nested.MyInt(1 << n)`, `nested.Flag(a == b)` or `var f nested.Flag = a == b`, [example](testdata/module/unimplemented/untyped.go).
+5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }` or `func F[T nested.MyInt]() T { return 3 }`, [example](testdata/module/unimplemented/typeparam.go).
 6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
    elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
    [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
@@ -562,6 +569,8 @@ actual output. Every case added there must carry such a `// want` comment.
    `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
    the declaring package only through another package, or not at all, never sees it,
    [example](testdata/module/unimplemented/visibility/).
+8. Untyped constant stored by a channel send, as a map index key or by a range assignment,
+   `ch <- 3`, `m[3] = v` or `for st = range 3`, [example](testdata/module/unimplemented/constant.go).
 
 ## TODO
 

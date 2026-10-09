@@ -23,13 +23,7 @@ func (d *detector) checkCall(call *ast.CallExpr) {
 // checkNew returns true when call is a call to the builtin new, so the
 // caller does not also try to treat it as a conversion.
 func (d *detector) checkNew(call *ast.CallExpr) bool {
-	ident, ok := ast.Unparen(call.Fun).(*ast.Ident)
-	if !ok {
-		return false
-	}
-
-	builtin, ok := d.pass.TypesInfo.ObjectOf(ident).(*types.Builtin)
-	if !ok || builtin.Name() != "new" {
+	if d.builtinName(call) != "new" {
 		return false
 	}
 

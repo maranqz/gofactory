@@ -164,6 +164,8 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 		"generic":   {pkgs: []string{"generic/..."}},
 		"factories": {pkgs: []string{"factories/..."}},
 
+		"implicitConstants": {pkgs: []string{"implicitConstants/..."}},
+
 		"dotimport": {pkgs: []string{"dotimport/..."}},
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
