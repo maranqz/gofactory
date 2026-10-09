@@ -1,6 +1,5 @@
 package ownPackage
 
-// Lender is a named interface Loan implements.
 type Lender interface {
 	Limit() int
 }

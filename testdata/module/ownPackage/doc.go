@@ -4,11 +4,10 @@
 // interface it implements, or a container holding it at any depth.
 package ownPackage
 
-// Loan is this package's exported protected struct type.
 type Loan struct {
 	Amount int
 }
 
 // Status is this package's exported protected int-based type, for the
-// conversion, new and implicit-constant routes a struct can't exercise.
+// conversion and implicit-constant routes a struct can't exercise.
 type Status int
