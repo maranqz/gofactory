@@ -33,12 +33,10 @@ is not: comparisons (`st == 3`), `case 3:`, arithmetic (`st + 1`, `st += 1`) and
 declarations stay silent, and so does a typed constant such as `ext.Active`. An explicit conversion
 `ext.Status(3)` is reported once, as a conversion, [tests](testdata/module/implicitConstants).
 
-The owner package may bypass its own types' factories, and so may its external test package
-`foo_test`, so tests can build fixtures, [tests](testdata/module/externalTestPackage). A regular
-package that merely sits at `foo_test`'s import path does not count, even one declared
-`package foo_test`: only `_test.go` files make an external test package. Files with the standard
-`// Code generated … DO NOT EDIT.` header, including the test main `go test` synthesizes, are never
-reported; cmd/cgo's copy of a handwritten cgo file still is, [tests](testdata/module/generatedFiles).
+Bypasses in files with the standard `// Code generated … DO NOT EDIT.` header, including the test
+main `go test` synthesizes, are never reported; cmd/cgo's copy of a handwritten cgo file still is,
+[tests](testdata/module/generatedFiles). A misplaced or unknown `//gofactory:` directive in a
+generated file is still reported.
 
 ## Fences
 
@@ -110,10 +108,17 @@ module itself, [tests](testdata/module/siblingfence).
 ## Owner package
 
 By default, a package may bypass the factory of its own exported or unexported types anywhere in
-its own code — that is what "owner package" means throughout this README. `--ownPackage` (off by
-default) tightens that for exported types: inside the owner package, the factory of an **exported**
-protected type may then be bypassed only inside a **producer** — a top-level function or method
-whose results include:
+its own code — that is what "owner package" means throughout this README.
+
+Package `foo`'s external test package `foo_test` counts as owner package `foo`, so tests can build
+fixtures, [tests](testdata/module/externalTestPackage), even though `foo_test`'s path lies outside
+`foo`'s fences, [tests](testdata/module/externalTestPackageFence). A regular package that merely sits at `foo_test`'s
+import path does not count, even one declared `package foo_test`: only a package built from
+`_test.go` files alone is an external test package.
+
+`--ownPackage` (off by default) tightens the owner package's freedom for exported types: inside the
+owner package, the factory of an **exported** protected type may then be bypassed only inside a
+**producer** — a top-level function or method whose results include:
 
 - the type itself, `T`, or `*T`;
 - a named interface `T` implements — not `any` or `interface{}`, which unalias to an unnamed
