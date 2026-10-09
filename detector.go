@@ -79,10 +79,10 @@ func newDetector(
 const generatedByCgo = "by cmd/cgo;"
 
 // isGenerated is go/ast.IsGenerated, except that cmd/cgo's header is only
-// treated as marking a copy of a handwritten file when a //line directive
+// treated as marking a copy of a source file when a //line directive
 // comment immediately follows it (cmd/cgo/out.go:707,713): that directive
 // is what cmd/cgo writes ahead of the source it copied, and the
-// handwritten file's own header, if it has one, follows the directive in
+// copied file's own header, if it has one, follows the directive in
 // turn, so scanning continues there instead of stopping. Without a
 // following //line directive, the header belongs to a file cmd/cgo wrote
 // entirely by itself, such as _cgo_gotypes.go (out.go:82), and that file

@@ -1,6 +1,6 @@
 // Package user bypasses ext.Struct from handwritten and generated files;
 // only the generated ones are skipped. cgocopy.go counts as handwritten:
-// it is shaped like cmd/cgo's copy of a file that imports "C".
+// it is shaped like cmd/cgo's copy of a handwritten file that imports "C".
 package user
 
 import "factory/generatedFiles/ext"
