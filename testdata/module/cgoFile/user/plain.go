@@ -1,6 +1,5 @@
-// Package user bypasses ext.Struct from a handwritten file that imports
-// "C", to show that cmd/cgo's own generated header on that file's compiled
-// copy does not swallow the bypass along with it.
+// Package user keeps this file free of cgo so the package still loads
+// where cgo is off: cgo.go, which imports "C", is excluded there.
 package user
 
 import "factory/cgoFile/ext"
