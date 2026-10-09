@@ -1,7 +1,6 @@
 .PHONY: fmt lint clean.test test test.clean
 
-CVPKG=go list ./... | grep -v mocks | grep -v internal/
-GO_TEST=go test `$(CVPKG)` -race
+GO_TEST=go test ./... -race
 COVERAGE_FILE="coverage.out"
 
 all: fmt lint test install
@@ -16,7 +15,7 @@ clean.test:
 	go clean --testcache
 
 test:
-	go test
+	go test ./...
 
 test.clean: clean.test test
 
