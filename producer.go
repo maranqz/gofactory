@@ -2,7 +2,7 @@ package gofactory
 
 import "go/types"
 
-func isProducer(fn *types.Func, target *types.TypeName) bool {
+func isProducer(fn *types.Func, target *types.Named) bool {
 	for result := range fn.Signature().Results().Variables() {
 		if producesTarget(result.Type(), target, map[*types.Named]bool{}) {
 			return true
@@ -15,7 +15,7 @@ func isProducer(fn *types.Func, target *types.TypeName) bool {
 // any and interface{} are unnamed, so they never count; seen stops
 // `type Loop []Loop`.
 func producesTarget(
-	candidate types.Type, target *types.TypeName, seen map[*types.Named]bool,
+	candidate types.Type, target *types.Named, seen map[*types.Named]bool,
 ) bool {
 	candidate = types.Unalias(candidate)
 
@@ -43,9 +43,9 @@ func producesTarget(
 }
 
 func producesNamed(
-	named *types.Named, target *types.TypeName, seen map[*types.Named]bool,
+	named *types.Named, target *types.Named, seen map[*types.Named]bool,
 ) bool {
-	if named.Obj() == target {
+	if named.Obj() == target.Obj() {
 		return true
 	}
 
@@ -72,9 +72,9 @@ func producesNamed(
 	return producesTarget(named.Underlying(), target, seen)
 }
 
-func implementsTarget(target *types.TypeName, iface *types.Interface) bool {
-	return types.Implements(target.Type(), iface) ||
-		types.Implements(types.NewPointer(target.Type()), iface)
+func implementsTarget(target *types.Named, iface *types.Interface) bool {
+	return types.Implements(target, iface) ||
+		types.Implements(types.NewPointer(target), iface)
 }
 
 func iterSeqArgs(named *types.Named) ([]types.Type, bool) {

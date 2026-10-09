@@ -29,3 +29,16 @@ type Marker interface{}
 func LoanAsMarkerIsSilent() Marker {
 	return Loan{}
 }
+
+type Box[T any] struct{ v T }
+
+func (b Box[T]) Get() T { return b.v }
+
+type IntGetter interface{ Get() int }
+
+// ProducerAsGenericInstantiationIsSilent: the interface check must use the
+// instantiation actually built, Box[int], not the uninstantiated Box —
+// go/types documents types.Implements as unspecified for the latter.
+func ProducerAsGenericInstantiationIsSilent() IntGetter {
+	return Box[int]{}
+}

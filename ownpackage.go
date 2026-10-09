@@ -15,11 +15,12 @@ func newOwnPackageStrategy(
 	return ownPackageStrategy{wrapped: wrapped, protected: protected}
 }
 
-func (s ownPackageStrategy) IsBlocked(loc site, target *types.TypeName) bool {
-	inOwnerPackage := loc.pkg.Path() == target.Pkg().Path()
+func (s ownPackageStrategy) IsBlocked(loc site, target *types.Named) bool {
+	obj := target.Obj()
+	inOwnerPackage := loc.pkg.Path() == obj.Pkg().Path()
 
 	if loc.inTestFile || !inOwnerPackage ||
-		!exportedAtPackageScope(target) || !s.protected(target.Pkg().Path()) {
+		!exportedAtPackageScope(obj) || !s.protected(obj.Pkg().Path()) {
 		return s.wrapped.IsBlocked(loc, target)
 	}
 

@@ -33,7 +33,7 @@ type site struct {
 }
 
 type blockedStrategy interface {
-	IsBlocked(loc site, target *types.TypeName) bool
+	IsBlocked(loc site, target *types.Named) bool
 }
 
 type nilPkg struct{}
@@ -42,7 +42,7 @@ func newNilPkg() nilPkg {
 	return nilPkg{}
 }
 
-func (nilPkg) IsBlocked(_ site, _ *types.TypeName) bool {
+func (nilPkg) IsBlocked(_ site, _ *types.Named) bool {
 	return false
 }
 
@@ -52,8 +52,8 @@ func newAnotherPkg() anotherPkg {
 	return anotherPkg{}
 }
 
-func (anotherPkg) IsBlocked(loc site, target *types.TypeName) bool {
-	return loc.pkg.Path() != target.Pkg().Path()
+func (anotherPkg) IsBlocked(loc site, target *types.Named) bool {
+	return loc.pkg.Path() != target.Obj().Pkg().Path()
 }
 
 // fence is one -packageGlobs pattern: the set of packages matching its
@@ -139,8 +139,8 @@ func newFencedPkgs(
 	}
 }
 
-func (s fencedPkgs) IsBlocked(loc site, target *types.TypeName) bool {
-	identPkgPath := target.Pkg().Path()
+func (s fencedPkgs) IsBlocked(loc site, target *types.Named) bool {
+	identPkgPath := target.Obj().Pkg().Path()
 
 	inAnyFence := false
 

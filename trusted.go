@@ -65,7 +65,7 @@ func newTrustedStrategy(
 	return trustedStrategy{trusted: trusted, wrapped: wrapped}
 }
 
-func (s trustedStrategy) IsBlocked(loc site, target *types.TypeName) bool {
+func (s trustedStrategy) IsBlocked(loc site, target *types.Named) bool {
 	if s.trusted.isTrusted(loc.pkg, loc.fn) {
 		return false
 	}

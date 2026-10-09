@@ -140,7 +140,7 @@ func (d *detector) reportProtectedSuffix(
 		inTestFile:  strings.HasSuffix(d.pass.Fset.Position(node.Pos()).Filename, "_test.go"),
 		inConstDecl: d.inConstDecl,
 	}
-	if !d.strategy.IsBlocked(loc, named.Obj()) {
+	if !d.strategy.IsBlocked(loc, named) {
 		return
 	}
 
