@@ -108,19 +108,12 @@ func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
 	return fn
 }
 
-// inConstDecl reports whether the nearest enclosing GenDecl in stack is a
-// const declaration. A var declared inside a function literal that is
-// itself nested in a const expression belongs to that nearer var
-// declaration, not the outer const one, so the nearest GenDecl found
-// scanning outward from the current node settles it.
 func inConstDecl(stack []ast.Node) bool {
-	for _, n := range slices.Backward(stack) {
-		if decl, ok := n.(*ast.GenDecl); ok {
-			return decl.Tok == token.CONST
-		}
-	}
+	return slices.ContainsFunc(stack, func(n ast.Node) bool {
+		decl, ok := n.(*ast.GenDecl)
 
-	return false
+		return ok && decl.Tok == token.CONST
+	})
 }
 
 func (d *detector) reportProtected(node ast.Node, t types.Type) {
