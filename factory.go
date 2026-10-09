@@ -227,9 +227,7 @@ func buildStrategy(
 		modulePath = pass.Module.Path
 	}
 
-	externalTest := isExternalTestPackage(pass)
-
-	var strategy blockedStrategy = newCurrentModule(modulePath, externalTest)
+	var strategy blockedStrategy = newCurrentModule(modulePath)
 
 	if len(fences) > 0 {
 		defaultStrategy := strategy
@@ -237,7 +235,7 @@ func buildStrategy(
 			defaultStrategy = newNilPkg()
 		}
 
-		strategy = newFencedPkgs(fences, defaultStrategy, externalTest)
+		strategy = newFencedPkgs(fences, defaultStrategy)
 	}
 
 	if cfg.ownPackage {

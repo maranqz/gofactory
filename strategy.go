@@ -28,6 +28,7 @@ var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 // package scope.
 type site struct {
 	pkg         *types.Package
+	testOnly    bool
 	fn          *types.Func
 	inTestFile  bool
 	inConstDecl bool
@@ -47,37 +48,33 @@ func (nilPkg) IsBlocked(_ site, _ *types.Named) bool {
 	return false
 }
 
-// externalTest is whether the package under analysis is built only from
-// _test.go files; see isOwnerPackage.
-type anotherPkg struct {
-	externalTest bool
+type anotherPkg struct{}
+
+func newAnotherPkg() anotherPkg {
+	return anotherPkg{}
 }
 
-func newAnotherPkg(externalTest bool) anotherPkg {
-	return anotherPkg{externalTest: externalTest}
+func (anotherPkg) IsBlocked(loc site, target *types.Named) bool {
+	return !isOwnerPackage(loc, target.Obj().Pkg())
 }
 
-func (s anotherPkg) IsBlocked(loc site, target *types.Named) bool {
-	return !isOwnerPackage(loc.pkg, target.Obj().Pkg(), s.externalTest)
-}
-
-// isOwnerPackage reports whether currentPkg is pkg itself or pkg's external
+// isOwnerPackage reports whether loc.pkg is pkg itself or pkg's external
 // test package. The go command gives that external test package the import
 // path pkg.Path()+"_test" (TestPackagesAndErrors in
 // cmd/go/internal/load/test.go), and go/build requires its package clause to
 // be pkg.Name()+"_test", whatever pkg's directory is called. A regular
 // package can have that same path and name, and production code could
 // import it; only its files tell it apart, as a regular package never has
-// a _test.go file, so externalTest must say whether currentPkg was built
+// a _test.go file, so loc.testOnly must say whether loc.pkg was built
 // only from _test.go files.
-func isOwnerPackage(currentPkg, pkg *types.Package, externalTest bool) bool {
-	return currentPkg.Path() == pkg.Path() ||
-		(externalTest &&
-			currentPkg.Path() == pkg.Path()+"_test" &&
-			currentPkg.Name() == pkg.Name()+"_test")
+func isOwnerPackage(loc site, pkg *types.Package) bool {
+	return loc.pkg.Path() == pkg.Path() ||
+		(loc.testOnly &&
+			loc.pkg.Path() == pkg.Path()+"_test" &&
+			loc.pkg.Name() == pkg.Name()+"_test")
 }
 
-func isExternalTestPackage(pass *analysis.Pass) bool {
+func isTestOnly(pass *analysis.Pass) bool {
 	if len(pass.Files) == 0 {
 		return false
 	}
@@ -162,25 +159,22 @@ func anyFenceContains(fences []fence, pkgPath string) bool {
 type fencedPkgs struct {
 	fences          []fence
 	defaultStrategy blockedStrategy
-	externalTest    bool
 }
 
 func newFencedPkgs(
 	fences []fence,
 	defaultStrategy blockedStrategy,
-	externalTest bool,
 ) fencedPkgs {
 	return fencedPkgs{
 		fences:          fences,
 		defaultStrategy: defaultStrategy,
-		externalTest:    externalTest,
 	}
 }
 
 func (s fencedPkgs) IsBlocked(loc site, target *types.Named) bool {
 	// foo_test counts as foo, but its path need not lie in foo's fences,
 	// so this early return keeps the loop below from blocking it.
-	if isOwnerPackage(loc.pkg, target.Obj().Pkg(), s.externalTest) {
+	if isOwnerPackage(loc, target.Obj().Pkg()) {
 		return false
 	}
 

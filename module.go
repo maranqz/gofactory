@@ -14,16 +14,15 @@ import (
 // Module without Main, and in a go.work build every workspace module has
 // Main set regardless of which one is the root.
 type currentModule struct {
-	path         string
-	externalTest bool
+	path string
 }
 
-func newCurrentModule(path string, externalTest bool) currentModule {
-	return currentModule{path: path, externalTest: externalTest}
+func newCurrentModule(path string) currentModule {
+	return currentModule{path: path}
 }
 
 func (c currentModule) IsBlocked(loc site, target *types.Named) bool {
-	if !newAnotherPkg(c.externalTest).IsBlocked(loc, target) {
+	if !newAnotherPkg().IsBlocked(loc, target) {
 		return false
 	}
 

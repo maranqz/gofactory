@@ -37,6 +37,8 @@ type detector struct {
 	// "// Code generated ... DO NOT EDIT." header too.
 	generatedFiles map[*ast.File]bool
 
+	testOnly bool
+
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
@@ -75,6 +77,7 @@ func newDetector(
 		fieldPathCache:  map[types.Type][]fieldPath{},
 		locallyIgnored:  locallyIgnored,
 		generatedFiles:  generatedFiles,
+		testOnly:        isTestOnly(pass),
 	}
 }
 
@@ -157,6 +160,7 @@ func (d *detector) reportProtectedSuffix(
 
 	loc := site{
 		pkg:         d.pass.Pkg,
+		testOnly:    d.testOnly,
 		fn:          d.currentFn,
 		inTestFile:  strings.HasSuffix(d.pass.Fset.Position(node.Pos()).Filename, "_test.go"),
 		inConstDecl: d.inConstDecl,
