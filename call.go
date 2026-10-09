@@ -53,13 +53,13 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 // is reached). A conversion whose argument is nil, or whose argument
 // already has the target's exact type and is not a constant, creates
 // nothing and stays silent; an untyped constant looks identical but must
-// still be reported. A conversion whose argument already points at the
-// target's pointee — its underlying type is a pointer to that same type,
-// as with a defined pointer type — only retypes an existing pointer and
-// stays silent too. Known false negative: go/types also records the target
+// still be reported. Known false negative: go/types also records the target
 // type on an untyped non-constant argument, such as a comparison
 // (Flag(a == b)) or a shift of an untyped constant (MyInt(1 << n)), so it
-// passes as a no-op too.
+// passes as a no-op too. A conversion to *T whose argument already points
+// at a T — its underlying type is a pointer to that same type, as with a
+// defined pointer type — only retypes an existing pointer and stays silent
+// too: the T behind the pointer was built elsewhere, where it is checked.
 func (d *detector) checkConversion(call *ast.CallExpr) {
 	funTV := d.pass.TypesInfo.Types[call.Fun]
 	if !funTV.IsType() {
@@ -78,10 +78,8 @@ func (d *detector) checkConversion(call *ast.CallExpr) {
 
 	target := pointee(funTV.Type)
 
-	// An argument that already points at the target's T, such as a defined
-	// pointer type with underlying *T, is only retyped: the T behind the
-	// pointer was built elsewhere, where it is checked.
-	if ptr, ok := argTV.Type.Underlying().(*types.Pointer); ok &&
+	_, toPointer := types.Unalias(funTV.Type).(*types.Pointer)
+	if ptr, ok := argTV.Type.Underlying().(*types.Pointer); ok && toPointer &&
 		types.Identical(ptr.Elem(), target) {
 		return
 	}

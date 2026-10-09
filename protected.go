@@ -26,13 +26,12 @@ func protectedNamed(t types.Type) (*types.Named, bool) {
 
 // pointee returns the type a pointer type points to, seeing through
 // aliases, and t itself otherwise. A conversion such as (*T)(x) builds the
-// T behind one pointer, unless x already points at a T, in which case it
-// only retypes the pointer and stays silent (checkConversion); new(*T)
-// does not. A defined pointer type P is kept
-// as-is: P(x) needs an x whose underlying type is already *T, so it only
-// retypes an existing pointer. An unsafe.Pointer x is the exception: it
-// converts to any pointer type, so P(unsafe.Pointer(&v)) goes unreported.
-// Literals see through defined pointer types too (checkLiteral).
+// T behind one pointer, unless x already points at a T (checkConversion);
+// new(*T) builds no T. A defined pointer type P is kept as-is: P(x) needs
+// an x whose underlying type is already *T, so it only retypes an existing
+// pointer. An unsafe.Pointer x is the exception: it converts to any pointer
+// type, so P(unsafe.Pointer(&v)) goes unreported. Literals see through
+// defined pointer types too (checkLiteral).
 func pointee(t types.Type) types.Type {
 	if ptr, ok := types.Unalias(t).(*types.Pointer); ok {
 		return ptr.Elem()
