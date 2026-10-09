@@ -54,7 +54,15 @@ func (anotherPkg) IsBlocked(
 
 // isOwnerPackage reports whether currentPkg is pkg itself or pkg's external
 // test package: the go command gives that external test package the import
-// path pkg.Path()+"_test" (cmd/go/internal/load/test.go:233).
+// path pkg.Path()+"_test" (cmd/go/internal/load/test.go:233). A regular
+// package can have that path too, and then it counts as well. For pkg
+// myapp/order, both of these packages have the path myapp/order_test:
+//
+//	myapp/order/order_test.go   package order_test (external test package)
+//	myapp/order_test/helper.go  package fixtures   (regular package)
+//
+// So helper.go may bypass the factories of myapp/order's types, as
+// order_test.go may.
 func isOwnerPackage(currentPkg, pkg *types.Package) bool {
 	return currentPkg.Path() == pkg.Path() || currentPkg.Path() == pkg.Path()+"_test"
 }
