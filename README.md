@@ -121,14 +121,17 @@ a function whose only connection to `T` is a parameter is not. A closure is judg
 top-level declaration, not by its own signature, so a helper closure written inside a producer may
 still bypass, while one written inside a non-producer is reported even if the closure itself
 returns `T`. Every bypass route is checked — literal, conversion, `new` and implicit constant
-conversion alike — except a `const` declaration, which no mode ever checks. A `_test.go` file is
-exempt, so test code can still build fixtures directly; this does not reach across a package
-boundary, so the external test package (`foo_test`) is checked under the ordinary module-scope and
-fence rules like any other importer, the same whether `--ownPackage` is on or off. An unexported
-protected type is unaffected: outside code could never name it anyway, so the owner-package rule
-for it stays as unrestricted as it always was. `--ownPackage` and fences are independent rules: a
-fence still decides who outside the owner package may bypass a type's factory, unchanged by this
-setting, [tests](testdata/module/ownPackage).
+conversion alike — except a `const` declaration in the owner package, at package scope or local to
+a function, which this setting always leaves alone; a `const` declaration elsewhere is an ordinary
+conversion or implicit constant conversion and is still reported. A `_test.go` file is exempt, so
+test code can still build fixtures directly. A type declared inside a function body is unaffected
+too, even when capitalised, since Go exports only package-scope identifiers; no producer could ever
+name such a type in its signature anyway. An unexported protected type is unaffected: outside code
+could never name it anyway, so the owner-package rule for it stays as unrestricted as it always
+was. With `--packageGlobsOnly`, `--ownPackage` tightens only the fence packages; a type outside
+every fence stays unprotected, as `--packageGlobsOnly` already makes it. `--ownPackage` and fences
+are otherwise independent rules: a fence still decides who outside the owner package may bypass a
+type's factory, unchanged by this setting, [tests](testdata/module/ownPackage).
 
 ## Trusted code
 
@@ -592,7 +595,8 @@ once/if a case is handled — they are not asserted against the linter's
 actual output. Every case added there must carry such a `// want` comment.
 
 1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
-2. Local initialization, [example](testdata/module/unimplemented/local/).
+2. Local initialization inside the owner package: catching this needs `--ownPackage`,
+   [tests](testdata/module/ownPackage).
 3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
 4. Conversion of an untyped non-constant expression, explicit or implicit, `nested.MyInt(1 << n)`, `nested.Flag(a == b)` or `var f nested.Flag = a == b`, [example](testdata/module/unimplemented/untyped.go).
 5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }` or `func F[T nested.MyInt]() T { return 3 }`, [example](testdata/module/unimplemented/typeparam.go).
@@ -607,15 +611,6 @@ actual output. Every case added there must carry such a `// want` comment.
    `ch <- 3`, `m[3] = v` or `for st = range 3`, [example](testdata/module/unimplemented/constant.go).
 
 ## TODO
-
-### Possible Features
-
-1. Catch nested struct in the same package, [example](testdata/module/unimplemented/local/nested_struct.go).
-   ```go
-   return Struct{
-       Other: OtherStruct{}, // want `Use factory for nested.Struct`
-   }
-   ```
 
 ### Features that are difficult to implement and unplanned
 
