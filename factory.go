@@ -169,6 +169,9 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			(*ast.CallExpr)(nil),
 			(*ast.FuncDecl)(nil),
 			(*ast.FuncLit)(nil),
+			(*ast.GenDecl)(nil),
+			(*ast.AssignStmt)(nil),
+			(*ast.ReturnStmt)(nil),
 		}, v.visit)
 
 		return nil, nil
