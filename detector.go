@@ -37,8 +37,6 @@ type detector struct {
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
 
-	// inConstDecl is whether the checked node lies inside a const GenDecl,
-	// for -ownPackage's const exemption.
 	inConstDecl bool
 }
 
@@ -111,8 +109,9 @@ func (d *detector) topLevelFunc(stack []ast.Node) *types.Func {
 }
 
 // inConstDecl reports whether the nearest enclosing GenDecl in stack is a
-// const declaration. A const value can only ever nest directly inside one,
-// never through an intervening function literal, so the nearest one found
+// const declaration. A var declared inside a function literal that is
+// itself nested in a const expression belongs to that nearer var
+// declaration, not the outer const one, so the nearest GenDecl found
 // scanning outward from the current node settles it.
 func inConstDecl(stack []ast.Node) bool {
 	for _, n := range slices.Backward(stack) {

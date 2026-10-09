@@ -1,14 +1,13 @@
 // Package ownPackageZeroValues exercises -ownPackage together with
-// -zeroValues: the two settings are independent, so a zero-value decision
-// is unaffected by producer status.
+// -zeroValues: -ownPackage's producer rule applies to zero values too.
 package ownPackageZeroValues
 
 type Loan struct {
 	Amount int
 }
 
-// GlobalIsReported: a package-level var is always reported, producer or
-// not — there is no enclosing function to be one.
+// GlobalIsReported: a package-level var has no enclosing function, so it
+// is never in a producer.
 var GlobalIsReported Loan // want `Use factory for ownPackageZeroValues.Loan: zero value`
 
 func NonProducerVarIsReported() int {
@@ -25,9 +24,8 @@ func ProducerVarIsSilent() Loan {
 	return l
 }
 
-// Holder is a struct, not a container kind, so returning it is not
-// thereby a producer of Loan: the literal route's rule (nestedstruct.go)
-// applies to the zero-value route too.
+// Holder is a struct, not a container kind, so returning it does not
+// make a producer of Loan.
 type Holder struct {
 	Loan Loan
 }

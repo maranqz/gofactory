@@ -22,9 +22,9 @@ var errEmptyGlobPattern = errors.New("pattern must not be empty")
 // and silently match nothing.
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
-// site is where a candidate bypass was written: its enclosing package, the
-// top-level function enclosing it (nil at package scope), whether it lies
-// in a _test.go file, and whether it lies in a const declaration.
+// site is where a candidate bypass was written. fn is the enclosing
+// top-level function, so a closure counts as its declaration; nil at
+// package scope.
 type site struct {
 	pkg         *types.Package
 	fn          *types.Func
@@ -114,8 +114,6 @@ func matchesPackagePath(g glob.Glob, pkgPath string) bool {
 	return g.Match(pkgPath) || g.Match(pkgPath+"/")
 }
 
-// anyFenceContains reports whether pkgPath lies in any of fences, the
-// -packageGlobsOnly reading of "protected".
 func anyFenceContains(fences []fence, pkgPath string) bool {
 	return slices.ContainsFunc(fences, func(f fence) bool {
 		return f.contains(pkgPath)

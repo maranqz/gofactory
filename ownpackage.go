@@ -31,10 +31,9 @@ func (s ownPackageStrategy) IsBlocked(loc site, target *types.TypeName) bool {
 	return loc.fn == nil || !isProducer(loc.fn, target)
 }
 
-// exportedAtPackageScope reports whether target is exported at package
-// scope. types.Object.Exported looks only at capitalisation, so a
-// capitalised type declared inside a function body would otherwise count,
-// although Go exports only package-scope identifiers.
+// types.Object.Exported looks only at capitalisation, so a capitalised
+// type declared inside a function body would otherwise count, although Go
+// exports only package-scope identifiers.
 func exportedAtPackageScope(target *types.TypeName) bool {
 	return target.Exported() && target.Parent() == target.Pkg().Scope()
 }

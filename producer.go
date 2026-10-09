@@ -12,8 +12,7 @@ func isProducer(fn *types.Func, target *types.TypeName) bool {
 	return false
 }
 
-// producesTarget reports whether candidate holds target at any depth. any
-// and interface{} are unnamed, so they never count; seen stops
+// any and interface{} are unnamed, so they never count; seen stops
 // `type Loop []Loop`.
 func producesTarget(
 	candidate types.Type, target *types.TypeName, seen map[*types.Named]bool,
