@@ -29,3 +29,14 @@ func EchoLoan(l Loan) Loan {
 func ArgumentInsideProducerIsSilent() Loan {
 	return EchoLoan(Loan{})
 }
+
+// NonProducerCallArgIsReported: the same argument position is reported
+// once the enclosing function is not a producer, regardless of EchoLoan's
+// own signature.
+func NonProducerCallArgIsReported() {
+	_ = EchoLoan(Loan{}) // want `Use factory for ownPackage.Loan`
+}
+
+func NonProducerAddressOfLiteralIsReported() {
+	_ = &Loan{} // want `Use factory for ownPackage.Loan`
+}

@@ -365,6 +365,10 @@ func ownPackageCases() map[string]linterSuiteCase {
 				packageGlobs:     []string{"factory/ownPackagePackageGlobsOnly/protected/**"},
 			},
 		},
+		"ownPackageZeroValues": {
+			pkgs:     []string{"ownPackageZeroValues/..."},
+			settings: caseSettings{ownPackage: true, zeroValues: true},
+		},
 	}
 }
 

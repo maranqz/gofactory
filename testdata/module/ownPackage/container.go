@@ -48,3 +48,17 @@ func NonProducerChanIsReported() {
 
 	_ = ch
 }
+
+func NonProducerMapValueIsReported() {
+	_ = map[string]Loan{"a": {}} // want `Use factory for ownPackage.Loan`
+}
+
+func NonProducerMapKeyIsReported() {
+	_ = map[Loan]bool{{}: true} // want `Use factory for ownPackage.Loan`
+}
+
+// NonProducerMapOfPointersIsReported: a pointer key and a pointer value
+// are each their own literal site, checked independently.
+func NonProducerMapOfPointersIsReported() {
+	_ = map[*Loan]*Loan{&Loan{}: &Loan{}} // want `Use factory for ownPackage.Loan` `Use factory for ownPackage.Loan`
+}
