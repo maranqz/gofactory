@@ -26,6 +26,7 @@ func Assignment() {
 	st = 1 + 2   // want `Use factory for nested.Status`
 
 	st = 1 << shift   // want `Use factory for nested.Status`
+	st = 8 >> shift   // want `Use factory for nested.Status`
 	st = min(1, 2)    // want `Use factory for nested.Status`
 	st = nested.Three // want `Use factory for nested.Status`
 
