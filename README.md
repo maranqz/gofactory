@@ -35,7 +35,8 @@ declarations stay silent, and so does a typed constant such as `ext.Active`. An 
 
 The owner package may bypass its own types' factories, and so may its external test package
 `foo_test`, so tests can build fixtures, [tests](testdata/module/externalTestPackage). A regular
-package that merely sits at `foo_test`'s import path does not count. Files with the standard
+package that merely sits at `foo_test`'s import path does not count, even one declared
+`package foo_test`: only `_test.go` files make an external test package. Files with the standard
 `// Code generated … DO NOT EDIT.` header, including the test main `go test` synthesizes, are never
 reported; cmd/cgo's copy of a handwritten cgo file still is, [tests](testdata/module/generatedFiles).
 

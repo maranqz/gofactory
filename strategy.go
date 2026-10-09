@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gobwas/glob"
+	"golang.org/x/tools/go/analysis"
 )
 
 // errEmptyGlobPattern is the configuration error for a glob-flag pattern
@@ -38,31 +39,52 @@ func (nilPkg) IsBlocked(_ *types.Package, _ types.Object, _ *types.Func) bool {
 	return false
 }
 
-type anotherPkg struct{}
-
-func newAnotherPkg() anotherPkg {
-	return anotherPkg{}
+// externalTest is whether the package under analysis is built only from
+// _test.go files; see isOwnerPackage.
+type anotherPkg struct {
+	externalTest bool
 }
 
-func (anotherPkg) IsBlocked(
+func newAnotherPkg(externalTest bool) anotherPkg {
+	return anotherPkg{externalTest: externalTest}
+}
+
+func (s anotherPkg) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
 	_ *types.Func,
 ) bool {
-	return !isOwnerPackage(currentPkg, identObj.Pkg())
+	return !isOwnerPackage(currentPkg, identObj.Pkg(), s.externalTest)
 }
 
 // isOwnerPackage reports whether currentPkg is pkg itself or pkg's external
 // test package. The go command gives that external test package the import
 // path pkg.Path()+"_test" (TestPackagesAndErrors in
 // cmd/go/internal/load/test.go), and go/build requires its package clause to
-// be pkg.Name()+"_test", whatever pkg's directory is called. Checking both
-// keeps a regular package that happens to live at that path, which
-// production code could import, from counting as pkg.
-func isOwnerPackage(currentPkg, pkg *types.Package) bool {
+// be pkg.Name()+"_test", whatever pkg's directory is called. A regular
+// package can have that same path and name, and production code could
+// import it; only its files tell it apart, as a regular package never has
+// a _test.go file, so externalTest must say whether currentPkg was built
+// only from _test.go files.
+func isOwnerPackage(currentPkg, pkg *types.Package, externalTest bool) bool {
 	return currentPkg.Path() == pkg.Path() ||
-		(currentPkg.Path() == pkg.Path()+"_test" &&
+		(externalTest &&
+			currentPkg.Path() == pkg.Path()+"_test" &&
 			currentPkg.Name() == pkg.Name()+"_test")
+}
+
+func isExternalTestPackage(pass *analysis.Pass) bool {
+	if len(pass.Files) == 0 {
+		return false
+	}
+
+	for _, file := range pass.Files {
+		if !strings.HasSuffix(pass.Fset.File(file.Pos()).Name(), "_test.go") {
+			return false
+		}
+	}
+
+	return true
 }
 
 // fence is one -packageGlobs pattern: the set of packages matching its
@@ -130,15 +152,18 @@ func matchesPackagePath(g glob.Glob, pkgPath string) bool {
 type fencedPkgs struct {
 	fences          []fence
 	defaultStrategy blockedStrategy
+	externalTest    bool
 }
 
 func newFencedPkgs(
 	fences []fence,
 	defaultStrategy blockedStrategy,
+	externalTest bool,
 ) fencedPkgs {
 	return fencedPkgs{
 		fences:          fences,
 		defaultStrategy: defaultStrategy,
+		externalTest:    externalTest,
 	}
 }
 
@@ -149,7 +174,7 @@ func (s fencedPkgs) IsBlocked(
 ) bool {
 	// foo_test counts as foo, but its path need not lie in foo's fences,
 	// so this early return keeps the loop below from blocking it.
-	if isOwnerPackage(currentPkg, identObj.Pkg()) {
+	if isOwnerPackage(currentPkg, identObj.Pkg(), s.externalTest) {
 		return false
 	}
 

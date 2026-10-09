@@ -1,6 +1,7 @@
-// Package fixtures has owner_test's import path but is a regular package,
+// Package owner_test has the path and name of owner's external test
+// package, but its files are not _test.go files: it is a regular package,
 // which production code could import, so its bypass is reported.
-package fixtures
+package owner_test
 
 import "factory/externalTestPackage/owner"
 
