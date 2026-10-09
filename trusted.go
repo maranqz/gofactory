@@ -67,10 +67,11 @@ func newTrustedStrategy(
 
 func (s trustedStrategy) IsBlocked(
 	currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
+	inTestFile bool,
 ) bool {
 	if s.trusted.isTrusted(currentPkg, currentFn) {
 		return false
 	}
 
-	return s.wrapped.IsBlocked(currentPkg, identObj, currentFn)
+	return s.wrapped.IsBlocked(currentPkg, identObj, currentFn, inTestFile)
 }

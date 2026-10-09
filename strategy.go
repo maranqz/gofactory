@@ -22,9 +22,12 @@ var errEmptyGlobPattern = errors.New("pattern must not be empty")
 var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 
 // currentFn is nil at package scope (a package-level var, for instance).
+// inTestFile is whether the site lies in a _test.go file, for ownPackage's
+// test exemption.
 type blockedStrategy interface {
 	IsBlocked(
 		currentPkg *types.Package, identObj types.Object, currentFn *types.Func,
+		inTestFile bool,
 	) bool
 }
 
@@ -34,7 +37,9 @@ func newNilPkg() nilPkg {
 	return nilPkg{}
 }
 
-func (nilPkg) IsBlocked(_ *types.Package, _ types.Object, _ *types.Func) bool {
+func (nilPkg) IsBlocked(
+	_ *types.Package, _ types.Object, _ *types.Func, _ bool,
+) bool {
 	return false
 }
 
@@ -48,6 +53,7 @@ func (anotherPkg) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
 	_ *types.Func,
+	_ bool,
 ) bool {
 	return currentPkg.Path() != identObj.Pkg().Path()
 }
@@ -133,6 +139,7 @@ func (s fencedPkgs) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
 	currentFn *types.Func,
+	inTestFile bool,
 ) bool {
 	identPkgPath := identObj.Pkg().Path()
 
@@ -151,7 +158,9 @@ func (s fencedPkgs) IsBlocked(
 	}
 
 	if !inAnyFence {
-		return s.defaultStrategy.IsBlocked(currentPkg, identObj, currentFn)
+		return s.defaultStrategy.IsBlocked(
+			currentPkg, identObj, currentFn, inTestFile,
+		)
 	}
 
 	return false

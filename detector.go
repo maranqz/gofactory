@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/tools/go/analysis"
@@ -121,7 +122,8 @@ func (d *detector) reportProtectedSuffix(
 		return
 	}
 
-	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn) {
+	inTestFile := strings.HasSuffix(d.pass.Fset.Position(node.Pos()).Filename, "_test.go")
+	if !d.strategy.IsBlocked(d.pass.Pkg, named.Obj(), d.currentFn, inTestFile) {
 		return
 	}
 

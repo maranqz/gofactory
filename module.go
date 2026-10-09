@@ -25,8 +25,9 @@ func (c currentModule) IsBlocked(
 	currentPkg *types.Package,
 	identObj types.Object,
 	currentFn *types.Func,
+	inTestFile bool,
 ) bool {
-	if !newAnotherPkg().IsBlocked(currentPkg, identObj, currentFn) {
+	if !newAnotherPkg().IsBlocked(currentPkg, identObj, currentFn, inTestFile) {
 		return false
 	}
 
