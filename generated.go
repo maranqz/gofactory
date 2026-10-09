@@ -60,7 +60,7 @@ func hasGeneratedHeader(text string) bool {
 	}
 
 	for line := range strings.SplitSeq(text, "\n") {
-		if strings.HasPrefix(line, prefix) && strings.HasSuffix(line, " DO NOT EDIT.") {
+		if rest, ok := strings.CutPrefix(line, prefix); ok && strings.HasSuffix(rest, " DO NOT EDIT.") {
 			return true
 		}
 	}
