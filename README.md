@@ -122,8 +122,8 @@ top-level declaration, not by its own signature, so a helper closure written ins
 still bypass, while one written inside a non-producer is reported even if the closure itself
 returns `T`. Every bypass route is checked — literal, conversion, `new` and implicit constant
 conversion alike — except a `const` declaration in the owner package, at package scope or local to
-a function, which this setting always leaves alone; a `const` declaration elsewhere is an ordinary
-conversion or implicit constant conversion and is still reported. A `_test.go` file is exempt, so
+a function, which this setting always leaves alone; elsewhere, a conversion in a `const`
+declaration, such as `const C = order.Status(1)`, is still reported. A `_test.go` file is exempt, so
 test code can still build fixtures directly. A type declared inside a function body is unaffected
 too, even when capitalised, since Go exports only package-scope identifiers; no producer could ever
 name such a type in its signature anyway. An unexported protected type is unaffected: outside code
