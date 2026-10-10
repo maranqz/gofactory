@@ -47,14 +47,20 @@ not v2.
   to an identical type, to an interface, to `unsafe.Pointer`), func and interface types
   (`http.HandlerFunc(f)`), files with a `// Code generated … DO NOT EDIT.` header and the test main
   `go test` synthesizes are no longer reported.
+- **Conversions of an untyped non-constant expression are no longer reported.** `ext.Mode(1 << n)`
+  and `ext.Flag(a == b)`, which v1.0.x reported, are silent; see [Limitations](README.md#limitations).
 - **External test packages.** `foo_test` now counts as owner package `foo`, so its bypasses of
   `foo`'s types, which v1.0.x reported, are no longer reported.
 - **Directives are checked.** An unknown or misplaced `//gofactory:` comment is now reported. v1.0.x
   had no directives, so this should affect no existing code.
 - **Aliases resolve to the aliased type.** A literal or conversion through an alias is reported,
   and protected or not, as the type it aliases: with `type Alias = other.Real`, `ext.Alias{}` is
-  now `Use factory for other.Real`, not `Use factory for ext.Alias`, and an alias of a stdlib type
-  is silent. Update `text:` rules that name an alias.
+  now `Use factory for other.Real`, not `Use factory for ext.Alias`, and an alias of a stdlib,
+  predeclared or unnamed type (`type ID = int`, `type Pair = struct{ A int }`) is silent. Update
+  `text:` rules that name an alias.
+- **Elided elements of a defined pointer type** are reported as the type pointed to: with
+  `type PtrT *Struct`, `[]ext.PtrT{{}}` is now `Use factory for ext.Struct`, not
+  `Use factory for ext.PtrT`.
 - **Report position.** A report now starts at the beginning of the expression, not at the type
   name: for `_ = ext.Struct{}` it is at `ext`, not at `Struct`, so the line stays and the column
   moves left (column 10 becomes column 6 when the statement is indented by one tab).
