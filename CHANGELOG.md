@@ -21,13 +21,14 @@ not v2.
   [ADR 0002](docs/adr/0002-strict-default-and-module-scope.md).
 - **Fence semantics.** Each `-packageGlobs` pattern is now its own fence. A type in one or more
   fences may be bypassed only by code inside all of them; a type in no fence is checked as if no
-  globs were given. Before, a package matching any glob was exempt from every check, for every
-  type, so globs disabled each other's protection. A setup that relied on one subtree bypassing
-  another's factories needs both in one fence, or `-trusted` for code that may bypass anything.
+  globs were given (unprotected under `-packageGlobsOnly`). Before, a package matching any glob was
+  exempt from every check, for every type, so globs disabled each other's protection. A setup that
+  relied on one subtree bypassing another's factories needs both in one fence, or `-trusted` for
+  code that may bypass anything.
   See [Fences](README.md#fences) and [ADR 0003](docs/adr/0003-fence-intersection-rule.md).
 - **Glob syntax.** Package globs are gitignore-like: an exact package path matches on its own, `*`
-  no longer crosses `/` (use `**`), and `a/*` and `a/**` also match `a`. An empty pattern, or one
-  starting with `/`, is a configuration error.
+  no longer crosses `/` (use `**`). An empty pattern, or one starting with `/`, is a configuration
+  error.
   **Migrate your globs with the [glob migration guide](README.md#migrating-from-pre-fence-globs).**
 - **`-packageGlobsOnly` without `-packageGlobs` is a configuration error.** It used to do nothing,
   silently.
@@ -42,8 +43,8 @@ not v2.
   - an untyped constant implicitly converted to a protected type where it is stored:
     `var st ext.Status = 3`, `st = 3`, `f(3)`, `return 3`, `[]ext.Status{3}`;
   - with `-zeroValues` (off by default), zero values: `var x T`, named results and unset fields.
-- **Fewer reports where no factory could help.** Conversions that create nothing (`(*T)(nil)`, to an
-  identical type, to an interface, to `unsafe.Pointer`), func and interface types
+- **Fewer reports where no factory could help.** Conversions that create nothing (`ext.Mp(nil)`,
+  to an identical type, to an interface, to `unsafe.Pointer`), func and interface types
   (`http.HandlerFunc(f)`), files with a `// Code generated … DO NOT EDIT.` header and the test main
   `go test` synthesizes are no longer reported.
 - **Aliases resolve to the aliased type.** A literal or conversion through an alias is reported,
