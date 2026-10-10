@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gobwas/glob"
+	"golang.org/x/tools/go/analysis"
 )
 
 // errEmptyGlobPattern is the configuration error for a glob-flag pattern
@@ -27,6 +28,7 @@ var errLeadingSlashGlobPattern = errors.New("pattern must not start with '/'")
 // package scope.
 type site struct {
 	pkg         *types.Package
+	testOnly    bool
 	fn          *types.Func
 	inTestFile  bool
 	inConstDecl bool
@@ -53,7 +55,34 @@ func newAnotherPkg() anotherPkg {
 }
 
 func (anotherPkg) IsBlocked(loc site, target *types.Named) bool {
-	return loc.pkg.Path() != target.Obj().Pkg().Path()
+	return !isOwnerPackage(loc, target.Obj().Pkg())
+}
+
+// isOwnerPackage reports whether loc.pkg is pkg itself or pkg's external
+// test package. The go command gives that external test package the import
+// path pkg.Path()+"_test" (TestPackagesAndErrors in
+// cmd/go/internal/load/test.go). A regular package can have that same path,
+// and production code could import it; only its files tell it apart: every
+// build of a regular package includes its non-test files, while an external
+// test package is built from _test.go files alone. loc.testOnly says
+// whether loc.pkg was.
+func isOwnerPackage(loc site, pkg *types.Package) bool {
+	return loc.pkg.Path() == pkg.Path() ||
+		(loc.testOnly && loc.pkg.Path() == pkg.Path()+"_test")
+}
+
+func isTestOnly(pass *analysis.Pass) bool {
+	if len(pass.Files) == 0 {
+		return false
+	}
+
+	for _, file := range pass.Files {
+		if !strings.HasSuffix(pass.Fset.File(file.Pos()).Name(), "_test.go") {
+			return false
+		}
+	}
+
+	return true
 }
 
 // fence is one -packageGlobs pattern: the set of packages matching its
@@ -140,6 +169,12 @@ func newFencedPkgs(
 }
 
 func (s fencedPkgs) IsBlocked(loc site, target *types.Named) bool {
+	// foo_test counts as foo, but its path need not lie in foo's fences,
+	// so this early return keeps the loop below from blocking it.
+	if isOwnerPackage(loc, target.Obj().Pkg()) {
+		return false
+	}
+
 	identPkgPath := target.Obj().Pkg().Path()
 
 	inAnyFence := false

@@ -171,6 +171,37 @@ func baseLinterSuiteCases() map[string]linterSuiteCase {
 
 		"stdlib": {pkgs: []string{"stdlib/..."}},
 
+		// testing and testing/internal/testdeps are fenced so their types
+		// are protected: without this, module scope would leave the
+		// synthesized test main's testing.InternalTest and
+		// testdeps.TestDeps unprotected, and the synthesized test main
+		// would go unchecked.
+		"generatedFiles": {
+			pkgs: []string{"generatedFiles/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"testing", "testing/internal/testdeps"},
+				zeroValues:   true,
+			},
+		},
+
+		"externalTestPackage": {
+			pkgs: []string{"externalTestPackage/..."},
+		},
+		"externalTestPackageFence": {
+			pkgs: []string{"externalTestPackageFence/..."},
+			settings: caseSettings{
+				packageGlobs: []string{"factory/externalTestPackageFence/owner"},
+			},
+		},
+
+		// cgoFile/user/cgo.go only builds where cgo is enabled; it is
+		// excluded from the package otherwise, the way a build-tag
+		// mismatch would be, so this case only bites where cgo is
+		// enabled.
+		"cgoFile": {
+			pkgs: []string{"cgoFile/..."},
+		},
+
 		"zeroValues": {
 			pkgs:     []string{"zeroValues/..."},
 			settings: caseSettings{zeroValues: true},

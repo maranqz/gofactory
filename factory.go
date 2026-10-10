@@ -163,12 +163,9 @@ func run(cfg *config) func(pass *analysis.Pass) (any, error) {
 			state.ignored,
 		)
 
-		for _, file := range pass.Files {
-			v.checkPackageVars(file)
-		}
-
 		insp, _ := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		insp.WithStack([]ast.Node{
+			(*ast.File)(nil),
 			(*ast.CompositeLit)(nil),
 			(*ast.CallExpr)(nil),
 			(*ast.FuncDecl)(nil),

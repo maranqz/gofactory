@@ -33,6 +33,8 @@ type detector struct {
 
 	locallyIgnored map[types.Object]bool
 
+	testOnly bool
+
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
 	// scope; a closure counts as its enclosing FuncDecl.
 	currentFn *types.Func
@@ -62,6 +64,7 @@ func newDetector(
 		suffixes:        map[*types.TypeName]string{},
 		fieldPathCache:  map[types.Type][]fieldPath{},
 		locallyIgnored:  locallyIgnored,
+		testOnly:        isTestOnly(pass),
 	}
 }
 
@@ -70,9 +73,33 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 		return true
 	}
 
+	if file, ok := node.(*ast.File); ok {
+		return d.enterFile(file)
+	}
+
 	d.currentFn = d.topLevelFunc(stack)
 	d.inConstDecl = inConstDecl(stack)
+	d.check(node)
 
+	return true
+}
+
+// The test main go test synthesizes carries the
+// "// Code generated ... DO NOT EDIT." header too, so returning false here
+// also keeps every route out of it.
+func (d *detector) enterFile(file *ast.File) bool {
+	if isGenerated(file) {
+		return false
+	}
+
+	d.currentFn = nil
+	d.inConstDecl = false
+	d.checkPackageVars(file)
+
+	return true
+}
+
+func (d *detector) check(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.CompositeLit:
 		d.checkLiteral(node)
@@ -91,8 +118,6 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 	case *ast.FuncLit:
 		d.checkFuncZeroValues(node.Type, node.Body)
 	}
-
-	return true
 }
 
 // stack[0] is the *ast.File, so stack[1] is the top-level declaration
@@ -121,7 +146,8 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 }
 
 // Every bypass route reports through here, so the permission policy is
-// applied in one place.
+// applied in one place; enterFile drops generated files before any route
+// runs.
 func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {
@@ -136,6 +162,7 @@ func (d *detector) reportProtectedSuffix(
 
 	loc := site{
 		pkg:         d.pass.Pkg,
+		testOnly:    d.testOnly,
 		fn:          d.currentFn,
 		inTestFile:  strings.HasSuffix(d.pass.Fset.Position(node.Pos()).Filename, "_test.go"),
 		inConstDecl: d.inConstDecl,
