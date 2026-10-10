@@ -6,11 +6,13 @@ import (
 	"factory/unimplemented/nested"
 )
 
-func NestedChan() {
-	bufCh := make(chan nested.Struct, 1)
+func ClosedChan() {
+	ch := make(chan nested.Struct)
+	close(ch)
 
-	// False-Negative result
-	// You can create struct and linter doesn't catch it.
-	v, ok := <-bufCh   // want `Use factory for nested.Struct`
-	fmt.Println(v, ok) // nested.Struct{}, false
+	// A receive is not a bypass route, and -zeroValues does not follow v, which
+	// is declared with the received value. Reporting it needs the detector to
+	// track close(ch); in general, whether ch is closed is known only at run time.
+	v, ok := <-ch // want `Use factory for nested.Struct: zero value`
+	fmt.Println(v, ok)
 }

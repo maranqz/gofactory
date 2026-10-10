@@ -5,9 +5,66 @@
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/maranqz/gofactory/badge.svg?branch=main)](https://coveralls.io/github/maranqz/gofactory?branch=main)
 
-The linter checks that the Structures are created by the Factory, and not directly.
+The linter checks that values of a package's types are obtained through its factories, not
+directly, so that the invariants a factory establishes cannot be skipped and no invalid object is
+created.
 
-The checking helps to provide invariants without exclusion and helps avoid creating an invalid object.
+Upgrading from v1.0.x? Read the [v1.1.0 breaking changes](CHANGELOG.md#v110) first.
+
+## Overview
+
+**Requirements.** Go 1.26 or newer to install the standalone command; golangci-lint **v2.14.0 or
+newer** to run gofactory as a [golangci-lint module plugin](#golangci-lint-module-plugin).
+
+**What is reported.** A **factory bypass**: obtaining a value of a **protected type** other than by
+calling one of its factories. The bypass routes are a composite literal in any form, an explicit
+conversion, `new(T)`, an untyped constant implicitly converted to `T` where it is stored, and,
+opt-in, a zero value. Every message starts with `Use factory for pkg.T`; see [Message
+format](#message-format).
+
+### Modes
+
+| Mode | Setting | Effect |
+|---|---|---|
+| Strict, module-scoped | default | every bypass of a current-module type is reported, whether or not it has a factory; see [Protection scope](#protection-scope) |
+| Only with factory | `-onlyWithFactory` | only types with a factory accessible from the reported site are reported |
+| Fences | `-packageGlobs` | a type in fences may be bypassed only by code inside all of them; see [Fences](#fences) |
+| Fences only | `-packageGlobsOnly` | only types in fence packages are protected |
+| Zero values | `-zeroValues` | zero values of protected types are bypasses too |
+| Strict owner package | `-ownPackage` | the owner package may bypass an exported type's factory only in a producer; see [Owner package](#owner-package) |
+| Local directives | `-crossPackageDirectives=false` | directives stop at their own package, and dependencies are not analysed |
+
+### Directives at a glance
+
+| Directive | Written on | Effect | Setting |
+|---|---|---|---|
+| `//gofactory:ignore` | a type | the type is not protected | `-ignoreTypes` |
+| `//gofactory:factory` | a function or a method | it is a factory of each protected type among its results | `-factories` |
+| `//gofactory:trusted` | a function, a method or a package | it may bypass any factory, in every mode | `-trusted` |
+
+See [Directives](#directives) for where to write them and how far they reach.
+
+### Settings
+
+Each command-line flag has a golangci-lint plugin key: the same name in kebab-case. A repeatable
+setting is a list in the plugin configuration and is given once per value on the command line.
+
+| Flag | golangci-lint key | Default | Meaning |
+|---|---|---|---|
+| `-packageGlobs` | `package-globs` | — | a fence (package glob); repeatable |
+| `-packageGlobsOnly` | `package-globs-only` | `false` | protect only fence packages; requires `-packageGlobs` |
+| `-onlyWithFactory` | `only-with-factory` | `false` | report only types that have an accessible factory |
+| `-factoryPatterns` | `factory-patterns` | — | extra factory-name regex, appended to `^New`; repeatable |
+| `-useDefaultFactoryPattern` | `use-default-factory-pattern` | `true` | keep the default `^New` pattern |
+| `-factories` | `factories` | — | function or method glob declared a factory; repeatable |
+| `-ignoreTypes` | `ignore-types` | — | type glob that is not protected; repeatable |
+| `-trusted` | `trusted` | — | package or function glob where any bypass is allowed; repeatable |
+| `-zeroValues` | `zero-values` | `false` | report zero-value bypasses |
+| `-ownPackage` | `own-package` | `false` | restrict the owner package to producers |
+| `-crossPackageDirectives` | `cross-package-directives` | `true` | propagate directives across packages and modules |
+
+[Options](#options) describes each one in full. Go's flag package accepts both `-flag` and
+`--flag`.
 
 ## Protection scope
 
@@ -373,7 +430,7 @@ without and with its tests, then prints such a line twice, the first time withou
 A package that uses the protected type without importing the declaring package directly doesn't
 see that factory: it is left out of the message and doesn't count for `--onlyWithFactory`. A type
 whose only factory it is gets the bare `Use factory for pkg.T` message there, or no report at all
-under `--onlyWithFactory` — see [False Negative](#false-negative).
+under `--onlyWithFactory` — see [Limitations](#limitations).
 
 A `//gofactory:factory` directive on a function or method with no result that could ever be
 protected (a named type other than a func type or an interface, as `T` or `*T`) is reported as a
@@ -485,17 +542,32 @@ linters:
           cross-package-directives: true
 ```
 
-- `package-globs` – equivalent to `--packageGlobs`.
-- `package-globs-only` – equivalent to `--packageGlobsOnly`.
-- `ignore-types` – equivalent to `--ignoreTypes`.
-- `trusted` – equivalent to `--trusted`.
-- `zero-values` – equivalent to `--zeroValues`.
-- `own-package` – equivalent to `--ownPackage`.
-- `factory-patterns` – equivalent to `--factoryPatterns`.
-- `use-default-factory-pattern` – equivalent to `--useDefaultFactoryPattern`.
-- `only-with-factory` – equivalent to `--onlyWithFactory`.
-- `factories` – equivalent to `--factories`.
-- `cross-package-directives` – equivalent to `--crossPackageDirectives`.
+Each key is equivalent to the flag of the same name in camelCase; [Settings](#settings) lists
+them side by side.
+
+### Severity
+
+gofactory sets no severity of its own. Grade its reports with golangci-lint's
+[`severity.rules`](https://golangci-lint.run/docs/configuration/file/), matching the message with
+`text:`. Match the stable prefix without anchoring the end of the message (see [Message
+format](#message-format)). The first matching rule wins:
+
+```yaml
+version: "2"
+severity:
+  default: error
+  rules:
+    # Bypasses of the order aggregate are always errors.
+    - linters:
+        - gofactory
+      text: "^Use factory for order\\."
+      severity: error
+    # Elsewhere, zero values are a softer signal than a literal or a conversion.
+    - linters:
+        - gofactory
+      text: ": zero value"
+      severity: warning
+```
 
 ## Example
 
@@ -596,34 +668,54 @@ func nextID() int64 {
 </td></tr>
 </tbody></table>
 
-## False Negative
+## Limitations
 
-Linter doesn't catch some cases.
+gofactory reads the source, so it cannot see every way a program obtains a value of a protected
+type. None of these is reported, except item 12, where the report lacks its factory suggestion and
+`--onlyWithFactory` drops it.
 
-None of `testdata/module/unimplemented/` is wired into `analysistest` (it's
-excluded from `lint_test.go`'s test packages), so the `// want` comments in
-files under `testdata/module/unimplemented/` document the diagnostic we want
-once/if a case is handled — they are not asserted against the linter's
-actual output. Every case added there must carry such a `// want` comment.
+The language hands out a zero value:
 
-1. Buffered channel. You can initialize struct in line `v, ok := <-bufCh` [example](testdata/module/unimplemented/chan.go).
-2. Local initialization inside the owner package: catching this needs `--ownPackage`,
-   [tests](testdata/module/ownPackage).
-3. Unnamed composite literal implicitly converted to a named type, `var s nested.Struct = struct{ Field int }{-1}`, [example](testdata/module/unimplemented/implicit.go).
-4. Conversion of an untyped non-constant expression, explicit or implicit, `nested.MyInt(1 << n)`, `nested.Flag(a == b)` or `var f nested.Flag = a == b`, [example](testdata/module/unimplemented/untyped.go).
-5. Type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T { return T{} }` or `func F[T nested.MyInt]() T { return 3 }`, [example](testdata/module/unimplemented/typeparam.go).
-6. `--zeroValues` reports a field-by-field fill after `var` (the first field write is the first interaction), but not
-   elements filled after `make([]T, n)` or in arrays, which wait for fill analysis, [example](testdata/module/unimplemented/fill.go); use
-   [gopublicfield](https://github.com/maranqz/gopublicfield) to prevent that.
-7. A declared factory (`//gofactory:factory` or `--factories`) is suggested, and counted by
-   `--onlyWithFactory`, only in a package that imports its package directly; a package that imports
-   the declaring package only through another package, or not at all, never sees it,
-   [example](testdata/module/unimplemented/visibility/).
-8. Untyped constant stored by a channel send, as a map index key or by a range assignment,
-   `ch <- 3`, `m[3] = v` or `for st = range 3`, [example](testdata/module/unimplemented/constant.go).
+1. A map miss: `o := orders["absent"]` is a zero `order.Order`.
+2. A receive from a closed channel: `o, ok := <-ch` is a zero `order.Order` with `ok` false,
+   [example](testdata/module/unimplemented/chan.go).
+3. A failed type assertion: `o, ok := v.(order.Order)` is a zero `order.Order` with `ok` false.
+4. A generic helper such as `func Zero[T any]() T { var z T; return z }`: inside it `T` is a type
+   parameter, not a protected type, so `Zero[order.Order]()` returns a zero `order.Order`.
+5. `make([]T, n)` and arrays, `var a [N]T` or a partial `[N]T{…}`: `--zeroValues` does not report
+   them until fill analysis exists, [example](testdata/module/unimplemented/fill.go).
 
-## TODO
+The value is built at run time:
 
-### Features that are difficult to implement and unplanned
+6. `reflect`: `reflect.New`, `reflect.Zero`, `reflect.ValueOf(&o).Elem().Set(…)` and the like.
+7. Unmarshalling: `json.Unmarshal(data, &o)`, or any decoder that fills a value through a pointer;
+   passing `&o` to a call is a whole-value write under `--zeroValues`.
 
-1. Reusing a protected type's underlying layout, including its unexported fields, to silently skip an invariant the factory establishes on them, [example](testdata/module/unimplemented/underlying.go). A local `type D ext.T` belongs to the current package, so it only hides an invariant when `ext.T` has unexported fields. Protection is keyed by type identity, not structural layout, so this needs a different detection model than anything currently planned.
+The detector does not follow the value:
+
+8. An unnamed composite literal implicitly converted to a named type, `var s nested.Struct =
+   struct{ Field int }{-1}` or `var m nested.Mp = map[bool]bool{}`: an unnamed literal keeps its own
+   type, and the named type it is assigned to would have to come from the context,
+   [example](testdata/module/unimplemented/implicit.go).
+9. Conversion of an untyped non-constant expression, explicit or implicit, `nested.MyInt(1 << n)`,
+   `nested.Flag(a == b)` or `var f nested.Flag = a == b`,
+   [example](testdata/module/unimplemented/untyped.go).
+10. An untyped constant stored by a channel send, as a map index key or by a range assignment,
+    `ch <- 3`, `m[3] = v` or `for st = range 3`, [example](testdata/module/unimplemented/constant.go).
+11. A type parameter whose constraint admits a single protected type, `func F[T nested.Struct]() T {
+    return T{} }` or `func F[T nested.MyInt]() T { return 3 }`,
+    [example](testdata/module/unimplemented/typeparam.go).
+12. A declared factory (`//gofactory:factory` or `--factories`) is suggested, and counted by
+    `--onlyWithFactory`, only in a package that imports its package directly; see [Declared
+    factories](#declared-factories), [example](testdata/module/unimplemented/visibility/).
+13. A local type defined on a protected type, `type D ext.T`, reuses its layout, unexported fields
+    included, and skips whatever invariant the factory establishes on them. Protection is keyed by
+    type identity, not by layout, [example](testdata/module/unimplemented/underlying.go).
+
+Most of these hand out a value whose fields are then filled in by hand.
+[gopublicfield](https://github.com/maranqz/gopublicfield) reports writes to the exported fields of
+another package's types, which closes that gap: a zero value nobody outside its package can fill is
+of little use.
+
+Each case under `testdata/module/unimplemented/` carries the `// want` comment it should get once
+it is handled; that directory is not run by `lint_test.go`, so those comments are not asserted.
