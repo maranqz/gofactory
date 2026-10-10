@@ -9,7 +9,7 @@ The linter checks that values of a package's types are obtained through its fact
 directly, so that the invariants a factory establishes cannot be skipped and no invalid object is
 created.
 
-Upgrading from v1.0.x? Read the [v1.1.0 breaking changes](CHANGELOG.md#breaking-changes) first.
+Upgrading from v1.0.x? Read the [v1.1.0 breaking changes](CHANGELOG.md#v110) first.
 
 ## Overview
 
