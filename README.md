@@ -671,7 +671,8 @@ func nextID() int64 {
 ## Limitations
 
 gofactory reads the source, so it cannot see every way a program obtains a value of a protected
-type. None of these is reported.
+type. None of these is reported, except item 12, where the report lacks its factory suggestion and
+`--onlyWithFactory` drops it.
 
 The language hands out a zero value:
 
