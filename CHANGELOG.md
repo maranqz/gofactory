@@ -46,6 +46,16 @@ not v2.
   identical type, to an interface, to `unsafe.Pointer`), func and interface types
   (`http.HandlerFunc(f)`), files with a `// Code generated … DO NOT EDIT.` header and the test main
   `go test` synthesizes are no longer reported.
+- **Aliases resolve to the aliased type.** A literal or conversion through an alias is reported,
+  and protected or not, as the type it aliases: with `type Alias = other.Real`, `ext.Alias{}` is
+  now `Use factory for other.Real`, not `Use factory for ext.Alias`, and an alias of a stdlib type
+  is silent. Update `text:` rules that name an alias.
+- **Report position.** A report now starts at the beginning of the expression, not at the type
+  name: for `_ = ext.Struct{}` it is at `ext`, not at `Struct`, so the line stays and the column
+  moves left (column 10 becomes column 6 when the statement is indented by one tab).
+- **Dependencies are analysed by default.** Directives travel as analysis facts, so the analyzer
+  now runs over every dependency of the linted packages, which is slower than v1.0.x;
+  `-crossPackageDirectives=false` restores the old cost and drops cross-package directives.
 - **Message suffix.** Messages keep the `Use factory for pkg.T` prefix and may now add a suffix: the
   accessible factories, `Use factory for order.Order (order.NewOrder)`, and for a zero value the
   route and field path, `Use factory for order.Order: zero value in Shipment.Order`. An exclusion
