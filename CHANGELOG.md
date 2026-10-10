@@ -47,6 +47,10 @@ not v2.
   to an identical type, to an interface, to `unsafe.Pointer`), func and interface types
   (`http.HandlerFunc(f)`), files with a `// Code generated … DO NOT EDIT.` header and the test main
   `go test` synthesizes are no longer reported.
+- **External test packages.** `foo_test` now counts as owner package `foo`, so its bypasses of
+  `foo`'s types, which v1.0.x reported, are no longer reported.
+- **Directives are checked.** An unknown or misplaced `//gofactory:` comment is now reported. v1.0.x
+  had no directives, so this should affect no existing code.
 - **Aliases resolve to the aliased type.** A literal or conversion through an alias is reported,
   and protected or not, as the type it aliases: with `type Alias = other.Real`, `ext.Alias{}` is
   now `Use factory for other.Real`, not `Use factory for ext.Alias`, and an alias of a stdlib type
