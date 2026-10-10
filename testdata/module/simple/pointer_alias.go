@@ -27,3 +27,37 @@ func DefinedPointer() {
 func DefinedPointerConversion(p *nested.Struct) {
 	_ = DefinedStructPtr(p)
 }
+
+// A conversion whose argument already points at a nested.Struct only
+// retypes that pointer — whether the argument's type is a locally defined
+// pointer type, the target is spelled through an alias, or the argument's
+// type is an imported defined pointer type — so nothing is reported: the
+// Struct behind the pointer was built elsewhere, where it is checked.
+func PointerRetypeConversion(dp DefinedStructPtr, sp nested.DefinedStructPtr) {
+	_ = (*nested.Struct)(dp)
+	_ = StructPtr(dp)
+	_ = (*nested.Struct)(sp)
+}
+
+// A pointer to another type is not a retype: the conversion builds the
+// nested.Struct behind it, so it stays reported.
+func PointerToOtherConversion() {
+	l := struct{}{}
+
+	_ = (*nested.Struct)(&l) // want `Use factory for nested.Struct \(nested.NewStruct\)`
+	_ = StructPtr(&l)        // want `Use factory for nested.Struct \(nested.NewStruct\)`
+}
+
+// A conversion into a protected type that is itself a pointer to itself is
+// not a retype to *T: it builds the protected value, so it stays reported.
+func SelfPointerConversion(p *nested.SelfPtr) {
+	_ = nested.SelfPtr(p) // want `Use factory for nested.SelfPtr`
+}
+
+// Known false positive: a type-parameter argument constrained to
+// ~*nested.Struct creates nothing either, but the underlying type of the
+// parameter is its constraint interface, not *nested.Struct, so the
+// retype skip does not see it and it stays reported.
+func PointerTypeParamConversion[P ~*nested.Struct](p P) {
+	_ = (*nested.Struct)(p) // want `Use factory for nested.Struct \(nested.NewStruct\)`
+}

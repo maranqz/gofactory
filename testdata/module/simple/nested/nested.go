@@ -6,6 +6,10 @@ func NewStruct() Struct {
 	return Struct{}
 }
 
+type DefinedStructPtr *Struct
+
+type SelfPtr *SelfPtr
+
 type Mp map[bool]bool
 
 type Slice []bool

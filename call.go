@@ -56,7 +56,10 @@ func (d *detector) checkNew(call *ast.CallExpr) bool {
 // still be reported. Known false negative: go/types also records the target
 // type on an untyped non-constant argument, such as a comparison
 // (Flag(a == b)) or a shift of an untyped constant (MyInt(1 << n)), so it
-// passes as a no-op too.
+// passes as a no-op too. A conversion to *T whose argument already points
+// at a T — its underlying type is a pointer to that same type, as with a
+// defined pointer type — only retypes an existing pointer and stays silent
+// too: the T behind the pointer was built elsewhere, where it is checked.
 func (d *detector) checkConversion(call *ast.CallExpr) {
 	funTV := d.pass.TypesInfo.Types[call.Fun]
 	if !funTV.IsType() {
@@ -73,5 +76,13 @@ func (d *detector) checkConversion(call *ast.CallExpr) {
 		return
 	}
 
-	d.reportProtected(call, pointee(funTV.Type))
+	target := pointee(funTV.Type)
+
+	_, toPointer := types.Unalias(funTV.Type).(*types.Pointer)
+	if ptr, ok := argTV.Type.Underlying().(*types.Pointer); ok && toPointer &&
+		types.Identical(ptr.Elem(), target) {
+		return
+	}
+
+	d.reportProtected(call, target)
 }
