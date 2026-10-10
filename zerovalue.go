@@ -34,7 +34,7 @@ func (d *detector) reportUnsetFields(
 // A package-level var has no function to decide a first interaction in, so
 // it is always a candidate.
 func (d *detector) checkPackageVars(file *ast.File) {
-	if !d.zeroValues || d.generatedFiles[file] {
+	if !d.zeroValues {
 		return
 	}
 

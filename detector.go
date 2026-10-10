@@ -33,10 +33,6 @@ type detector struct {
 
 	locallyIgnored map[types.Object]bool
 
-	// The test main go test synthesizes carries the
-	// "// Code generated ... DO NOT EDIT." header too.
-	generatedFiles map[*ast.File]bool
-
 	testOnly bool
 
 	// currentFn is the FuncDecl enclosing the checked node, nil at package
@@ -56,14 +52,6 @@ func newDetector(
 	declared factoryIndex,
 	locallyIgnored map[types.Object]bool,
 ) *detector {
-	generatedFiles := map[*ast.File]bool{}
-
-	for _, file := range pass.Files {
-		if isGenerated(file) {
-			generatedFiles[file] = true
-		}
-	}
-
 	return &detector{
 		pass:            pass,
 		strategy:        strategy,
@@ -76,7 +64,6 @@ func newDetector(
 		suffixes:        map[*types.TypeName]string{},
 		fieldPathCache:  map[types.Type][]fieldPath{},
 		locallyIgnored:  locallyIgnored,
-		generatedFiles:  generatedFiles,
 		testOnly:        isTestOnly(pass),
 	}
 }
@@ -86,13 +73,28 @@ func (d *detector) visit(node ast.Node, push bool, stack []ast.Node) bool {
 		return true
 	}
 
-	if file, ok := stack[0].(*ast.File); ok && d.generatedFiles[file] {
-		return false
+	if file, ok := node.(*ast.File); ok {
+		return d.enterFile(file)
 	}
 
 	d.currentFn = d.topLevelFunc(stack)
 	d.inConstDecl = inConstDecl(stack)
 	d.check(node)
+
+	return true
+}
+
+// The test main go test synthesizes carries the
+// "// Code generated ... DO NOT EDIT." header too, so returning false here
+// also keeps every route out of it.
+func (d *detector) enterFile(file *ast.File) bool {
+	if isGenerated(file) {
+		return false
+	}
+
+	d.currentFn = nil
+	d.inConstDecl = false
+	d.checkPackageVars(file)
 
 	return true
 }
@@ -144,8 +146,8 @@ func (d *detector) reportProtected(node ast.Node, t types.Type) {
 }
 
 // Every bypass route reports through here, so the permission policy is
-// applied in one place; visit and checkPackageVars drop generated files
-// before any route runs.
+// applied in one place; enterFile drops generated files before any route
+// runs.
 func (d *detector) reportProtectedSuffix(
 	node ast.Node, t types.Type, suffix string,
 ) {
