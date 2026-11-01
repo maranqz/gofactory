@@ -3,7 +3,7 @@ module github.com/maranqz/gofactory
 go 1.26.0
 
 require (
-	github.com/gobwas/glob v0.2.3
+	github.com/gobwas/glob v1.1.0
 	github.com/golangci/plugin-module-register v0.1.2
 	golang.org/x/tools v0.50.0
 )
